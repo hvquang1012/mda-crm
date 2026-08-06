@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#B0812F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MDA Tiến độ">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>MD Architects — Quản lý tiến độ thầu phụ</title>
+<link rel="stylesheet" href="css/app.css">
+<script src="vendor/supabase-js@2.45.4.min.js"></script>
+<script src="config.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== LOGIN ===================== -->
+  <div id="loginScreen" class="screen active">
+    <div class="login-mark">M</div>
+    <div class="login-title">MD Architects</div>
+    <div class="login-sub">Đăng nhập nhân viên — quản lý tiến độ thầu phụ</div>
+    <div class="login-form">
+      <input type="email" id="loginEmail" placeholder="Email nhân viên" autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Mật khẩu" autocomplete="current-password">
+      <div class="login-error" id="loginError"></div>
+      <button class="btn btn-primary" id="btnLogin">Đăng nhập</button>
+    </div>
+    <div class="login-share-link">
+      Là khách hàng hoặc thầu phụ? Dùng link riêng do MD Architects gửi qua Zalo — không cần đăng nhập.
+    </div>
+  </div>
+
+  <!-- ===================== MAIN (STAFF) ===================== -->
+  <div id="mainScreen" class="screen">
+    <div class="app-header">
+      <div class="header-left">
+        <div class="header-mark">M</div>
+        <div><div class="header-title">MD Architects</div>
+          <div class="header-sub" id="staffName">Nhân viên</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="online-dot" id="staffOnlineDot"></span>
+        <button class="logout-btn" id="btnLogout">Đăng xuất</button>
+      </div>
+    </div>
+
+    <!-- ---- Tab: Tổng quan ---- -->
+    <div id="tabPanel-dashboard" style="display:none;flex:1;overflow-y:auto;">
+      <div class="list-wrap" style="padding-top:14px;">
+        <div class="section-label">Tổng quan công trình</div>
+        <div id="dashboardList"></div>
+      </div>
+    </div>
+
+    <!-- ---- Tab: Duyệt ---- -->
+    <div id="tabPanel-approvals" style="display:none;flex:1;overflow-y:auto;">
+      <div class="list-wrap" style="padding-top:14px;">
+        <div class="section-label">Chờ duyệt <span id="approvalsCount" style="color:var(--brick);"></span></div>
+        <div id="approvalsList"></div>
+      </div>
+    </div>
+
+    <!-- ---- Tab: Công việc ---- -->
+    <div id="tabPanel-items" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+      <div class="project-bar">
+        <select id="projectSelect"></select>
+        <button class="icon-btn" id="btnClientLink" title="Lấy link cho chủ nhà">🔗 Khách</button>
+        <button class="icon-btn" id="btnDependencies" title="Phụ thuộc giữa các đầu việc">⛓</button>
+        <button class="icon-btn" id="btnNewProject" title="Dự án mới">＋DA</button>
+      </div>
+      <div class="list-wrap" style="flex:1;overflow-y:auto;">
+        <div class="section-label">
+          Hạng mục
+          <button class="icon-btn" id="btnNewPackage" style="color:var(--brass-deep);font-weight:700;">＋ Thêm đội</button>
+        </div>
+        <div id="packagesList"></div>
+
+        <div class="section-label" style="margin-top:26px;">Xuất khối lượng nghiệm thu (kỳ)</div>
+        <div class="task-card">
+          <div class="row-inline">
+            <div><span class="field-label">Từ ngày</span><input type="date" id="exportFrom"></div>
+            <div><span class="field-label">Đến ngày</span><input type="date" id="exportTo"></div>
+          </div>
+          <button class="btn btn-ghost" id="btnExportCsv" style="margin-top:10px;width:100%;">⬇ Xuất file (mở bằng Excel)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- Tab: Cảnh báo ---- -->
+    <div id="tabPanel-alerts" style="display:none;flex:1;overflow-y:auto;">
+      <div class="list-wrap" style="padding-top:14px;">
+        <div class="section-label">
+          Cảnh báo tự động
+          <button class="icon-btn" id="btnCheckAlertsNow" style="color:var(--brass-deep);">Kiểm tra ngay</button>
+        </div>
+        <div id="alertsList"></div>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <button id="nav-dashboard" class="active"><span class="ic">🏠</span>Tổng quan</button>
+      <button id="nav-approvals"><span class="ic">✅</span>Duyệt<span class="dot" id="approvalsNavDot" style="display:none;"></span></button>
+      <button id="nav-items"><span class="ic">📋</span>Công việc</button>
+      <button id="nav-alerts"><span class="ic">🔔</span>Cảnh báo</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===================== MODAL: DỰ ÁN MỚI ===================== -->
+<div class="modal-backdrop" id="projectModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Dự án mới</div>
+    <div><span class="field-label">Tên dự án</span><input type="text" id="projName" placeholder="VD: Nhà anh Minh — Vinhomes Ocean Park"></div>
+    <div><span class="field-label">Tên chủ nhà</span><input type="text" id="projClient"></div>
+    <div><span class="field-label">Địa chỉ</span><input type="text" id="projAddress"></div>
+    <div class="row-inline">
+      <div><span class="field-label">Bắt đầu</span><input type="date" id="projStart"></div>
+      <div><span class="field-label">Dự kiến xong</span><input type="date" id="projEnd"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnProjCancel">Huỷ</button>
+      <button class="btn btn-primary" id="btnProjSave">Tạo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: HẠNG MỤC (WORK PACKAGE) ===================== -->
+<div class="modal-backdrop" id="packageModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Thêm đội thầu phụ vào công trình</div>
+    <div>
+      <span class="field-label">Ngành</span>
+      <select id="pkgTrade"><option value="da">Đá</option><option value="dien">Điện</option><option value="khac">Khác</option></select>
+    </div>
+    <div>
+      <span class="field-label">Đội thầu phụ</span>
+      <select id="pkgSubcontractorExisting"></select>
+      <input type="text" id="pkgNewSubName" placeholder="Hoặc nhập tên đội mới..." style="margin-top:6px;">
+    </div>
+    <div>
+      <span class="field-label">Mẫu đầu việc (tự tạo sẵn checklist)</span>
+      <select id="pkgTemplate"></select>
+    </div>
+    <div><span class="field-label">Tên hạng mục</span><input type="text" id="pkgName" placeholder="VD: Đá bếp + lavabo"></div>
+    <div class="row-inline">
+      <div><span class="field-label">Khối lượng hợp đồng</span><input type="number" id="pkgContractQty" step="0.1"></div>
+      <div><span class="field-label">Đơn vị</span>
+        <select id="pkgUnit"><option value="m2">m²</option><option value="diem">điểm</option><option value="md">md</option><option value="tron_goi">trọn gói</option></select>
+      </div>
+    </div>
+    <div><span class="field-label">Ngày bắt đầu dự kiến</span><input type="date" id="pkgPlannedStart"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnPkgCancel">Huỷ</button>
+      <button class="btn btn-primary" id="btnPkgSave">Tạo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: ĐẦU VIỆC (WORK ITEM) ===================== -->
+<div class="modal-backdrop" id="itemModal">
+  <div class="modal-sheet">
+    <div class="modal-title" id="itemModalTitle">Thêm đầu việc</div>
+    <input type="hidden" id="itemId"><input type="hidden" id="itemPackageId">
+    <div><span class="field-label">Tên đầu việc</span><input type="text" id="itemName"></div>
+    <div class="row-inline">
+      <div><span class="field-label">Đơn vị</span>
+        <select id="itemUnit"><option value="m2">m²</option><option value="diem">điểm</option><option value="md">md</option><option value="tron_goi">trọn gói</option></select>
+      </div>
+      <div><span class="field-label">Khối lượng kế hoạch</span><input type="number" id="itemQtyPlan" step="0.1"></div>
+    </div>
+    <div class="row-inline">
+      <div><span class="field-label">Bắt đầu</span><input type="date" id="itemPlannedStart"></div>
+      <div><span class="field-label">Kết thúc</span><input type="date" id="itemPlannedEnd"></div>
+    </div>
+    <div>
+      <span class="field-label">Trạng thái</span>
+      <select id="itemStatus">
+        <option value="notStarted">Chưa bắt đầu</option><option value="onTrack">Đúng tiến độ</option>
+        <option value="delayed">Trễ tiến độ</option><option value="ahead">Vượt tiến độ</option><option value="done">Hoàn thành</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnItemCancel">Huỷ</button>
+      <button class="btn btn-primary" id="btnItemSave">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: NHẬP THAY (STAFF BÁO HỘ ĐỘI) ===================== -->
+<div class="modal-backdrop" id="staffReportModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Nhập thay — <span id="staffReportItemName"></span></div>
+    <input type="hidden" id="staffReportItemId">
+    <div class="row-inline">
+      <div><span class="field-label">Khối lượng làm thêm</span><input type="number" id="staffReportQty" step="0.1"></div>
+      <div><span class="field-label">Số thợ có mặt</span><input type="number" id="staffReportCrewSize" step="1"></div>
+    </div>
+    <div><span class="field-label">Ghi chú</span><textarea id="staffReportNote" rows="2"></textarea></div>
+    <div><span class="field-label">Ảnh hiện trường</span><input type="file" id="staffReportPhoto" accept="image/*" multiple></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnStaffReportCancel">Huỷ</button>
+      <button class="btn btn-primary" id="btnStaffReportSave">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: PHỤ THUỘC ===================== -->
+<div class="modal-backdrop" id="depModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Phụ thuộc giữa các đầu việc</div>
+    <div class="login-sub" style="margin:0;text-align:left;">Đầu việc "phải xong trước" sẽ chặn đầu việc "mới được làm" — hệ thống cảnh báo nếu đầu việc trước trễ mà đầu việc sau sắp tới hạn.</div>
+    <div><span class="field-label">Phải xong trước</span><select id="depPredecessor"></select></div>
+    <div><span class="field-label">Mới được làm</span><select id="depSuccessor"></select></div>
+    <div><span class="field-label">Số ngày chờ thêm (nếu có)</span><input type="number" id="depLagDays" value="0" step="1"></div>
+    <button class="btn btn-ghost" id="btnDepAdd">＋ Thêm phụ thuộc</button>
+    <div id="depList" style="margin-top:6px;"></div>
+    <div class="modal-actions"><button class="btn btn-primary" id="btnDepCancel" style="flex:none;width:100%;">Đóng</button></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: LINK ZALO CHO ĐỘI ===================== -->
+<div class="modal-backdrop" id="crewLinkModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Tạo link cho <span id="crewLinkPackageLabel"></span></div>
+    <input type="hidden" id="crewLinkPackageId">
+    <div><span class="field-label">Tên người nhận link (không bắt buộc)</span><input type="text" id="crewLinkPersonName" placeholder="VD: anh Sơn"></div>
+    <div>
+      <span class="field-label">Vai trò</span>
+      <select id="crewLinkRole"><option value="crew">Công nhân</option><option value="manager">Quản lý đội</option></select>
+    </div>
+    <button class="btn btn-primary" id="btnCrewLinkGenerate">Tạo link</button>
+    <div id="crewLinkResult" style="display:none;">
+      <div class="field-label">Link — gửi qua Zalo cho đội</div>
+      <div class="approval-note" id="crewLinkUrl" style="word-break:break-all;"></div>
+      <button class="btn btn-ghost" id="btnCrewLinkCopy" style="width:100%;margin-top:8px;">📋 Copy link</button>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="btnCrewLinkCancel" style="flex:none;width:100%;">Đóng</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="js/staff/main.js"></script>
+</body>
+</html>

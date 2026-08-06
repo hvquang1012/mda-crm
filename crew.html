@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#B0812F">
+<title>Báo tiến độ — MD Architects</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+<script src="vendor/supabase-js@2.45.4.min.js"></script>
+<script src="config.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== LỖI / LINK KHÔNG HỢP LỆ ===================== -->
+  <div id="crewError" class="screen active" style="align-items:center;justify-content:center;padding:32px;text-align:center;">
+    <div class="login-mark">M</div>
+    <div class="login-title">Không mở được</div>
+    <div class="login-sub" id="crewErrorMsg">Đang kiểm tra link...</div>
+  </div>
+
+  <!-- ===================== MÀN HÌNH CHÍNH ===================== -->
+  <div id="crewMain" class="screen">
+    <div class="app-header">
+      <div class="header-left">
+        <div class="header-mark">M</div>
+        <div><div class="header-title" id="crewProjectName">—</div>
+          <div class="header-sub" id="crewSubName">—</div></div>
+      </div>
+      <span class="online-dot" id="crewOnlineDot"></span>
+    </div>
+
+    <div class="crew-tabs">
+      <button class="active" data-tab="report">📋 Báo tiến độ</button>
+      <button data-tab="history">🕒 Lịch sử</button>
+    </div>
+
+    <div class="list-wrap">
+      <div id="crewReportTab">
+        <div class="crew-page" style="padding-left:0;padding-right:0;">
+          <div class="section-label">Chọn đầu việc đang làm</div>
+          <div class="crew-item-picker" id="crewItemPicker"></div>
+
+          <div class="crew-form" id="crewForm" style="display:none;">
+            <div class="modal-title" style="margin:0;">Hôm nay làm được gì?</div>
+
+            <div class="crew-field">
+              <label>Làm thêm hôm nay (số lượng)</label>
+              <input type="number" inputmode="decimal" id="crewQty" placeholder="VD: 4.5" min="0" step="0.1">
+            </div>
+            <div class="crew-field">
+              <label>Số thợ có mặt hôm nay</label>
+              <input type="number" inputmode="numeric" id="crewSize" placeholder="VD: 3" min="0" step="1">
+            </div>
+            <div class="crew-field">
+              <label>Ghi chú <span style="color:var(--brick)">*</span></label>
+              <textarea id="crewNote" rows="3" placeholder="VD: đã lắp xong mặt bếp khu bếp chính, còn khu đảo bếp"></textarea>
+            </div>
+            <div class="crew-field">
+              <label>Ảnh hiện trường <span style="color:var(--brick)">*</span> (tối đa 4)</label>
+              <label class="crew-photo-btn" for="crewPhotoInput">📷 Chụp ảnh / chọn ảnh</label>
+              <input type="file" id="crewPhotoInput" accept="image/*" capture="environment" multiple style="display:none;">
+              <div class="crew-photo-preview" id="crewPhotoPreview"></div>
+            </div>
+            <button class="btn btn-primary crew-submit-btn" id="crewSubmitBtn">GỬI BÁO CÁO</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="crewHistoryTab" style="display:none;">
+        <div class="section-label">Báo cáo của đội</div>
+        <div id="crewHistoryList"></div>
+      </div>
+    </div>
+
+    <button class="fab secondary" id="btnRaiseIssue" title="Báo vướng mắc">⚠</button>
+  </div>
+
+</div>
+
+<!-- ===================== MODAL: BÁO VƯỚNG ===================== -->
+<div class="modal-backdrop" id="issueModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Báo vướng mắc</div>
+    <div>
+      <span class="field-label">Liên quan đầu việc nào?</span>
+      <select id="issueItemSelect"></select>
+    </div>
+    <div>
+      <span class="field-label">Loại vướng mắc</span>
+      <select id="issueKind">
+        <option value="blocked_handover">Chưa được bàn giao mặt bằng</option>
+        <option value="material">Thiếu vật tư</option>
+        <option value="access">Không vào được công trình</option>
+        <option value="safety">An toàn lao động</option>
+        <option value="other">Khác</option>
+      </select>
+    </div>
+    <div>
+      <span class="field-label">Mô tả</span>
+      <textarea id="issueDesc" rows="3" placeholder="Mô tả cụ thể vướng mắc..."></textarea>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;">
+      <input type="checkbox" id="issueBlocking" style="width:auto;">
+      Vướng mắc này đang chặn không làm tiếp được
+    </label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnIssueCancel">Huỷ</button>
+      <button class="btn btn-primary" id="btnIssueSubmit">Gửi</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="js/crew.js"></script>
+</body>
+</html>

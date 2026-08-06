@@ -1,0 +1,15 @@
+# Secrets — không bao giờ commit
+.env
+.env.*
+*.pem
+*.key
+supabase/.temp/
+supabase/.branches/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Node (nếu sau này thêm tooling)
+node_modules/
