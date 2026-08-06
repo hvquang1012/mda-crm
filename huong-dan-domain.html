@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gắn tên miền riêng — MDA Tiến độ</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --bg:#F7F3EA; --paper:#FFFFFF; --ink:#2B2419; --ink-soft:#7A6F5F; --ink-faint:#B8AC96;
+  --line:#E7DDC9; --brass:#B0812F; --brass-deep:#8C6524;
+  --sage:#5E7A55; --sage-bg:#EAF0E4;
+  --brick:#A44B3B; --brick-bg:#F7E7E2;
+  --sand:#EFE7D2;
+  --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#1B1712; --paper:#241F18; --ink:#F2E9D8; --ink-soft:#B6A98E; --ink-faint:#6E6151;
+    --line:#3B3227; --brass:#DDAA5C; --brass-deep:#C08A34;
+    --sage:#8FC17E; --sage-bg:#20301F;
+    --brick:#E28568; --brick-bg:#3A241D;
+    --sand:#2C2519;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1B1712; --paper:#241F18; --ink:#F2E9D8; --ink-soft:#B6A98E; --ink-faint:#6E6151;
+  --line:#3B3227; --brass:#DDAA5C; --brass-deep:#C08A34;
+  --sage:#8FC17E; --sage-bg:#20301F;
+  --brick:#E28568; --brick-bg:#3A241D;
+  --sand:#2C2519;
+}
+:root[data-theme="light"]{
+  --bg:#F7F3EA; --paper:#FFFFFF; --ink:#2B2419; --ink-soft:#7A6F5F; --ink-faint:#B8AC96;
+  --line:#E7DDC9; --brass:#B0812F; --brass-deep:#8C6524;
+  --sage:#5E7A55; --sage-bg:#EAF0E4;
+  --brick:#A44B3B; --brick-bg:#F7E7E2;
+  --sand:#EFE7D2;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans',sans-serif;
+  -webkit-font-smoothing:antialiased; line-height:1.6;
+}
+.page{max-width:700px; margin:0 auto; padding:56px 24px 96px;}
+
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:600; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--brass-deep);
+}
+h1{
+  font-family:'Fraunces',serif; font-weight:700; font-size:clamp(28px,4.2vw,38px);
+  line-height:1.15; margin:10px 0 12px; text-wrap:balance; letter-spacing:-.01em;
+}
+.lede{font-size:16px; color:var(--ink-soft); max-width:58ch; margin:0 0 40px;}
+
+h2{
+  font-family:'Fraunces',serif; font-weight:600; font-size:21px; margin:0 0 4px; text-wrap:balance;
+}
+.step-sub{font-size:13.5px; color:var(--ink-faint); margin:0 0 16px;}
+
+.card{
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius);
+  padding:24px 26px; margin-bottom:20px;
+}
+
+/* ---- Quick reference ---- */
+.quickref{
+  display:flex; flex-direction:column; gap:0; margin-top:8px;
+  border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; background:var(--paper);
+}
+.qr-row{
+  display:grid; grid-template-columns:120px 1fr; gap:16px;
+  padding:13px 20px; border-top:1px solid var(--line);
+}
+.qr-row:first-child{border-top:none;}
+.qr-k{font-size:12px; font-weight:600; color:var(--ink-soft); letter-spacing:.03em; padding-top:2px;}
+.qr-v{font-family:'IBM Plex Mono',monospace; font-size:14.5px; font-variant-numeric:tabular-nums; word-break:break-all;}
+.qr-v .off{
+  display:inline-block; margin-left:8px; font-family:'IBM Plex Sans',sans-serif; font-size:11.5px;
+  font-weight:600; color:var(--brick); background:var(--brick-bg); padding:2px 8px; border-radius:20px;
+}
+
+/* ---- Steps ---- */
+.steps{display:flex; flex-direction:column; gap:14px; margin:28px 0 36px;}
+.step{
+  display:grid; grid-template-columns:40px 1fr; gap:18px;
+  background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); padding:22px 24px;
+}
+.step-num{
+  font-family:'Fraunces',serif; font-weight:600; font-size:19px; color:var(--brass);
+  width:40px; height:40px; border-radius:50%; border:1.5px solid var(--brass);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.step-body p{margin:0 0 10px; font-size:14.5px;}
+.step-body p:last-child{margin-bottom:0;}
+.step-body code, .inline-code{
+  font-family:'IBM Plex Mono',monospace; font-size:.92em; background:var(--sand);
+  padding:1px 6px; border-radius:5px;
+}
+
+.mini-table{width:100%; border-collapse:collapse; margin-top:12px; font-size:14px;}
+.mini-table th{
+  text-align:left; font-size:11px; font-weight:600; color:var(--ink-faint); letter-spacing:.04em;
+  text-transform:uppercase; padding:0 12px 8px 0; border-bottom:1px solid var(--line);
+}
+.mini-table td{
+  padding:9px 12px 9px 0; border-bottom:1px solid var(--line); font-family:'IBM Plex Mono',monospace;
+  font-size:13.5px; vertical-align:top;
+}
+.mini-table tr:last-child td{border-bottom:none;}
+
+/* ---- Callouts ---- */
+.callout{
+  border-radius:var(--radius); padding:18px 22px; margin:22px 0; display:flex; gap:14px; align-items:flex-start;
+}
+.callout.warn{background:var(--brick-bg); border:1px solid color-mix(in srgb, var(--brick) 35%, transparent);}
+.callout.ok{background:var(--sage-bg); border:1px solid color-mix(in srgb, var(--sage) 35%, transparent);}
+.callout-icon{font-size:19px; line-height:1; margin-top:1px;}
+.callout h3{margin:0 0 4px; font-size:14.5px; font-weight:700;}
+.callout.warn h3{color:var(--brick);}
+.callout.ok h3{color:var(--sage);}
+.callout p{margin:0; font-size:14px; color:var(--ink); line-height:1.55;}
+.callout p + p{margin-top:6px;}
+
+.divider{height:1px; background:var(--line); margin:44px 0 32px; border:none;}
+
+footer{font-size:13px; color:var(--ink-faint); margin-top:8px;}
+footer a{color:var(--brass-deep);}
+
+@media (max-width:520px){
+  .step{grid-template-columns:32px 1fr; padding:18px;}
+  .step-num{width:32px; height:32px; font-size:15px;}
+  .qr-row{grid-template-columns:1fr; gap:4px;}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="eyebrow">MDA Tiến độ — hướng dẫn kỹ thuật</div>
+  <h1>Gắn tên miền riêng cho hệ thống</h1>
+  <p class="lede">
+    Đưa app đang chạy ở <code class="inline-code">zippy-douhua-7a4098.netlify.app</code>
+    về địa chỉ riêng <code class="inline-code">tiendo.noithatminhduc.com</code> — dễ nhớ, dễ gửi qua Zalo,
+    và không đụng tới website chính của công ty.
+  </p>
+
+  <h2>Tóm tắt nhanh</h2>
+  <p class="step-sub">Nếu đã quen Cloudflare, chỉ cần 4 dòng này — bỏ qua phần hướng dẫn từng bước bên dưới.</p>
+  <div class="quickref">
+    <div class="qr-row"><div class="qr-k">Loại bản ghi</div><div class="qr-v">CNAME</div></div>
+    <div class="qr-row"><div class="qr-k">Tên (Name)</div><div class="qr-v">tiendo</div></div>
+    <div class="qr-row"><div class="qr-k">Đích (Target)</div><div class="qr-v">zippy-douhua-7a4098.netlify.app</div></div>
+    <div class="qr-row"><div class="qr-k">Proxy status</div><div class="qr-v">DNS only <span class="off">tắt mây cam</span></div></div>
+  </div>
+
+  <div class="callout ok">
+    <div class="callout-icon">◆</div>
+    <div>
+      <h3>Vì sao dùng subdomain, không dùng thẳng noithatminhduc.com</h3>
+      <p>
+        Domain gốc <code class="inline-code">noithatminhduc.com</code> đang trỏ tới website chính của công ty.
+        Gắn thêm app tiến độ vào một nhánh phụ (<code class="inline-code">tiendo.</code>) để hai hệ thống
+        chạy song song, không tranh chấp bản ghi DNS và không ảnh hưởng website chính.
+      </p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <h2 style="margin-bottom:20px;">Các bước thực hiện</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <p><strong>Khai báo domain trong Netlify.</strong></p>
+        <p>
+          Vào project <code class="inline-code">mda-crm</code> trên Netlify →
+          <strong>Domain management</strong> → <strong>Add a domain</strong> →
+          gõ <code class="inline-code">tiendo.noithatminhduc.com</code>.
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <p><strong>Thêm bản ghi DNS trong Cloudflare.</strong></p>
+        <p>
+          Vào <code class="inline-code">dash.cloudflare.com</code> → chọn zone
+          <code class="inline-code">noithatminhduc.com</code> → <strong>DNS → Records → Add record</strong>,
+          điền đúng 4 giá trị ở bảng tóm tắt phía trên.
+        </p>
+        <table class="mini-table">
+          <thead><tr><th>Trường</th><th>Giá trị</th></tr></thead>
+          <tbody>
+            <tr><td>Type</td><td>CNAME</td></tr>
+            <tr><td>Name</td><td>tiendo</td></tr>
+            <tr><td>Target</td><td>zippy-douhua-7a4098.netlify.app</td></tr>
+            <tr><td>Proxy status</td><td>DNS only</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <p><strong>Đợi DNS trỏ.</strong></p>
+        <p>
+          Thường vài phút, đôi khi tới vài giờ. Quay lại Netlify
+          <strong>Domain management</strong> — thấy dấu ✓ xanh nghĩa là đã nhận đúng bản ghi.
+        </p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <p><strong>HTTPS tự bật, không cần làm gì thêm.</strong></p>
+        <p>
+          Netlify tự xin chứng chỉ SSL miễn phí (Let's Encrypt) ngay sau khi DNS xác nhận.
+          App sẽ chạy tại <code class="inline-code">https://tiendo.noithatminhduc.com</code>.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-icon">▲</div>
+    <div>
+      <h3>Điểm dễ sai nhất: đừng để mây cam (Proxied)</h3>
+      <p>
+        Cloudflare mặc định gợi ý bật <strong>Proxied</strong> (mây cam) cho bản ghi mới.
+        Với subdomain trỏ sang Netlify, việc này khiến hai lớp SSL (Cloudflare và Netlify)
+        chồng lên nhau — subdomain dễ báo lỗi chứng chỉ hoặc lặp redirect liên tục.
+      </p>
+      <p>
+        Luôn chọn <strong>DNS only</strong> (mây xám) cho bản ghi <code class="inline-code">tiendo</code>.
+      </p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <h2>Sau khi domain chạy</h2>
+  <p class="step-sub" style="margin-bottom:14px;">Không cần làm gì thêm ở phía Supabase hay code — chỉ đổi phần đầu của các link đã gửi.</p>
+  <div class="card" style="padding:20px 24px;">
+    <p style="margin:0 0 10px; font-size:14.5px;">
+      Link Zalo cho thợ, đội trưởng, chủ nhà đổi từ:
+    </p>
+    <p style="margin:0 0 4px;"><code class="inline-code">zippy-douhua-7a4098.netlify.app/crew.html?t=...</code></p>
+    <p style="margin:0 0 10px; font-size:14.5px;">sang:</p>
+    <p style="margin:0;"><code class="inline-code">tiendo.noithatminhduc.com/crew.html?t=...</code></p>
+    <p style="margin:14px 0 0; font-size:13.5px; color:var(--ink-soft);">
+      Token (phần <code class="inline-code">?t=...</code>) giữ nguyên — token nằm trong database,
+      không phụ thuộc domain đang dùng.
+    </p>
+  </div>
+
+  <footer>
+    Domain gốc <code class="inline-code">noithatminhduc.com</code> không bị thay đổi ở bước nào trong
+    hướng dẫn này — chỉ thêm một bản ghi CNAME mới cho subdomain <code class="inline-code">tiendo</code>.
+  </footer>
+
+</div>
+</body>
+</html>
