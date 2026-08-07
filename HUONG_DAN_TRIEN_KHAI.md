@@ -135,17 +135,14 @@ chính"** (iOS 16.4+). Mở bằng Safari thường sẽ không xin được quy
    cáo gì.
 4. Bấm **"🔗 Khách"** ở thanh trên cùng để lấy link riêng cho chủ nhà
    của dự án đang chọn.
-5. Tab **Duyệt**: mỗi thẻ là các báo cáo trong ngày của 1 đầu việc đã
-   được gộp lại — xem ảnh, chỉnh số khối lượng nếu cần, **Duyệt** hoặc
-   **Trả lại** kèm lý do.
-6. Tab **Tổng quan**: xem nhanh mọi công trình đang chạy, đội nào đang
+5. Tab **Tổng quan**: xem nhanh mọi công trình đang chạy, đội nào đang
    có cảnh báo.
-7. Tab **Cảnh báo**: danh sách 5 loại cảnh báo tự động, bấm ✓ khi đã xử
+6. Tab **Cảnh báo**: danh sách 5 loại cảnh báo tự động, bấm ✓ khi đã xử
    lý xong. Nút "Kiểm tra ngay" chạy lại thủ công không cần chờ lịch
    7h/15h.
-8. Nếu một đội không chịu dùng app: trong từng đầu việc có nút
-   **"＋ Nhập thay"** để giám sát tự nhập hộ (vẫn cần ảnh + ghi chú,
-   vẫn qua bước duyệt như bình thường).
+7. Nếu một đội không chịu dùng app: trong từng đầu việc có nút
+   **"＋ Nhập thay"** để giám sát tự nhập hộ (vẫn cần ảnh + ghi chú —
+   ghi nhận thẳng vào tiến độ ngay, không còn bước duyệt riêng).
 
 ### Thầu phụ / công nhân (crew.html)
 Mở link được gửi qua Zalo → chọn đầu việc đang làm → nhập khối lượng

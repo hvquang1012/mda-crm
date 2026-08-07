@@ -134,7 +134,7 @@ document.getElementById('crewSubmitBtn').onclick = async () => {
     });
     if (error) throw error;
 
-    showToast('Đã gửi — chờ giám sát duyệt');
+    showToast('Đã gửi — đã ghi nhận vào tiến độ');
     document.getElementById('crewNote').value = '';
     document.getElementById('crewQty').value = '';
     document.getElementById('crewSize').value = '';

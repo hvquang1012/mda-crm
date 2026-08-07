@@ -7,6 +7,5 @@ export const state = {
   projects: [],           // toàn bộ dự án active, dùng cho dashboard + project switcher
   subcontractors: [],
   currentProjectId: null, // dự án đang chọn ở tab "Công việc"
-  activeTab: 'dashboard',
-  pendingCount: 0         // số báo cáo chờ duyệt — hiện chấm đỏ ở bottom nav
+  activeTab: 'dashboard'
 };

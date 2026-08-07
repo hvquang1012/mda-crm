@@ -6,7 +6,6 @@ import { initSupabase } from '../supabase.js';
 import { showToast, showScreen, setOnlineDots } from '../ui.js';
 import { state } from './state.js';
 import { renderDashboard } from './dashboard.js';
-import { renderApprovals } from './approvals.js';
 import { renderAlerts, wireCheckNowButton } from './alerts.js';
 import { initItemsTab, renderProjectSelect, renderPackages } from './items.js';
 import { wireExportButton } from './export.js';
@@ -56,7 +55,7 @@ async function enterStaffApp() {
 }
 
 // ---------- Điều hướng tab ----------
-const TABS = ['dashboard', 'approvals', 'items', 'alerts'];
+const TABS = ['dashboard', 'items', 'alerts'];
 async function switchTab(tab) {
   state.activeTab = tab;
   TABS.forEach(t => {
@@ -64,7 +63,6 @@ async function switchTab(tab) {
     document.getElementById('nav-' + t).classList.toggle('active', t === tab);
   });
   if (tab === 'dashboard') await renderDashboard();
-  else if (tab === 'approvals') await renderApprovals();
   else if (tab === 'items') await renderPackages();
   else if (tab === 'alerts') await renderAlerts();
 }
@@ -78,14 +76,10 @@ document.getElementById('projectSelect').addEventListener('change', async (e) =>
 // ---------- Realtime: đổi ở bảng nào thì render lại tab đang mở ----------
 function subscribeRealtime() {
   supabase.channel('mda-staff')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'progress_reports' }, () => refreshActive(['approvals', 'dashboard']))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'work_items' }, () => refreshActive(['dashboard', 'items']))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' }, () => refreshActive(['dashboard']))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts' }, () => refreshActive(['dashboard', 'alerts']))
     .subscribe(status => setOnlineDots(status === 'SUBSCRIBED', ['staffOnlineDot']));
-
-  // Luôn cập nhật số đếm "chờ duyệt" ở bottom nav dù đang xem tab nào
-  refreshApprovalsBadgeOnly();
 }
 
 let debounceTimer = null;
@@ -93,15 +87,7 @@ function refreshActive(relevantTabs) {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     if (relevantTabs.includes(state.activeTab)) switchTab(state.activeTab);
-    else if (relevantTabs.includes('approvals')) refreshApprovalsBadgeOnly();
   }, 400);
-}
-
-async function refreshApprovalsBadgeOnly() {
-  const { count } = await supabase.from('progress_reports').select('id', { count: 'exact', head: true }).eq('status', 'pending');
-  state.pendingCount = count || 0;
-  const dot = document.getElementById('approvalsNavDot');
-  if (dot) dot.style.display = state.pendingCount > 0 ? 'block' : 'none';
 }
 
 if ('serviceWorker' in navigator) {

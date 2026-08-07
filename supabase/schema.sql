@@ -290,6 +290,47 @@ begin
 end;
 $$;
 
+-- Cộng dồn khối lượng vào work_items + rollup status work_packages. Gọi
+-- từ crew_submit()/staff_submit_report() ngay khi báo cáo được gửi —
+-- không còn bước giám sát duyệt tay ở giữa. Không cấp execute cho ai,
+-- chỉ gọi được từ bên trong các hàm security definer khác trong file
+-- này (giống cách _resolve_crew_link() đang hoạt động).
+create or replace function _apply_progress(p_item_id uuid, p_qty numeric)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_package_id uuid;
+begin
+  update work_items set
+    qty_done = qty_done + p_qty,
+    percent = case when qty_plan is not null and qty_plan > 0
+                   then least(100, round((qty_done + p_qty) / qty_plan * 100))
+                   else percent end,
+    status = case
+                when qty_plan is not null and qty_plan > 0 and (qty_done + p_qty) >= qty_plan then 'done'
+                when status = 'notStarted' then 'onTrack'
+                else status
+              end
+    where id = p_item_id;
+
+  -- work_packages.status là cache tổng hợp từ work_items — client_view()
+  -- đọc cột này để hiện tiến độ cho chủ nhà, phải đồng bộ sau mỗi lần cộng.
+  select work_package_id into v_package_id from work_items where id = p_item_id;
+  update work_packages set
+    status = (
+      select case
+        when count(*) filter (where wi.status <> 'done') = 0 then 'done'
+        when bool_or(wi.status = 'delayed') then 'delayed'
+        when bool_or(wi.status in ('onTrack', 'ahead')) then 'onTrack'
+        else 'notStarted'
+      end
+      from work_items wi where wi.work_package_id = v_package_id
+    ),
+    updated_at = now()
+  where id = v_package_id;
+end;
+$$;
+
 create or replace function crew_bootstrap(p_token text)
 returns json
 language plpgsql security definer set search_path = public as $$
@@ -368,12 +409,17 @@ begin
 
   insert into progress_reports(
     work_item_id, report_date, reporter_kind, crew_link_id, reporter_name,
-    qty_delta, crew_size, note, photos
+    qty_delta, crew_size, note, photos, status, approved_qty, approved_at
   ) values (
     p_item_id, coalesce(p_report_date, current_date), 'crew', v_link.id,
     coalesce(nullif(trim(p_reporter_name), ''), v_link.person_name, 'Đội thi công'),
-    coalesce(p_qty_delta, 0), p_crew_size, p_note, p_photos
+    coalesce(p_qty_delta, 0), p_crew_size, p_note, p_photos,
+    'approved', coalesce(p_qty_delta, 0), now()
   ) returning id into v_id;
+
+  -- Không còn bước giám sát duyệt tay — báo cáo được ghi nhận thẳng vào
+  -- tiến độ ngay khi gửi. Ảnh + ghi chú vẫn bắt buộc ở trên như cũ.
+  perform _apply_progress(p_item_id, coalesce(p_qty_delta, 0));
 
   return v_id;
 end;
@@ -510,85 +556,84 @@ $$;
 -- get-photo-url(token, path) để đổi thành signed URL có hạn 1 giờ.
 
 -- ============================================================
--- HÀM RPC CHO STAFF (đăng nhập) — duyệt / trả lại báo cáo
--- security invoker: chạy bằng quyền người gọi, RLS phía dưới quyết định.
+-- KHÔNG CÒN BƯỚC GIÁM SÁT DUYỆT TAY
+--
+-- Trước đây báo cáo nằm 'pending' cho tới khi giám sát bấm duyệt qua
+-- approve_report()/reject_report(). crew_submit() (ở trên) và
+-- staff_submit_report() (bên dưới) giờ tự gọi _apply_progress() (định
+-- nghĩa cùng _resolve_crew_link() ở phần RPC thầu phụ) ngay khi báo cáo
+-- được gửi — ảnh + ghi chú vẫn bắt buộc, chỉ bỏ bước người xem xét.
 -- ============================================================
 
-create or replace function approve_report(p_report_id uuid, p_approved_qty numeric default null)
-returns void
-language plpgsql security invoker set search_path = public as $$
-declare
-  v_report progress_reports;
-  v_qty numeric;
-  v_package_id uuid;
+drop function if exists approve_report(uuid, numeric);
+drop function if exists reject_report(uuid, text);
+
+-- Một lần: báo cáo còn 'pending' từ trước khi bỏ tính năng duyệt được coi
+-- như đã được chấp nhận đủ số đã báo. Idempotent — sau lần chạy đầu, hết
+-- pending thì khối này không làm gì ở các lần chạy lại schema.sql sau.
+do $$
+declare r record;
 begin
-  if auth.role() <> 'authenticated' then
-    raise exception 'not_authenticated';
-  end if;
-
-  -- Khoá bản ghi ngay khi đọc — hai giám sát duyệt cùng lúc thì người
-  -- thứ hai phải đợi người thứ nhất commit rồi mới thấy status đã đổi,
-  -- tránh cộng qty_done hai lần (race condition).
-  select * into v_report from progress_reports where id = p_report_id for update;
-  if v_report.id is null then
-    raise exception 'report_not_found';
-  end if;
-  if v_report.status <> 'pending' then
-    raise exception 'already_processed';
-  end if;
-
-  v_qty := coalesce(p_approved_qty, v_report.qty_delta);
-
-  update progress_reports
-    set status = 'approved', approved_qty = v_qty, approved_by = auth.uid(), approved_at = now()
-    where id = p_report_id and status = 'pending';
-  if not found then
-    raise exception 'already_processed';
-  end if;
-
-  update work_items set
-    qty_done = qty_done + v_qty,
-    percent = case when qty_plan is not null and qty_plan > 0
-                   then least(100, round((qty_done + v_qty) / qty_plan * 100))
-                   else percent end,
-    status = case
-                when qty_plan is not null and qty_plan > 0 and (qty_done + v_qty) >= qty_plan then 'done'
-                when status = 'notStarted' then 'onTrack'
-                else status
-              end
-    where id = v_report.work_item_id;
-
-  -- work_packages.status là cache tổng hợp từ work_items — client_view()
-  -- đọc cột này để hiện tiến độ cho chủ nhà, phải đồng bộ sau mỗi lần duyệt.
-  select work_package_id into v_package_id from work_items where id = v_report.work_item_id;
-  update work_packages set
-    status = (
-      select case
-        when count(*) filter (where wi.status <> 'done') = 0 then 'done'
-        when bool_or(wi.status = 'delayed') then 'delayed'
-        when bool_or(wi.status in ('onTrack', 'ahead')) then 'onTrack'
-        else 'notStarted'
-      end
-      from work_items wi where wi.work_package_id = v_package_id
-    ),
-    updated_at = now()
-  where id = v_package_id;
+  for r in select id, work_item_id, qty_delta from progress_reports where status = 'pending' loop
+    update progress_reports
+      set status = 'approved', approved_qty = r.qty_delta, approved_at = now()
+      where id = r.id;
+    perform _apply_progress(r.work_item_id, r.qty_delta);
+  end loop;
 end;
 $$;
 
-create or replace function reject_report(p_report_id uuid, p_reason text)
-returns void
-language plpgsql security invoker set search_path = public as $$
+-- ============================================================
+-- HÀM RPC CHO STAFF (đăng nhập) — nhập thay cho đội không dùng app
+-- security definer để gọi được _apply_progress() (không cấp cho
+-- authenticated); tự kiểm tra auth.role() bên trong như quy ước chung
+-- cho mọi hàm security definer trong file này.
+-- ============================================================
+
+create or replace function staff_submit_report(
+  p_item_id uuid,
+  p_qty_delta numeric,
+  p_crew_size int,
+  p_note text,
+  p_photos jsonb,
+  p_reporter_name text,
+  p_report_date date default current_date
+) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v_id uuid;
 begin
   if auth.role() <> 'authenticated' then
     raise exception 'not_authenticated';
   end if;
-  update progress_reports
-    set status = 'rejected', reject_reason = p_reason, approved_by = auth.uid(), approved_at = now()
-    where id = p_report_id and status = 'pending';
-  if not found then
-    raise exception 'report_not_found_or_processed';
+  if p_note is null or length(trim(p_note)) = 0 then
+    raise exception 'note_required';
   end if;
+  if p_photos is null or jsonb_typeof(p_photos) <> 'array' or jsonb_array_length(p_photos) = 0
+     or exists (
+       select 1 from jsonb_array_elements(p_photos) as el
+       where coalesce(trim(el->>'path'), '') = ''
+     )
+  then
+    raise exception 'photo_required';
+  end if;
+  if not exists (select 1 from work_items where id = p_item_id) then
+    raise exception 'item_not_found';
+  end if;
+
+  insert into progress_reports(
+    work_item_id, report_date, reporter_kind, staff_id, reporter_name,
+    qty_delta, crew_size, note, photos, status, approved_qty, approved_by, approved_at
+  ) values (
+    p_item_id, coalesce(p_report_date, current_date), 'staff', auth.uid(),
+    coalesce(nullif(trim(p_reporter_name), ''), 'Nhân viên'),
+    coalesce(p_qty_delta, 0), p_crew_size, p_note, p_photos,
+    'approved', coalesce(p_qty_delta, 0), auth.uid(), now()
+  ) returning id into v_id;
+
+  perform _apply_progress(p_item_id, coalesce(p_qty_delta, 0));
+
+  return v_id;
 end;
 $$;
 
@@ -822,7 +867,7 @@ revoke all on all sequences in schema public from anon;
 
 -- Postgres tự cấp EXECUTE cho PUBLIC (nên anon cũng có) khi tạo hàm mới.
 -- Thu hồi hết rồi cấp lại đúng từng hàm ở dưới — nếu không, các hàm
--- security definer không cố ý cho anon gọi (approve_report, reject_report,
+-- security definer không cố ý cho anon gọi (staff_submit_report,
 -- compute_alerts) vẫn bị gọi được vì không có dòng revoke nào chặn PUBLIC.
 revoke execute on all functions in schema public from public;
 
@@ -844,17 +889,18 @@ create policy "staff full access" on alerts for all to authenticated using (true
 create policy "staff full access" on work_package_templates for all to authenticated using (true) with check (true);
 create policy "staff full access" on work_package_template_items for all to authenticated using (true) with check (true);
 
--- progress_reports: staff xem/duyệt/trả lại và có thể nhập thay đội
--- không dùng app. KHÔNG có policy insert cho anon — thầu phụ chỉ ghi
--- được qua crew_submit() (security definer, bỏ qua RLS).
--- KHÔNG có policy update trực tiếp — progress_reports là append-only,
--- chỉ approve_report()/reject_report() (security invoker + kiểm tra
--- riêng) được phép đổi status/approved_qty/reject_reason. Một policy
--- update "using (true)" ở đây sẽ cho phép bất kỳ tài khoản đăng nhập
--- nào ghi đè thẳng mọi cột qua supabase-js, phá vỡ bất biến append-only.
+-- progress_reports: staff xem và có thể nhập thay đội không dùng app
+-- (qua staff_submit_report(), không insert thẳng). KHÔNG có policy
+-- insert cho anon — thầu phụ chỉ ghi được qua crew_submit() (security
+-- definer, bỏ qua RLS).
+-- KHÔNG có policy update — progress_reports là append-only. Từ khi bỏ
+-- bước duyệt tay, không hàm nào cần UPDATE bảng này nữa: cả
+-- crew_submit() lẫn staff_submit_report() đều INSERT thẳng ở trạng
+-- thái 'approved' rồi gọi _apply_progress() để cộng vào work_items. Một
+-- policy update "using (true)" ở đây sẽ cho phép bất kỳ tài khoản đăng
+-- nhập nào ghi đè thẳng mọi cột qua supabase-js, phá vỡ bất biến append-only.
 drop policy if exists "staff update reports" on progress_reports;
 create policy "staff read reports" on progress_reports for select to authenticated using (true);
-create policy "staff insert reports" on progress_reports for insert to authenticated with check (true);
 
 create policy "staff manage own push" on push_subscriptions for all to authenticated
   using (staff_id = auth.uid()) with check (staff_id = auth.uid());
@@ -868,8 +914,7 @@ grant execute on function crew_submit(text, uuid, numeric, int, text, jsonb, tex
 grant execute on function crew_my_reports(text) to anon, authenticated;
 grant execute on function crew_raise_issue(text, uuid, text, text, jsonb, boolean, text) to anon, authenticated;
 grant execute on function client_view(text) to anon, authenticated;
-grant execute on function approve_report(uuid, numeric) to authenticated;
-grant execute on function reject_report(uuid, text) to authenticated;
+grant execute on function staff_submit_report(uuid, numeric, int, text, jsonb, text, date) to authenticated;
 grant execute on function compute_alerts() to authenticated; -- nút "Kiểm tra ngay" thủ công
 
 -- ============================================================

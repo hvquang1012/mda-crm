@@ -290,14 +290,15 @@ async function saveStaffReport() {
     for (const f of fileInput.files) {
       photos.push(await uploadStaffPhoto(state.supabase, f, state.currentProjectId, pkg.subcontractor_id));
     }
-    const { error } = await state.supabase.from('progress_reports').insert({
-      work_item_id: itemId, reporter_kind: 'staff', staff_id: state.user.id,
-      reporter_name: state.user.email, qty_delta: qty ? Number(qty) : 0,
-      crew_size: crewSize ? Number(crewSize) : null, note, photos, status: 'pending'
+    const { error } = await state.supabase.rpc('staff_submit_report', {
+      p_item_id: itemId, p_qty_delta: qty ? Number(qty) : 0,
+      p_crew_size: crewSize ? Number(crewSize) : null, p_note: note, p_photos: photos,
+      p_reporter_name: state.user.email
     });
     if (error) throw error;
-    showToast('Đã nhập — báo cáo này cũng cần duyệt như bình thường');
+    showToast('Đã nhập vào tiến độ');
     closeModal('staffReportModal');
+    renderPackages();
   } catch (e) {
     console.error(e);
     showToast('Lưu thất bại', true);

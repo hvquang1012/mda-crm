@@ -72,9 +72,9 @@ Mỗi hàm **bắt buộc** có đủ:
 
 ## 3. Bất biến về dữ liệu
 
-**`progress_reports` là append-only.** Không `UPDATE` cột nghiệp vụ, không `DELETE`. Chỉ được đổi `status` / `approved_qty` / `approved_by` / `approved_at` / `reject_reason` qua `approve_report()` và `reject_report()`.
+**`progress_reports` là append-only.** Không `UPDATE`, không `DELETE` — kể cả từ RPC. Không còn bước giám sát duyệt tay: `crew_submit()` và `staff_submit_report()` (security definer) ghi thẳng report ở trạng thái `approved` ngay khi tạo, không có cột nào cần sửa lại sau đó.
 
-**`work_items.qty_done` và `percent` là cache, không phải nguồn.** Chỉ `approve_report()` được cộng vào. 🚩 Từ chối mọi code ghi thẳng `qty_done` từ client.
+**`work_items.qty_done` và `percent` là cache, không phải nguồn.** Chỉ `_apply_progress()` được cộng vào, gọi từ bên trong `crew_submit()`/`staff_submit_report()`. 🚩 Từ chối mọi code ghi thẳng `qty_done` từ client.
 
 **Ảnh và ghi chú bắt buộc — kiểm tra ở server.** `crew_submit()` raise `note_required` / `photo_required`. Validate ở client là để UX, không phải là lớp bảo vệ. Đừng bỏ kiểm tra phía SQL.
 
@@ -92,11 +92,11 @@ Mỗi hàm **bắt buộc** có đủ:
 
 ```js
 // ❌ SAI — catch không bao giờ chạy, lỗi bị nuốt, người dùng thấy "thành công"
-try { await supabase.rpc('approve_report', {...}); showToast('Đã duyệt'); }
+try { await supabase.rpc('staff_submit_report', {...}); showToast('Đã lưu'); }
 catch (e) { showToast('Thất bại'); }
 
 // ✅ ĐÚNG
-const { error } = await supabase.rpc('approve_report', {...});
+const { error } = await supabase.rpc('staff_submit_report', {...});
 if (error) { showToast('Thất bại', true); return; }
 
 // ✅ ĐÚNG — hoặc dùng helper có sẵn
@@ -105,11 +105,11 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 
 **Sau khi ghi phải render lại**, không phụ thuộc riêng realtime. Bản v1 dựa hoàn toàn vào realtime nên khi publication chưa bật thì UI đứng im dù DB đã đổi.
 
-**Tiếng Việt.** Comment, tên biến nghiệp vụ, và toàn bộ chuỗi hiển thị. Chuỗi UI viết từ phía người dùng: "Đã gửi — chờ giám sát duyệt", không phải "submit thành công".
+**Tiếng Việt.** Comment, tên biến nghiệp vụ, và toàn bộ chuỗi hiển thị. Chuỗi UI viết từ phía người dùng: "Đã gửi — đã ghi nhận vào tiến độ", không phải "submit thành công".
 
 **CSS ở `css/app.css`**, dùng design token trong `:root`. Không thêm inline style mới cho những gì token đã có. Bảng màu là bộ nhận diện thương hiệu (đồng thau/kem, Fraunces + IBM Plex) — không đổi tuỳ tiện.
 
-**`state` object** (`js/staff/state.js`) là kênh chia sẻ duy nhất giữa các module tab, cố ý để tránh import vòng. Không import chéo giữa `dashboard.js` / `approvals.js` / `items.js` / `alerts.js`.
+**`state` object** (`js/staff/state.js`) là kênh chia sẻ duy nhất giữa các module tab, cố ý để tránh import vòng. Không import chéo giữa `dashboard.js` / `items.js` / `alerts.js`.
 
 **`sw.js` phải giữ network-first.** Bản v1 dùng cache-first khiến máy đã cài PWA kẹt ở bản cũ vĩnh viễn sau mỗi lần deploy. 🚩 Từ chối mọi thay đổi đưa `caches.match()` lên trước `fetch()`.
 
@@ -129,7 +129,7 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 
 **2. Đúng đắn**
 - [ ] Mọi `.rpc()` / `.insert()` / `.update()` / `.delete()` có kiểm tra `error` **bằng cách đọc `{ error }`**, không phải `try/catch`?
-- [ ] Có ghi thẳng vào `qty_done` / `percent` thay vì qua `approve_report()` không?
+- [ ] Có ghi thẳng vào `qty_done` / `percent` thay vì qua `_apply_progress()` không?
 - [ ] Có sửa/xoá `progress_reports` không?
 - [ ] Sau mutation có render lại không?
 - [ ] Chuỗi nhiều lời gọi RPC liên tiếp — hỏng giữa chừng thì trạng thái ra sao?
@@ -138,7 +138,6 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 - [ ] Ảnh + ghi chú còn bắt buộc ở tầng SQL không?
 - [ ] Nén ảnh còn nguyên không?
 - [ ] Ngày trễ còn hiển thị số âm được không?
-- [ ] Hộp duyệt còn gộp theo `(work_item_id, report_date)` không? Bỏ gộp thì giám sát ngập sau 2 tuần dùng thật.
 
 **4. Vận hành**
 - [ ] `sw.js` còn network-first không?
@@ -157,7 +156,6 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 
 ### Bug đã biết, chưa sửa
 
-- **`js/staff/approvals.js` — `approveGroup()` / `rejectGroup()` nuốt lỗi.** Dùng `try/catch` quanh `await supabase.rpc()`, nhưng RPC không throw khi Postgres raise exception. Nếu `approve_report` báo `already_processed` hoặc `not_authenticated`, người dùng vẫn thấy toast "Đã duyệt". Thêm nữa: nhóm nhiều báo cáo được duyệt bằng nhiều lời gọi RPC tuần tự, không phải một transaction — hỏng giữa chừng để lại trạng thái nửa vời. Nên gộp thành một RPC `approve_report_group(ids[], total)` chạy trong một transaction.
 - **`js/staff/export.js` — gộp dòng bằng chuỗi tên.** Key là `subcontractor.name|package.name|item.name` vì query không select `id`. Hai đầu việc trùng tên trong cùng hạng mục sẽ bị cộng gộp sai. Sửa bằng cách select thêm `work_items.id` và dùng làm key.
 
 ---
@@ -211,9 +209,9 @@ curl "https://lneaqpfiifqkpccpxgsp.supabase.co/rest/v1/projects?select=*" \
 
 Phải trả `42501 permission denied`. Trả về dữ liệu là lỗ hổng.
 
-**Luồng thợ** — mở `crew.html?t=<token>` trong **Zalo in-app browser trên điện thoại thật**, không phải Chrome desktop. Gửi thiếu ảnh hoặc thiếu ghi chú phải bị chặn. Ảnh lên Storage phải ~150KB.
+**Luồng thợ** — mở `crew.html?t=<token>` trong **Zalo in-app browser trên điện thoại thật**, không phải Chrome desktop. Gửi thiếu ảnh hoặc thiếu ghi chú phải bị chặn. Ảnh lên Storage phải ~150KB. Sau khi gửi thành công, `work_items.qty_done`/`percent` phải cộng đúng ngay lập tức — không còn bước giám sát duyệt ở giữa.
 
-**Hộp duyệt** — ba người cùng đội báo cùng đầu việc trong cùng ngày phải hiện **một** thẻ gộp. Chỉnh `approved_qty` khác số đề xuất rồi duyệt → `work_items.qty_done` cộng đúng số đã chỉnh.
+**Nhập thay (staff)** — tab Công việc → "＋ Nhập thay" → thiếu ảnh hoặc thiếu ghi chú phải bị chặn (kiểm tra ở `staff_submit_report()`, không chỉ ở client). Sau khi lưu, số liệu trên tab phải cập nhật ngay không cần tải lại trang.
 
 **Cảnh báo** — `select compute_alerts();` rồi đối chiếu bảng `alerts`.
 

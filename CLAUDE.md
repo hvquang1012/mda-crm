@@ -14,7 +14,7 @@ PWA tĩnh + Supabase, không build step. Thầu chính (MD Architects) theo dõi
 
 1. `supabase.rpc()` **không throw** — phải đọc `{ error }`, `try/catch` là vô dụng.
 2. `anon` không có quyền trên bảng nào. Mọi truy cập không đăng nhập đi qua RPC `security definer`.
-3. `progress_reports` append-only; `qty_done`/`percent` là cache, chỉ `approve_report()` được cộng.
+3. `progress_reports` append-only; `qty_done`/`percent` là cache, chỉ `_apply_progress()` được cộng (gọi từ `crew_submit()`/`staff_submit_report()` — không còn bước duyệt tay).
 
 ---
 
