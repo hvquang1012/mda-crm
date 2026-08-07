@@ -59,7 +59,7 @@ function renderGroupCard(g, gi) {
         ${stale ? '<span class="approval-stale-flag">⚠ ảnh cũ</span>' : ''}
       </div>
       <div class="photo-grid" data-photo-grid>
-        ${allPhotos.map((p, pi) => `<img data-path="${p.path}" data-pi="${pi}" alt="ảnh hiện trường">`).join('')}
+        ${allPhotos.map((p, pi) => `<img data-gi="${gi}" data-pi="${pi}" alt="ảnh hiện trường">`).join('')}
       </div>
       <div class="approval-note">${notes}</div>
       <div class="reported-by">Báo bởi: ${escapeHtml(reporters)}${maxCrew ? ' · ' + maxCrew + ' thợ có mặt' : ''}</div>
@@ -75,11 +75,17 @@ function renderGroupCard(g, gi) {
     </div>`;
 }
 
+// Ảnh gán qua thuộc tính DOM (không chèn vào chuỗi HTML) — path do đội thi
+// công gửi lên, không được tin cậy để nội suy trực tiếp vào innerHTML.
 async function loadPhotosForGroups(wrap) {
-  const imgs = wrap.querySelectorAll('img[data-path]');
+  const imgs = wrap.querySelectorAll('img[data-pi]');
   for (const img of imgs) {
-    const path = img.dataset.path;
-    signStaffPhotoUrl(state.supabase, path).then(url => { if (url) img.src = url; });
+    const g = groupsCache[+img.dataset.gi];
+    if (!g) continue;
+    const allPhotos = g.reports.flatMap(r => (r.photos || []).map(p => ({ ...p, reportId: r.id })));
+    const p = allPhotos[+img.dataset.pi];
+    if (!p || !p.path) continue;
+    signStaffPhotoUrl(state.supabase, p.path).then(url => { if (url) img.src = url; });
     img.onclick = () => { if (img.src) window.open(img.src, '_blank'); };
   }
 }

@@ -116,10 +116,12 @@ export async function uploadCrewPhoto(supabaseClient, token, file) {
   });
   if (signErr) throw signErr;
 
-  await Promise.all([
+  const [{ error: upErr1 }, { error: upErr2 }] = await Promise.all([
     supabaseClient.storage.from('site-photos').uploadToSignedUrl(signed.paths[0], signed.tokens[0], mainBlob),
     supabaseClient.storage.from('site-photos').uploadToSignedUrl(signed.paths[1], signed.tokens[1], thumbBlob)
   ]);
+  if (upErr1) throw upErr1;
+  if (upErr2) throw upErr2;
 
   return { path: signed.paths[0], thumb_path: signed.paths[1], taken_at: takenAt };
 }

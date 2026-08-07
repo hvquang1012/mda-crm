@@ -116,14 +116,14 @@ create index if not exists idx_client_links_token on client_links(token);
 -- % và trạng thái của work_items chỉ là số tính ra từ bảng này.
 create table if not exists progress_reports (
   id uuid primary key default gen_random_uuid(),
-  work_item_id uuid not null references work_items(id) on delete cascade,
+  work_item_id uuid not null references work_items(id) on delete restrict,
   report_date date not null default current_date,
   reporter_kind text not null check (reporter_kind in ('crew','staff')),
   crew_link_id uuid references crew_links(id),
   staff_id uuid references auth.users(id),
   reporter_name text not null,
-  qty_delta numeric not null default 0,
-  crew_size int,                                  -- số thợ có mặt — chỉ báo trễ sớm nhất
+  qty_delta numeric not null default 0 check (qty_delta >= 0),
+  crew_size int check (crew_size is null or crew_size >= 0), -- số thợ có mặt — chỉ báo trễ sớm nhất
   note text not null,
   photos jsonb not null default '[]'::jsonb,       -- [{path, thumb_path, taken_at}]
   status text not null default 'pending' check (status in ('pending','approved','rejected')),
@@ -140,6 +140,21 @@ create table if not exists progress_reports (
 create index if not exists idx_reports_item on progress_reports(work_item_id);
 create index if not exists idx_reports_status on progress_reports(status);
 create index if not exists idx_reports_date on progress_reports(report_date);
+
+-- Migrate ràng buộc cho DB đã chạy schema.sql từ trước — "create table if
+-- not exists" ở trên không áp lại các cột/ràng buộc mới cho bảng đã tồn tại.
+alter table progress_reports drop constraint if exists progress_reports_work_item_id_fkey;
+alter table progress_reports add constraint progress_reports_work_item_id_fkey
+  foreign key (work_item_id) references work_items(id) on delete restrict;
+
+do $$ begin
+  alter table progress_reports add constraint progress_reports_qty_delta_nonneg check (qty_delta >= 0);
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  alter table progress_reports add constraint progress_reports_crew_size_nonneg check (crew_size is null or crew_size >= 0);
+exception when duplicate_object then null;
+end $$;
 
 -- Vướng mắc / báo chặn
 create table if not exists issues (
@@ -331,7 +346,12 @@ begin
   if p_note is null or length(trim(p_note)) = 0 then
     raise exception 'note_required';
   end if;
-  if p_photos is null or jsonb_typeof(p_photos) <> 'array' or jsonb_array_length(p_photos) = 0 then
+  if p_photos is null or jsonb_typeof(p_photos) <> 'array' or jsonb_array_length(p_photos) = 0
+     or exists (
+       select 1 from jsonb_array_elements(p_photos) as el
+       where coalesce(trim(el->>'path'), '') = ''
+     )
+  then
     raise exception 'photo_required';
   end if;
 
@@ -500,12 +520,16 @@ language plpgsql security invoker set search_path = public as $$
 declare
   v_report progress_reports;
   v_qty numeric;
+  v_package_id uuid;
 begin
   if auth.role() <> 'authenticated' then
     raise exception 'not_authenticated';
   end if;
 
-  select * into v_report from progress_reports where id = p_report_id;
+  -- Khoá bản ghi ngay khi đọc — hai giám sát duyệt cùng lúc thì người
+  -- thứ hai phải đợi người thứ nhất commit rồi mới thấy status đã đổi,
+  -- tránh cộng qty_done hai lần (race condition).
+  select * into v_report from progress_reports where id = p_report_id for update;
   if v_report.id is null then
     raise exception 'report_not_found';
   end if;
@@ -517,7 +541,10 @@ begin
 
   update progress_reports
     set status = 'approved', approved_qty = v_qty, approved_by = auth.uid(), approved_at = now()
-    where id = p_report_id;
+    where id = p_report_id and status = 'pending';
+  if not found then
+    raise exception 'already_processed';
+  end if;
 
   update work_items set
     qty_done = qty_done + v_qty,
@@ -530,6 +557,22 @@ begin
                 else status
               end
     where id = v_report.work_item_id;
+
+  -- work_packages.status là cache tổng hợp từ work_items — client_view()
+  -- đọc cột này để hiện tiến độ cho chủ nhà, phải đồng bộ sau mỗi lần duyệt.
+  select work_package_id into v_package_id from work_items where id = v_report.work_item_id;
+  update work_packages set
+    status = (
+      select case
+        when count(*) filter (where wi.status <> 'done') = 0 then 'done'
+        when bool_or(wi.status = 'delayed') then 'delayed'
+        when bool_or(wi.status in ('onTrack', 'ahead')) then 'onTrack'
+        else 'notStarted'
+      end
+      from work_items wi where wi.work_package_id = v_package_id
+    ),
+    updated_at = now()
+  where id = v_package_id;
 end;
 $$;
 
@@ -569,7 +612,6 @@ begin
     join work_packages wp on wp.id = wi.work_package_id
     where wi.status in ('onTrack','delayed','notStarted')
       and wi.planned_start is not null and wi.planned_start <= current_date
-      and (wi.planned_end is null or wi.planned_end >= current_date - 2)
       and not exists (
         select 1 from progress_reports pr
         where pr.work_item_id = wi.id and pr.report_date >= current_date - 2
@@ -615,6 +657,19 @@ begin
           v_count := v_count + 1;
         end if;
       end;
+    elsif current_date > r.planned_end and r.qty_done < r.qty_plan then
+      -- Không có tiến độ nào trong 7 ngày qua và đã quá hạn — không thể
+      -- ước tính ngày về đích theo tốc độ, nhưng vẫn phải báo vì đây là
+      -- trường hợp nặng nhất (đứng yên + trễ hạn).
+      if not exists (
+        select 1 from alerts a where a.work_item_id = r.item_id and a.kind = 'forecast_delay'
+          and a.created_at >= current_date - 1
+      ) then
+        insert into alerts(project_id, work_item_id, kind, severity, message)
+        values (r.project_id, r.item_id, 'forecast_delay', 'critical',
+          format('"%s" đã quá hạn %s ngày và không có tiến độ trong 7 ngày qua', r.name, current_date - r.planned_end));
+        v_count := v_count + 1;
+      end if;
     end if;
   end loop;
 
@@ -664,7 +719,7 @@ begin
     where wi.qty_plan is not null and wi.qty_plan > 0
       and wi.planned_start is not null and wi.planned_end is not null
       and wi.status <> 'done'
-      and current_date between wi.planned_start and wi.planned_end
+      and current_date >= wi.planned_start
   loop
     declare
       v_total_days int := greatest(r.planned_end - r.planned_start, 1);
@@ -765,6 +820,12 @@ alter table work_package_template_items enable row level security;
 revoke all on all tables in schema public from anon;
 revoke all on all sequences in schema public from anon;
 
+-- Postgres tự cấp EXECUTE cho PUBLIC (nên anon cũng có) khi tạo hàm mới.
+-- Thu hồi hết rồi cấp lại đúng từng hàm ở dưới — nếu không, các hàm
+-- security definer không cố ý cho anon gọi (approve_report, reject_report,
+-- compute_alerts) vẫn bị gọi được vì không có dòng revoke nào chặn PUBLIC.
+revoke execute on all functions in schema public from public;
+
 grant select, insert, update, delete on
   subcontractors, projects, work_packages, work_items, dependencies,
   progress_reports, issues, crew_links, client_links, alerts,
@@ -786,9 +847,14 @@ create policy "staff full access" on work_package_template_items for all to auth
 -- progress_reports: staff xem/duyệt/trả lại và có thể nhập thay đội
 -- không dùng app. KHÔNG có policy insert cho anon — thầu phụ chỉ ghi
 -- được qua crew_submit() (security definer, bỏ qua RLS).
+-- KHÔNG có policy update trực tiếp — progress_reports là append-only,
+-- chỉ approve_report()/reject_report() (security invoker + kiểm tra
+-- riêng) được phép đổi status/approved_qty/reject_reason. Một policy
+-- update "using (true)" ở đây sẽ cho phép bất kỳ tài khoản đăng nhập
+-- nào ghi đè thẳng mọi cột qua supabase-js, phá vỡ bất biến append-only.
+drop policy if exists "staff update reports" on progress_reports;
 create policy "staff read reports" on progress_reports for select to authenticated using (true);
 create policy "staff insert reports" on progress_reports for insert to authenticated with check (true);
-create policy "staff update reports" on progress_reports for update to authenticated using (true) with check (true);
 
 create policy "staff manage own push" on push_subscriptions for all to authenticated
   using (staff_id = auth.uid()) with check (staff_id = auth.uid());
