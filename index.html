@@ -196,8 +196,8 @@
     <div class="modal-title">Nhập thay — <span id="staffReportItemName"></span></div>
     <input type="hidden" id="staffReportItemId">
     <div class="row-inline">
-      <div><span class="field-label">Khối lượng làm thêm</span><input type="number" id="staffReportQty" step="0.1"></div>
-      <div><span class="field-label">Số thợ có mặt</span><input type="number" id="staffReportCrewSize" step="1"></div>
+      <div><span class="field-label">Khối lượng làm thêm</span><input type="number" id="staffReportQty" step="0.1" min="0"></div>
+      <div><span class="field-label">Số thợ có mặt</span><input type="number" id="staffReportCrewSize" step="1" min="0"></div>
     </div>
     <div><span class="field-label">Ghi chú</span><textarea id="staffReportNote" rows="2"></textarea></div>
     <div><span class="field-label">Ảnh hiện trường</span><input type="file" id="staffReportPhoto" accept="image/*" multiple></div>
