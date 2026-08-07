@@ -1,7 +1,7 @@
 const CACHE = 'mda-progress-v2';
 const SHELL = [
   './', './index.html', './crew.html', './client.html', './manifest.json',
-  './config.js', './css/app.css', './icon-192.png', './icon-512.png',
+  './config.js', './css/app.css', './assets/logo-minh-duc.png', './icon-192.png', './icon-512.png',
   './vendor/supabase-js@2.45.4.min.js'
 ];
 
@@ -35,8 +35,8 @@ self.addEventListener('fetch', (e) => {
 // ---- Web Push ----
 self.addEventListener('push', (e) => {
   let payload = {};
-  try { payload = e.data ? e.data.json() : {}; } catch (err) { payload = { title: 'MDA Tiến độ', body: e.data ? e.data.text() : '' }; }
-  const title = payload.title || 'MDA Tiến độ';
+  try { payload = e.data ? e.data.json() : {}; } catch (err) { payload = { title: 'Minh Đức Tiến độ', body: e.data ? e.data.text() : '' }; }
+  const title = payload.title || 'Minh Đức Tiến độ';
   const options = {
     body: payload.body || '',
     icon: './icon-192.png',

@@ -6,6 +6,7 @@
 // ============================================================
 import { state } from './state.js';
 import { escapeHtml, showToast, displayDate, todayISO, db } from '../ui.js';
+import { renderTimeline } from '../timeline.js';
 
 let templates = [];        // work_package_templates + items, load 1 lần
 let currentPackages = [];  // work_packages của currentProjectId, kèm work_items lồng bên trong
@@ -56,13 +57,60 @@ export async function renderPackages() {
   currentPackages = data || [];
   flatItems = currentPackages.flatMap(p => (p.work_items || []).map(it => ({ ...it, packageName: p.name, subName: p.subcontractors?.name })));
 
+  renderCurrentPackages();
+}
+
+function renderCurrentPackages() {
+  const wrap = document.getElementById('packagesList');
+  if (!wrap) return;
+  syncItemsView();
+
   if (!currentPackages.length) {
     wrap.innerHTML = '<div class="empty-hint">Chưa có hạng mục nào. Bấm ＋ để thêm đội thầu phụ vào công trình.</div>';
     return;
   }
 
-  wrap.innerHTML = currentPackages.map(pkg => renderPackageCard(pkg)).join('');
-  wirePackageCards(wrap);
+  if (state.itemsView === 'timeline') {
+    const groups = currentPackages.map(pkg => ({
+      id: pkg.id,
+      title: `${tradeEmoji(pkg.trade)} ${pkg.subcontractors?.name || pkg.name}`,
+      subtitle: pkg.name,
+      rows: [...(pkg.work_items || [])].sort((a, b) => a.seq - b.seq).map(it => ({
+        id: it.id,
+        name: it.name,
+        start: it.planned_start,
+        end: it.planned_end,
+        qtyPlan: it.qty_plan,
+        qtyDone: it.qty_done,
+        percent: it.percent,
+        status: it.status,
+        meta: it.qty_plan ? `${it.qty_done}/${it.qty_plan} ${unitLabel(it.unit)}` : `${it.percent}%`
+      }))
+    }));
+    wrap.innerHTML = renderTimeline(groups, { project: currentProject() });
+    wireTimelineRows(wrap);
+  } else {
+    wrap.innerHTML = currentPackages.map(pkg => renderPackageCard(pkg)).join('');
+    wirePackageCards(wrap);
+  }
+}
+
+function syncItemsView() {
+  const timeline = state.itemsView === 'timeline';
+  const listButton = document.getElementById('btnItemsListView');
+  const timelineButton = document.getElementById('btnItemsTimelineView');
+  listButton?.classList.toggle('active', !timeline);
+  timelineButton?.classList.toggle('active', timeline);
+  listButton?.setAttribute('aria-pressed', String(!timeline));
+  timelineButton?.setAttribute('aria-pressed', String(timeline));
+  const exportSection = document.getElementById('itemsExportSection');
+  if (exportSection) exportSection.style.display = timeline ? 'none' : 'block';
+}
+
+function wireTimelineRows(wrap) {
+  wrap.querySelectorAll('[data-item-id]').forEach(row => {
+    row.onclick = () => openItemModal(null, row.dataset.itemId);
+  });
 }
 
 function renderPackageCard(pkg) {
@@ -86,7 +134,7 @@ function renderPackageCard(pkg) {
   `).join('') || '<div class="empty-hint" style="padding:16px 0;">Chưa có đầu việc</div>';
 
   return `
-    <div class="task-card" style="border-color:var(--brass);" data-package-id="${pkg.id}">
+    <div class="task-card" style="border-color:var(--primary);" data-package-id="${pkg.id}">
       <div class="task-top">
         <div>
           <div class="task-name">${tradeEmoji(pkg.trade)} ${escapeHtml(pkg.subcontractors?.name || pkg.name)}</div>
@@ -119,6 +167,15 @@ function wirePackageCards(wrap) {
 
 // ---------- Thêm hạng mục (work_package) ----------
 function wireStaticButtons() {
+  document.getElementById('btnItemsListView').onclick = () => {
+    state.itemsView = 'list';
+    renderCurrentPackages();
+  };
+  document.getElementById('btnItemsTimelineView').onclick = () => {
+    state.itemsView = 'timeline';
+    renderCurrentPackages();
+  };
+
   document.getElementById('btnNewPackage').onclick = openPackageModal;
   document.getElementById('btnPkgCancel').onclick = () => closeModal('packageModal');
   document.getElementById('btnPkgSave').onclick = savePackage;
@@ -153,7 +210,10 @@ function openPackageModal() {
   document.getElementById('pkgNewSubName').value = '';
   document.getElementById('pkgName').value = '';
   document.getElementById('pkgContractQty').value = '';
-  document.getElementById('pkgPlannedStart').value = todayISO();
+  const start = todayISO();
+  const projectEnd = currentProject()?.end_date || '';
+  document.getElementById('pkgPlannedStart').value = start;
+  document.getElementById('pkgPlannedEnd').value = projectEnd >= start ? projectEnd : start;
   fillTemplateOptions();
   document.getElementById('packageModal').classList.add('show');
 }
@@ -174,9 +234,11 @@ async function savePackage() {
   const contractQty = document.getElementById('pkgContractQty').value;
   const unit = document.getElementById('pkgUnit').value;
   const plannedStart = document.getElementById('pkgPlannedStart').value || null;
+  const plannedEnd = document.getElementById('pkgPlannedEnd').value || null;
   const templateId = document.getElementById('pkgTemplate').value;
 
   if (!existingSubId && !newSubName) { showToast('Chọn đội có sẵn hoặc nhập tên đội mới', true); return; }
+  if (dateRangeInvalid(plannedStart, plannedEnd)) { showToast('Ngày kết thúc hạng mục phải từ ngày bắt đầu trở đi', true); return; }
 
   let subId = existingSubId;
   if (!subId) {
@@ -188,7 +250,8 @@ async function savePackage() {
 
   const { data: wp, error: wpErr } = await state.supabase.from('work_packages').insert({
     project_id: state.currentProjectId, subcontractor_id: subId, trade, name,
-    contract_qty: contractQty ? Number(contractQty) : null, unit, planned_start: plannedStart
+    contract_qty: contractQty ? Number(contractQty) : null, unit,
+    planned_start: plannedStart, planned_end: plannedEnd
   }).select().single();
   if (wpErr) { showToast('Không tạo được hạng mục', true); return; }
 
@@ -204,7 +267,12 @@ async function savePackage() {
         planned_start: start.toISOString().slice(0, 10), planned_end: end.toISOString().slice(0, 10)
       };
     });
-    await state.supabase.from('work_items').insert(rows);
+    const { error: itemsErr } = await state.supabase.from('work_items').insert(rows);
+    if (itemsErr) {
+      const { error: cleanupErr } = await state.supabase.from('work_packages').delete().eq('id', wp.id);
+      showToast(cleanupErr ? 'Không tạo được checklist; hạng mục rỗng đã được giữ lại' : 'Không tạo được checklist; đã hoàn tác hạng mục', true);
+      return;
+    }
   }
 
   showToast('Đã tạo hạng mục');
@@ -245,11 +313,17 @@ async function saveItem() {
     planned_end: document.getElementById('itemPlannedEnd').value || null,
     status: document.getElementById('itemStatus').value
   };
-  if (id) {
-    await db(state.supabase.from('work_items').update(payload).eq('id', id), { successMsg: 'Đã lưu' });
-  } else {
-    await db(state.supabase.from('work_items').insert({ ...payload, work_package_id: packageId }), { successMsg: 'Đã thêm' });
+  if (dateRangeInvalid(payload.planned_start, payload.planned_end)) {
+    showToast('Ngày kết thúc đầu việc phải từ ngày bắt đầu trở đi', true);
+    return;
   }
+  let result;
+  if (id) {
+    result = await db(state.supabase.from('work_items').update(payload).eq('id', id), { successMsg: 'Đã lưu' });
+  } else {
+    result = await db(state.supabase.from('work_items').insert({ ...payload, work_package_id: packageId }), { successMsg: 'Đã thêm' });
+  }
+  if (result.error) return;
   closeModal('itemModal');
   renderPackages();
 }
@@ -320,17 +394,25 @@ function openProjectModal() {
 async function saveProject() {
   const name = document.getElementById('projName').value.trim();
   if (!name) { showToast('Nhập tên dự án', true); return; }
+  const startDate = document.getElementById('projStart').value;
+  const endDate = document.getElementById('projEnd').value;
+  if (!startDate || !endDate) { showToast('Nhập đủ ngày bắt đầu và dự kiến xong', true); return; }
+  if (dateRangeInvalid(startDate, endDate)) { showToast('Ngày kết thúc dự án phải từ ngày bắt đầu trở đi', true); return; }
   const { data, error } = await state.supabase.from('projects').insert({
     name, client_name: document.getElementById('projClient').value.trim(),
     address: document.getElementById('projAddress').value.trim(),
-    start_date: document.getElementById('projStart').value,
-    end_date: document.getElementById('projEnd').value
+    start_date: startDate,
+    end_date: endDate
   }).select().single();
   if (error) { showToast('Không tạo được dự án', true); return; }
   closeModal('projectModal');
   state.currentProjectId = data.id;
   showToast('Đã tạo dự án');
   renderProjectSelect();
+}
+
+function dateRangeInvalid(start, end) {
+  return Boolean(start && end && end < start);
 }
 
 // ---------- Phụ thuộc giữa các đầu việc ----------

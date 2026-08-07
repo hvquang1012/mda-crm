@@ -30,7 +30,7 @@ function fail(msg) {
 async function refresh(isFirst) {
   const { data, error } = await supabase.rpc('client_view', { p_token: token });
   if (error || !data) {
-    if (isFirst) fail('Link không hợp lệ hoặc đã hết hạn. Liên hệ MD Architects để lấy link mới.');
+    if (isFirst) fail('Link không hợp lệ hoặc đã hết hạn. Liên hệ Minh Đức để lấy link mới.');
     setOnlineDots(false, ['clientOnlineDot']);
     return;
   }

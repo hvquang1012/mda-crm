@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#B0812F">
+<meta name="theme-color" content="#4169E1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MDA Tiến độ">
+<meta name="apple-mobile-web-app-title" content="Minh Đức Tiến độ">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>MD Architects — Quản lý tiến độ thầu phụ</title>
+<title>Minh Đức — Quản lý tiến độ thầu phụ</title>
 <link rel="stylesheet" href="css/app.css">
 <script src="vendor/supabase-js@2.45.4.min.js"></script>
 <script src="config.js"></script>
@@ -19,8 +19,7 @@
 
   <!-- ===================== LOGIN ===================== -->
   <div id="loginScreen" class="screen active">
-    <div class="login-mark">M</div>
-    <div class="login-title">MD Architects</div>
+    <img class="login-logo" src="assets/logo-minh-duc.png" alt="Minh Đức">
     <div class="login-sub">Đăng nhập nhân viên — quản lý tiến độ thầu phụ</div>
     <div class="login-form">
       <input type="email" id="loginEmail" placeholder="Email nhân viên" autocomplete="username">
@@ -29,7 +28,7 @@
       <button class="btn btn-primary" id="btnLogin">Đăng nhập</button>
     </div>
     <div class="login-share-link">
-      Là khách hàng hoặc thầu phụ? Dùng link riêng do MD Architects gửi qua Zalo — không cần đăng nhập.
+      Là khách hàng hoặc thầu phụ? Dùng link riêng do Minh Đức gửi qua Zalo — không cần đăng nhập.
     </div>
   </div>
 
@@ -37,9 +36,8 @@
   <div id="mainScreen" class="screen">
     <div class="app-header">
       <div class="header-left">
-        <div class="header-mark">M</div>
-        <div><div class="header-title">MD Architects</div>
-          <div class="header-sub" id="staffName">Nhân viên</div></div>
+        <img class="header-logo" src="assets/logo-minh-duc.png" alt="Minh Đức">
+        <div class="header-user" id="staffName">Nhân viên</div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;">
         <span class="online-dot" id="staffOnlineDot"></span>
@@ -58,7 +56,7 @@
     <!-- ---- Tab: Duyệt ---- -->
     <div id="tabPanel-approvals" style="display:none;flex:1;overflow-y:auto;">
       <div class="list-wrap" style="padding-top:14px;">
-        <div class="section-label">Chờ duyệt <span id="approvalsCount" style="color:var(--brick);"></span></div>
+        <div class="section-label">Chờ duyệt <span id="approvalsCount" style="color:var(--danger);"></span></div>
         <div id="approvalsList"></div>
       </div>
     </div>
@@ -71,20 +69,26 @@
         <button class="icon-btn" id="btnDependencies" title="Phụ thuộc giữa các đầu việc">⛓</button>
         <button class="icon-btn" id="btnNewProject" title="Dự án mới">＋DA</button>
       </div>
+      <div class="items-view-switch" aria-label="Chế độ xem công việc">
+        <button type="button" id="btnItemsListView" class="active" aria-pressed="true">☰ Danh sách</button>
+        <button type="button" id="btnItemsTimelineView" aria-pressed="false">▥ Timeline</button>
+      </div>
       <div class="list-wrap" style="flex:1;overflow-y:auto;">
         <div class="section-label">
           Hạng mục
-          <button class="icon-btn" id="btnNewPackage" style="color:var(--brass-deep);font-weight:700;">＋ Thêm đội</button>
+          <button class="icon-btn" id="btnNewPackage" style="color:var(--primary-strong);font-weight:700;">＋ Thêm đội</button>
         </div>
         <div id="packagesList"></div>
 
-        <div class="section-label" style="margin-top:26px;">Xuất khối lượng nghiệm thu (kỳ)</div>
-        <div class="task-card">
-          <div class="row-inline">
-            <div><span class="field-label">Từ ngày</span><input type="date" id="exportFrom"></div>
-            <div><span class="field-label">Đến ngày</span><input type="date" id="exportTo"></div>
+        <div id="itemsExportSection">
+          <div class="section-label" style="margin-top:26px;">Xuất khối lượng nghiệm thu (kỳ)</div>
+          <div class="task-card">
+            <div class="row-inline">
+              <div><span class="field-label">Từ ngày</span><input type="date" id="exportFrom"></div>
+              <div><span class="field-label">Đến ngày</span><input type="date" id="exportTo"></div>
+            </div>
+            <button class="btn btn-ghost" id="btnExportCsv" style="margin-top:10px;width:100%;">⬇ Xuất file (mở bằng Excel)</button>
           </div>
-          <button class="btn btn-ghost" id="btnExportCsv" style="margin-top:10px;width:100%;">⬇ Xuất file (mở bằng Excel)</button>
         </div>
       </div>
     </div>
@@ -94,7 +98,7 @@
       <div class="list-wrap" style="padding-top:14px;">
         <div class="section-label">
           Cảnh báo tự động
-          <button class="icon-btn" id="btnCheckAlertsNow" style="color:var(--brass-deep);">Kiểm tra ngay</button>
+          <button class="icon-btn" id="btnCheckAlertsNow" style="color:var(--primary-strong);">Kiểm tra ngay</button>
         </div>
         <div id="alertsList"></div>
       </div>
@@ -152,7 +156,10 @@
         <select id="pkgUnit"><option value="m2">m²</option><option value="diem">điểm</option><option value="md">md</option><option value="tron_goi">trọn gói</option></select>
       </div>
     </div>
-    <div><span class="field-label">Ngày bắt đầu dự kiến</span><input type="date" id="pkgPlannedStart"></div>
+    <div class="row-inline">
+      <div><span class="field-label">Ngày bắt đầu dự kiến</span><input type="date" id="pkgPlannedStart"></div>
+      <div><span class="field-label">Dự kiến xong</span><input type="date" id="pkgPlannedEnd"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnPkgCancel">Huỷ</button>
       <button class="btn btn-primary" id="btnPkgSave">Tạo</button>

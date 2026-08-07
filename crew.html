@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#B0812F">
-<title>Báo tiến độ — MD Architects</title>
+<meta name="theme-color" content="#4169E1">
+<title>Báo tiến độ — Minh Đức</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="css/app.css">
@@ -16,7 +16,7 @@
 
   <!-- ===================== LỖI / LINK KHÔNG HỢP LỆ ===================== -->
   <div id="crewError" class="screen active" style="align-items:center;justify-content:center;padding:32px;text-align:center;">
-    <div class="login-mark">M</div>
+    <img class="login-logo compact" src="assets/logo-minh-duc.png" alt="Minh Đức">
     <div class="login-title">Không mở được</div>
     <div class="login-sub" id="crewErrorMsg">Đang kiểm tra link...</div>
   </div>
@@ -25,7 +25,7 @@
   <div id="crewMain" class="screen">
     <div class="app-header">
       <div class="header-left">
-        <div class="header-mark">M</div>
+        <img class="header-logo" src="assets/logo-minh-duc.png" alt="Minh Đức">
         <div><div class="header-title" id="crewProjectName">—</div>
           <div class="header-sub" id="crewSubName">—</div></div>
       </div>
@@ -55,11 +55,11 @@
               <input type="number" inputmode="numeric" id="crewSize" placeholder="VD: 3" min="0" step="1">
             </div>
             <div class="crew-field">
-              <label>Ghi chú <span style="color:var(--brick)">*</span></label>
+              <label>Ghi chú <span style="color:var(--danger)">*</span></label>
               <textarea id="crewNote" rows="3" placeholder="VD: đã lắp xong mặt bếp khu bếp chính, còn khu đảo bếp"></textarea>
             </div>
             <div class="crew-field">
-              <label>Ảnh hiện trường <span style="color:var(--brick)">*</span> (tối đa 4)</label>
+              <label>Ảnh hiện trường <span style="color:var(--danger)">*</span> (tối đa 4)</label>
               <label class="crew-photo-btn" for="crewPhotoInput">📷 Chụp ảnh / chọn ảnh</label>
               <input type="file" id="crewPhotoInput" accept="image/*" capture="environment" multiple style="display:none;">
               <div class="crew-photo-preview" id="crewPhotoPreview"></div>

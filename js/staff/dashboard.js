@@ -63,7 +63,7 @@ export async function renderDashboard() {
           <div class="wp-trade">${tradeLabel(wp.subcontractors?.trade)}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(wp.subcontractors?.name || wp.name)}</div>
-            <div class="wp-mini-track"><div class="wp-mini-fill ${statusClass(wp.status)}" style="width:${pct}%;background:var(--brass);"></div></div>
+            <div class="wp-mini-track"><div class="wp-mini-fill ${statusClass(wp.status)}" style="width:${pct}%;background:var(--primary);"></div></div>
           </div>
           <div class="wp-pct">${pct}%</div>
           ${warnMsg ? `<span class="wp-warn">${warnMsg}</span>` : ''}

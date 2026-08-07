@@ -166,7 +166,7 @@ async function loadHistory() {
       </div>
       <div class="task-meta">${new Date(r.created_at).toLocaleString('vi-VN')} · ${r.qty_delta || 0} ${r.crew_size ? '· ' + r.crew_size + ' thợ' : ''}</div>
       <div class="approval-note">${escapeHtml(r.note)}</div>
-      ${r.status === 'rejected' && r.reject_reason ? `<div class="task-meta" style="color:var(--brick)">Lý do trả lại: ${escapeHtml(r.reject_reason)}</div>` : ''}
+      ${r.status === 'rejected' && r.reject_reason ? `<div class="task-meta" style="color:var(--danger)">Lý do trả lại: ${escapeHtml(r.reject_reason)}</div>` : ''}
     </div>
   `).join('');
 }
