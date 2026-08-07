@@ -19,6 +19,12 @@ button,input,select,textarea{font-family:var(--font-sans);}
 /* ---------- Screens ---------- */
 .screen{display:none;flex:1;flex-direction:column;overflow:hidden;}
 .screen.active{display:flex;}
+.staff-workspace,.crew-workspace{display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;}
+.staff-content{display:flex;flex:1;min-width:0;min-height:0;overflow:hidden;}
+.staff-panel{flex:1;min-width:0;min-height:0;overflow-y:auto;}
+.staff-panel.active{display:block;}
+.staff-items-panel.active{display:flex;flex-direction:column;overflow:hidden;}
+.staff-panel[hidden],.crew-tab-panel[hidden]{display:none!important;}
 
 /* ---------- Login ---------- */
 #loginScreen{align-items:center;justify-content:center;padding:32px;text-align:center;}
@@ -209,6 +215,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
    thiết kế cho thợ đứng ngoài công trường, không phải bàn làm việc.
    ============================================================ */
 .crew-page{padding:18px 18px calc(100px + var(--safe-bottom));}
+.crew-content{min-width:0;min-height:0;}
+.crew-content .crew-page{padding-left:0;padding-right:0;}
 .crew-item-picker{margin-bottom:18px;}
 .crew-item-card{
   background:var(--paper);border:2px solid var(--line);border-radius:14px;padding:16px;margin-bottom:10px;
@@ -241,7 +249,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
    MÀN HÌNH CHỦ NHÀ (client.html)
    ============================================================ */
 .client-stage-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 15px;margin-bottom:10px;}
-.client-photo-album{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:6px 18px 100px;}
+.client-scroll{flex:1;min-height:0;overflow-y:auto;padding-bottom:calc(20px + var(--safe-bottom));}
+.client-workspace{padding:0 18px;}
+.client-photo-album{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:6px 0 80px;}
 .client-photo-album img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:var(--track);cursor:pointer;}
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:80;}
 .lightbox.show{display:flex;}
@@ -291,6 +301,105 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
 
 @supports not (color:color-mix(in srgb,black,white)){
   .timeline-bar{border-color:var(--primary);}
+}
+
+/* ============================================================
+   TABLET LỚN / DESKTOP — iPad Pro 12.9" bắt đầu từ 900px.
+   Mobile giữ nguyên thiết kế một cột phía trên.
+   ============================================================ */
+@media (min-width:900px){
+  .staff-app #app,.crew-app #app,.client-app #app{
+    width:100%;max-width:1600px;margin:0 auto;box-shadow:0 0 36px rgba(22,33,58,.08);
+  }
+  .staff-app #loginScreen .login-form{max-width:460px;}
+  .staff-app #loginScreen .login-share-link{max-width:540px;}
+  .app-header{padding:calc(16px + var(--safe-top)) 28px 14px;}
+  .header-logo{width:108px;max-height:44px;}
+  .header-user{max-width:280px;font-size:12px;}
+
+  /* Staff: rail gọn trên iPad dọc. */
+  .staff-workspace{flex-direction:row;}
+  .staff-content{order:1;}
+  .staff-app .bottom-nav{
+    order:0;flex:none;width:88px;flex-direction:column;gap:8px;padding:16px 8px;
+    border-top:0;border-right:1px solid var(--line);padding-bottom:16px;
+  }
+  .staff-app .bottom-nav button{
+    flex:none;width:100%;min-height:70px;padding:10px 4px;border-radius:12px;
+  }
+  .staff-app .bottom-nav button.active{background:var(--primary-soft);}
+  .staff-app .bottom-nav .dot{top:10px;right:13px;}
+  .staff-panel .list-wrap{padding:10px 28px 32px;}
+  .project-bar{padding:14px 28px;}
+  .project-bar select{min-width:0;}
+  .project-bar .icon-btn{min-height:44px;}
+  .items-view-switch{padding:10px 28px;}
+  .items-view-switch button{min-height:42px;}
+
+  /* Crew: rail + hai vùng chọn đầu việc / nhập báo cáo. */
+  .crew-workspace{flex-direction:row;}
+  .crew-tabs{
+    flex:none;width:88px;flex-direction:column;gap:8px;padding:16px 8px;
+    border-bottom:0;border-right:1px solid var(--line);
+  }
+  .crew-tabs button{
+    flex:none;width:100%;min-height:70px;padding:10px 5px;line-height:1.3;
+  }
+  .crew-content{padding:10px 28px 32px;}
+  .crew-page{
+    display:grid;grid-template-columns:minmax(280px,.9fr) minmax(360px,1.1fr);
+    gap:24px;align-items:start;padding-top:10px;padding-bottom:32px;
+  }
+  .crew-picker-pane,.crew-form{min-width:0;}
+  .crew-form{position:sticky;top:0;}
+  .crew-app .fab{right:max(28px,calc((100vw - 1600px)/2 + 28px));}
+  .crew-app .fab.secondary{bottom:32px;}
+
+  /* Client: một vùng cuộn, tiến độ và album đặt song song. */
+  .client-scroll{padding:0 28px 32px;}
+  .client-scroll .stats-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:18px 0;overflow:visible;}
+  .client-workspace{display:grid;grid-template-columns:minmax(0,3fr) minmax(300px,2fr);gap:24px;padding:0;align-items:start;}
+  .client-panel{min-width:0;}
+  .client-panel .section-label{margin-top:4px;}
+  .client-photo-album{grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:24px;}
+
+  /* Modal desktop/iPad là dialog giữa màn hình, mobile vẫn bottom sheet. */
+  .modal-backdrop{align-items:center;padding:24px;}
+  .modal-sheet{
+    max-width:640px;margin:auto;border-radius:20px;padding:24px;
+    max-height:calc(100dvh - 48px);
+  }
+  .toast{bottom:32px;}
+}
+
+@media (min-width:1280px){
+  /* Bung rail thành sidebar đầy đủ. */
+  .staff-app .bottom-nav{width:224px;padding:20px 12px;}
+  .staff-app .bottom-nav button{
+    min-height:48px;flex-direction:row;justify-content:flex-start;gap:12px;
+    padding:12px 14px;font-size:13px;text-align:left;
+  }
+  .staff-app .bottom-nav .ic{width:28px;font-size:20px;text-align:center;}
+  .staff-app .bottom-nav .dot{top:12px;right:16px;}
+
+  .crew-tabs{width:224px;padding:20px 12px;}
+  .crew-tabs button{
+    min-height:48px;text-align:left;padding:12px 14px;font-size:13px;
+  }
+
+  /* Card dashboard, duyệt, cảnh báo và hạng mục tận dụng hai cột. */
+  #dashboardList,#approvalsList,#alertsList,
+  #packagesList:not(.timeline-view),#crewHistoryList{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start;
+  }
+  #dashboardList > .project-summary-card,
+  #approvalsList > .approval-card,
+  #alertsList > .alert-item,
+  #packagesList:not(.timeline-view) > .task-card,
+  #crewHistoryList > .crew-history-item{margin-bottom:0;}
+  #dashboardList > .empty-hint,#approvalsList > .empty-hint,#alertsList > .empty-hint,
+  #packagesList > .empty-hint,#crewHistoryList > .empty-hint{grid-column:1/-1;}
+  .client-photo-album{grid-template-columns:repeat(3,minmax(0,1fr));}
 }
 
 @media (max-width:390px){

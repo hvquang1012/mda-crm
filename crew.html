@@ -11,7 +11,7 @@
 <script src="vendor/supabase-js@2.45.4.min.js"></script>
 <script src="config.js"></script>
 </head>
-<body>
+<body class="crew-app">
 <div id="app">
 
   <!-- ===================== LỖI / LINK KHÔNG HỢP LỆ ===================== -->
@@ -32,16 +32,19 @@
       <span class="online-dot" id="crewOnlineDot"></span>
     </div>
 
-    <div class="crew-tabs">
-      <button class="active" data-tab="report">📋 Báo tiến độ</button>
-      <button data-tab="history">🕒 Lịch sử</button>
-    </div>
+    <div class="crew-workspace">
+      <div class="crew-tabs" role="tablist" aria-label="Điều hướng báo cáo">
+        <button class="active" data-tab="report" role="tab" aria-selected="true">📋 Báo tiến độ</button>
+        <button data-tab="history" role="tab" aria-selected="false">🕒 Lịch sử</button>
+      </div>
 
-    <div class="list-wrap">
-      <div id="crewReportTab">
-        <div class="crew-page" style="padding-left:0;padding-right:0;">
-          <div class="section-label">Chọn đầu việc đang làm</div>
-          <div class="crew-item-picker" id="crewItemPicker"></div>
+      <div class="list-wrap crew-content">
+      <div id="crewReportTab" class="crew-tab-panel active" role="tabpanel">
+        <div class="crew-page">
+          <div class="crew-picker-pane">
+            <div class="section-label">Chọn đầu việc đang làm</div>
+            <div class="crew-item-picker" id="crewItemPicker"></div>
+          </div>
 
           <div class="crew-form" id="crewForm" style="display:none;">
             <div class="modal-title" style="margin:0;">Hôm nay làm được gì?</div>
@@ -69,9 +72,10 @@
         </div>
       </div>
 
-      <div id="crewHistoryTab" style="display:none;">
+      <div id="crewHistoryTab" class="crew-tab-panel" role="tabpanel" hidden>
         <div class="section-label">Báo cáo của đội</div>
         <div id="crewHistoryList"></div>
+      </div>
       </div>
     </div>
 

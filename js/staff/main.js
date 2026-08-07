@@ -60,7 +60,10 @@ const TABS = ['dashboard', 'approvals', 'items', 'alerts'];
 async function switchTab(tab) {
   state.activeTab = tab;
   TABS.forEach(t => {
-    document.getElementById('tabPanel-' + t).style.display = t === tab ? 'block' : 'none';
+    const panel = document.getElementById('tabPanel-' + t);
+    const active = t === tab;
+    panel.hidden = !active;
+    panel.classList.toggle('active', active);
     document.getElementById('nav-' + t).classList.toggle('active', t === tab);
   });
   if (tab === 'dashboard') await renderDashboard();

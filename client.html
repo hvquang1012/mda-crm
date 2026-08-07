@@ -11,7 +11,7 @@
 <script src="vendor/supabase-js@2.45.4.min.js"></script>
 <script src="config.js"></script>
 </head>
-<body>
+<body class="client-app">
 <div id="app">
 
   <div id="clientError" class="screen active" style="align-items:center;justify-content:center;padding:32px;text-align:center;">
@@ -29,13 +29,19 @@
       </div>
       <span class="online-dot" id="clientOnlineDot"></span>
     </div>
-    <div class="stats-strip" id="clientStats"></div>
-    <div class="list-wrap" style="padding-bottom:16px;">
-      <div class="section-label">Các giai đoạn thi công</div>
-      <div id="clientStageList"></div>
+    <div class="client-scroll">
+      <div class="stats-strip" id="clientStats"></div>
+      <div class="client-workspace">
+        <section class="client-panel">
+          <div class="section-label">Các giai đoạn thi công</div>
+          <div id="clientStageList"></div>
+        </section>
+        <section class="client-panel client-gallery-panel">
+          <div class="section-label">Hình ảnh công trình</div>
+          <div class="client-photo-album" id="clientPhotoAlbum"></div>
+        </section>
+      </div>
     </div>
-    <div class="section-label" style="padding:0 18px;">Hình ảnh công trình</div>
-    <div class="client-photo-album" id="clientPhotoAlbum"></div>
   </div>
 
 </div>

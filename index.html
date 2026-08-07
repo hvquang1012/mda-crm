@@ -14,7 +14,7 @@
 <script src="vendor/supabase-js@2.45.4.min.js"></script>
 <script src="config.js"></script>
 </head>
-<body>
+<body class="staff-app">
 <div id="app">
 
   <!-- ===================== LOGIN ===================== -->
@@ -45,8 +45,10 @@
       </div>
     </div>
 
+    <div class="staff-workspace">
+      <main class="staff-content">
     <!-- ---- Tab: Tổng quan ---- -->
-    <div id="tabPanel-dashboard" style="display:none;flex:1;overflow-y:auto;">
+    <div id="tabPanel-dashboard" class="staff-panel" hidden>
       <div class="list-wrap" style="padding-top:14px;">
         <div class="section-label">Tổng quan công trình</div>
         <div id="dashboardList"></div>
@@ -54,7 +56,7 @@
     </div>
 
     <!-- ---- Tab: Duyệt ---- -->
-    <div id="tabPanel-approvals" style="display:none;flex:1;overflow-y:auto;">
+    <div id="tabPanel-approvals" class="staff-panel" hidden>
       <div class="list-wrap" style="padding-top:14px;">
         <div class="section-label">Chờ duyệt <span id="approvalsCount" style="color:var(--danger);"></span></div>
         <div id="approvalsList"></div>
@@ -62,7 +64,7 @@
     </div>
 
     <!-- ---- Tab: Công việc ---- -->
-    <div id="tabPanel-items" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+    <div id="tabPanel-items" class="staff-panel staff-items-panel" hidden>
       <div class="project-bar">
         <select id="projectSelect"></select>
         <button class="icon-btn" id="btnClientLink" title="Lấy link cho chủ nhà">🔗 Khách</button>
@@ -94,7 +96,7 @@
     </div>
 
     <!-- ---- Tab: Cảnh báo ---- -->
-    <div id="tabPanel-alerts" style="display:none;flex:1;overflow-y:auto;">
+    <div id="tabPanel-alerts" class="staff-panel" hidden>
       <div class="list-wrap" style="padding-top:14px;">
         <div class="section-label">
           Cảnh báo tự động
@@ -104,11 +106,14 @@
       </div>
     </div>
 
-    <div class="bottom-nav">
+      </main>
+
+    <nav class="bottom-nav" aria-label="Điều hướng nhân viên">
       <button id="nav-dashboard" class="active"><span class="ic">🏠</span>Tổng quan</button>
       <button id="nav-approvals"><span class="ic">✅</span>Duyệt<span class="dot" id="approvalsNavDot" style="display:none;"></span></button>
       <button id="nav-items"><span class="ic">📋</span>Công việc</button>
       <button id="nav-alerts"><span class="ic">🔔</span>Cảnh báo</button>
+    </nav>
     </div>
   </div>
 

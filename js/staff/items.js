@@ -97,6 +97,7 @@ function renderCurrentPackages() {
 
 function syncItemsView() {
   const timeline = state.itemsView === 'timeline';
+  document.getElementById('packagesList')?.classList.toggle('timeline-view', timeline);
   const listButton = document.getElementById('btnItemsListView');
   const timelineButton = document.getElementById('btnItemsTimelineView');
   listButton?.classList.toggle('active', !timeline);

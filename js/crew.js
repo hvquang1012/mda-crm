@@ -199,11 +199,18 @@ document.getElementById('btnIssueSubmit').onclick = async () => {
 // ---- Tabs ----
 document.querySelectorAll('.crew-tabs button').forEach(btn => {
   btn.onclick = () => {
-    document.querySelectorAll('.crew-tabs button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.querySelectorAll('.crew-tabs button').forEach(b => {
+      const active = b === btn;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', String(active));
+    });
     state.tab = btn.dataset.tab;
-    document.getElementById('crewReportTab').style.display = state.tab === 'report' ? 'block' : 'none';
-    document.getElementById('crewHistoryTab').style.display = state.tab === 'history' ? 'block' : 'none';
+    const reportPanel = document.getElementById('crewReportTab');
+    const historyPanel = document.getElementById('crewHistoryTab');
+    reportPanel.hidden = state.tab !== 'report';
+    historyPanel.hidden = state.tab !== 'history';
+    reportPanel.classList.toggle('active', state.tab === 'report');
+    historyPanel.classList.toggle('active', state.tab === 'history');
     if (state.tab === 'history') loadHistory();
   };
 });
