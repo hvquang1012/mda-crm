@@ -5,7 +5,6 @@
 // ============================================================
 import { initSupabase } from './supabase.js';
 import { showToast, showScreen, escapeHtml, setOnlineDots } from './ui.js';
-import { prepareImage } from './photos.js';
 
 const { client: supabase, ready } = initSupabase();
 const token = new URLSearchParams(location.search).get('t');
@@ -84,6 +83,13 @@ document.getElementById('crewPhotoInput').addEventListener('change', (e) => {
   const files = Array.from(e.target.files || []);
   for (const f of files) {
     if (state.photoFiles.length >= 4) { showToast('Tối đa 4 ảnh mỗi lần báo', true); break; }
+    // Chặn ngay lúc chọn, đừng để thợ gõ xong ghi chú rồi mới báo lỗi.
+    // Không dựa hẳn vào f.type: Windows để trống type cho .heic/.dng,
+    // kiểm tra thật bằng byte đầu file diễn ra lúc gửi (js/convert.js).
+    if (!/^image\//i.test(f.type || '') && !/\.(jpe?g|png|heic|heif|dng|tiff?|webp)$/i.test(f.name || '')) {
+      showToast(`"${f.name}" không phải ảnh`, true);
+      continue;
+    }
     state.photoFiles.push(f);
   }
   e.target.value = '';
@@ -98,6 +104,12 @@ function renderPhotoPreview() {
     div.className = 'thumb';
     const url = URL.createObjectURL(f);
     div.innerHTML = `<img src="${url}"><button class="rm" data-i="${i}">✕</button>`;
+    // Máy tính không xem trước được HEIC/DNG — thay bằng nhãn thay vì để
+    // ô ảnh vỡ, ảnh vẫn gửi được vì được chuyển đổi lúc gửi.
+    div.querySelector('img').onerror = (ev) => {
+      ev.target.remove();
+      div.insertAdjacentHTML('afterbegin', '<span class="thumb-fallback">Ảnh iPhone<br>đã chọn</span>');
+    };
     wrap.appendChild(div);
   });
   wrap.querySelectorAll('.rm').forEach(btn => {
@@ -120,10 +132,15 @@ document.getElementById('crewSubmitBtn').onclick = async () => {
   try {
     const uploadedFn = (await import('./photos.js')).uploadCrewPhoto;
     const photos = [];
-    for (const f of state.photoFiles) {
+    const total = state.photoFiles.length;
+    for (const [i, f] of state.photoFiles.entries()) {
+      // Ảnh HEIC/RAW phải chuyển đổi trước khi gửi, mất vài giây mỗi
+      // tấm — không đếm số thì thợ tưởng treo máy và bấm lại.
+      btn.textContent = `Đang gửi ảnh ${i + 1}/${total}...`;
       const p = await uploadedFn(supabase, token, f);
       photos.push(p);
     }
+    btn.textContent = 'Đang lưu báo cáo...';
     const { error } = await supabase.rpc('crew_submit', {
       p_token: token,
       p_item_id: state.selectedItemId,
@@ -146,7 +163,9 @@ document.getElementById('crewSubmitBtn').onclick = async () => {
     loadHistory();
   } catch (e) {
     console.error(e);
-    showToast('Gửi thất bại — kiểm tra kết nối và thử lại', true);
+    // Hiện đúng lý do (ảnh HEIC, link hết hạn, mất sóng...) thay vì một
+    // câu chung — thợ ở công trường không mở được console để xem.
+    showToast(e?.message || 'Gửi thất bại — kiểm tra kết nối và thử lại', true);
   } finally {
     btn.disabled = false; btn.textContent = 'GỬI BÁO CÁO';
   }

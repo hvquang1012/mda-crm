@@ -212,7 +212,8 @@
       <div><span class="field-label">Số thợ có mặt</span><input type="number" id="staffReportCrewSize" step="1" min="0"></div>
     </div>
     <div><span class="field-label">Ghi chú</span><textarea id="staffReportNote" rows="2"></textarea></div>
-    <div><span class="field-label">Ảnh hiện trường</span><input type="file" id="staffReportPhoto" accept="image/*" multiple></div>
+    <div><span class="field-label">Ảnh hiện trường</span><input type="file" id="staffReportPhoto" accept="image/*,.heic,.heif,.dng" multiple>
+      <div class="field-hint">Nhận cả ảnh HEIC và RAW/DNG của iPhone — hệ thống tự chuyển sang JPEG khi gửi.</div></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnStaffReportCancel">Huỷ</button>
       <button class="btn btn-primary" id="btnStaffReportSave">Lưu</button>

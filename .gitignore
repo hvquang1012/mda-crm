@@ -10,6 +10,7 @@ supabase/.branches/
 .DS_Store
 Thumbs.db
 .vscode/
+.claude/
 
 # Node (nếu sau này thêm tooling)
 node_modules/

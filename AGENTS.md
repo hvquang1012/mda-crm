@@ -80,6 +80,8 @@ Mỗi hàm **bắt buộc** có đủ:
 
 **Nén ảnh phía client là bắt buộc.** `js/photos.js`: bản chính 1280px/q0.7 (~150KB) + thumbnail 400px/q0.6 (~30KB). Ảnh gốc điện thoại 3–5MB sẽ đốt hết 1GB gói free trong vài tuần.
 
+**Ảnh vào có thể không phải JPEG.** iPhone mặc định chụp **HEIC**, chế độ ProRAW cho **DNG** — Chrome/Edge trên máy tính không mở được cả hai, `<img>` và `createImageBitmap` đều thất bại. `js/convert.js` xử lý: nhận dạng bằng byte đầu file (không tin `file.type`, Windows để trống), HEIC giải mã bằng `vendor/libheif@1.18.2.js` (WebAssembly, tải lười — chỉ khi trình duyệt không tự mở được), DNG thì bóc ảnh JPEG xem trước nhúng sẵn bên trong thay vì giải mã raw. Đầu ra luôn là JPEG nên tầng duyệt và tầng chủ nhà không cần biết. 🚩 Đừng chuyển `libheif` sang precache trong `sw.js` — 960KB đó chỉ một số máy cần.
+
 **`daysUntil()` không được kẹp về 0.** Số âm nghĩa là đã trễ và phải hiển thị được ("trễ 6 ngày"). Bản v1 dùng `Math.max(0, ...)` che mất thông tin quan trọng nhất.
 
 ---

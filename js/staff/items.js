@@ -357,14 +357,18 @@ async function saveStaffReport() {
 
   const item = flatItems.find(i => i.id === itemId);
   const pkg = currentPackages.find(p => (p.work_items || []).some(i => i.id === itemId));
+  if (!pkg) { showToast('Không tìm thấy hạng mục của đầu việc — tải lại trang', true); return; }
   const btn = document.getElementById('btnStaffReportSave');
   btn.disabled = true; btn.textContent = 'Đang lưu...';
   try {
     const { uploadStaffPhoto } = await import('../photos.js');
     const photos = [];
-    for (const f of fileInput.files) {
+    const files = Array.from(fileInput.files);
+    for (const [i, f] of files.entries()) {
+      btn.textContent = `Đang gửi ảnh ${i + 1}/${files.length}...`;
       photos.push(await uploadStaffPhoto(state.supabase, f, state.currentProjectId, pkg.subcontractor_id));
     }
+    btn.textContent = 'Đang lưu...';
     const { error } = await state.supabase.from('progress_reports').insert({
       work_item_id: itemId, reporter_kind: 'staff', staff_id: state.user.id,
       reporter_name: state.user.email, qty_delta: qty ? Number(qty) : 0,
@@ -375,7 +379,7 @@ async function saveStaffReport() {
     closeModal('staffReportModal');
   } catch (e) {
     console.error(e);
-    showToast('Lưu thất bại', true);
+    showToast(e?.message || 'Lưu thất bại', true);
   } finally {
     btn.disabled = false; btn.textContent = 'Lưu';
   }
