@@ -6,6 +6,7 @@ export const state = {
   staffRole: 'kts',       // kts | manager | admin — đọc từ bảng staff lúc đăng nhập
   projects: [],           // toàn bộ dự án thấy được, dùng cho dashboard + project switcher
   subcontractors: [],
+  templates: [],          // mẫu đầu việc kèm items — items.js nạp, wizard.js dùng chung
   currentProjectId: null, // dự án đang chọn ở tab "Công việc"
   itemsView: 'list',      // list | timeline — giữ khi realtime render lại
   activeTab: 'dashboard',

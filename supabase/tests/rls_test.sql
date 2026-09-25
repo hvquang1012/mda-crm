@@ -77,3 +77,12 @@ select crew_submit('tok','55555555-5555-5555-5555-555555555555',1,2,'x','[{"path
 select 'lịch sử có work_item_id' t, (crew_my_reports('tok')->0->>'work_item_id') is not null as ok;
 reset role;
 select 'số báo cáo client_ref' t, count(*) from progress_reports where client_ref is not null;
+
+-- Dời lịch hạng mục
+set role authenticated; set request.jwt.claim.role='authenticated'; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'K1 dời lịch +3 ngày' t, shift_package_schedule('44444444-4444-4444-4444-444444444444', 3);
+select 'ngày kết thúc mới = hôm nay + 3' t, planned_end = current_date + 3 as ok from work_items;
+reset role; insert into auth.users(id,email) values ('aaaaaaaa-0000-0000-0000-000000000004','k3@x');
+set role authenticated; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000004';
+select 'K3 (không phụ trách) dời lịch (phải lỗi forbidden)' t; select shift_package_schedule('44444444-4444-4444-4444-444444444444', 3);
+reset role;

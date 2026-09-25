@@ -1064,6 +1064,25 @@ select cron.schedule('mda-compute-alerts-afternoon', '0 15 * * *', $$select comp
 -- $$);
 
 -- ============================================================
+-- DỜI LỊCH CẢ HẠNG MỤC — thầu phụ vào trễ / sớm N ngày thì dời toàn bộ
+-- đầu việc cùng lúc, thay vì sửa tay từng ngày. security invoker: RLS
+-- quyết định ai được dời (KTS chỉ dời được công trình mình phụ trách).
+-- ============================================================
+create or replace function shift_package_schedule(p_package_id uuid, p_days int)
+returns void
+language plpgsql security invoker set search_path = public as $$
+begin
+  if p_days is null or p_days = 0 then return; end if;
+  if abs(p_days) > 365 then raise exception 'invalid_shift'; end if;
+  update work_packages set planned_start = planned_start + p_days, planned_end = planned_end + p_days
+    where id = p_package_id;
+  if not found then raise exception 'forbidden'; end if;
+  update work_items set planned_start = planned_start + p_days, planned_end = planned_end + p_days
+    where work_package_id = p_package_id;
+end;
+$$;
+
+-- ============================================================
 -- DASHBOARD QUẢN LÝ — một lần gọi trả đủ số liệu cho tab Tổng quan.
 -- security invoker: chạy bằng quyền người gọi nên RLS tự lọc — KTS chỉ
 -- thấy số liệu công trình mình phụ trách, quản lý thấy tất cả.
@@ -1433,6 +1452,7 @@ grant execute on function reject_report_group(uuid[], text) to authenticated;
 grant execute on function compute_alerts() to authenticated; -- nút "Kiểm tra ngay" thủ công
 grant execute on function dashboard_summary() to authenticated;
 grant execute on function set_staff_role(uuid, text) to authenticated;
+grant execute on function shift_package_schedule(uuid, int) to authenticated;
 -- Dùng bên trong policy — người gọi (authenticated) phải được thực thi
 grant execute on function is_manager() to authenticated;
 grant execute on function can_access_project(uuid) to authenticated;

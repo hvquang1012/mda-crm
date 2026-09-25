@@ -70,6 +70,7 @@
         <select id="projectSelect"></select>
         <button class="icon-btn" id="btnClientLink" title="Lấy link cho chủ nhà">🔗 Khách</button>
         <button class="icon-btn" id="btnDependencies" title="Phụ thuộc giữa các đầu việc">⛓</button>
+        <button class="icon-btn" id="btnMembers" title="KTS phụ trách công trình" hidden>👥</button>
         <button class="icon-btn new-project-btn" id="btnNewProject" title="Tạo dự án mới">＋ Dự án</button>
       </div>
       <div class="items-view-switch" aria-label="Chế độ xem công việc">
@@ -126,21 +127,42 @@
 
 </div>
 
-<!-- ===================== MODAL: DỰ ÁN MỚI ===================== -->
-<div class="modal-backdrop" id="projectModal">
+<!-- ===================== MODAL: TẠO CÔNG TRÌNH (3 BƯỚC) ===================== -->
+<div class="modal-backdrop" id="wizardModal">
   <div class="modal-sheet">
-    <div class="modal-title">Dự án mới</div>
-    <div><span class="field-label">Tên dự án</span><input type="text" id="projName" placeholder="VD: Nhà anh Minh — Vinhomes Ocean Park"></div>
-    <div><span class="field-label">Tên chủ nhà</span><input type="text" id="projClient"></div>
-    <div><span class="field-label">Địa chỉ</span><input type="text" id="projAddress"></div>
-    <div class="row-inline">
-      <div><span class="field-label">Bắt đầu</span><input type="date" id="projStart"></div>
-      <div><span class="field-label">Dự kiến xong</span><input type="date" id="projEnd"></div>
-    </div>
+    <div class="modal-title">Tạo công trình mới</div>
+    <ol class="wizard-steps" id="wizardSteps">
+      <li data-step="1">Thông tin</li><li data-step="2">Các đội</li><li data-step="3">Xem lịch & tạo</li>
+    </ol>
+    <div class="wizard-body" id="wizardBody"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" id="btnProjCancel">Huỷ</button>
-      <button class="btn btn-primary" id="btnProjSave">Tạo</button>
+      <button class="btn btn-ghost" id="btnWizardBack">Huỷ</button>
+      <button class="btn btn-primary" id="btnWizardNext">Tiếp →</button>
     </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: DÁN ĐẦU VIỆC TỪ EXCEL ===================== -->
+<div class="modal-backdrop" id="pasteModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Dán đầu việc — <span id="pastePackageLabel"></span></div>
+    <div class="field-hint" style="margin-top:0;">Trong Excel / Google Sheets, bôi đen các cột <b>Tên · Đơn vị · Khối lượng · Bắt đầu · Kết thúc</b> rồi Copy, dán vào ô dưới. Chỉ cột Tên là bắt buộc. Ngày dạng 25/9/2026.</div>
+    <textarea id="pasteInput" rows="6" placeholder="Lắp đá mặt bếp	m2	12.5	1/10/2026	4/10/2026&#10;Lắp lavabo	điểm	3	5/10/2026	5/10/2026"></textarea>
+    <div id="pastePreview"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnPasteCancel">Huỷ</button>
+      <button class="btn btn-primary" id="btnPasteSave" disabled>Thêm đầu việc</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: THÀNH VIÊN CÔNG TRÌNH ===================== -->
+<div class="modal-backdrop" id="membersModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Ai phụ trách — <span id="membersProjectLabel"></span></div>
+    <div class="field-hint" style="margin-top:0;">KTS chỉ thấy và duyệt được công trình được tick. Quản lý / Quản trị luôn thấy tất cả.</div>
+    <div id="membersList"></div>
+    <div class="modal-actions"><button class="btn btn-primary" id="btnMembersClose" style="flex:none;width:100%;">Xong</button></div>
   </div>
 </div>
 
@@ -245,19 +267,18 @@
 <!-- ===================== MODAL: LINK ZALO CHO ĐỘI ===================== -->
 <div class="modal-backdrop" id="crewLinkModal">
   <div class="modal-sheet">
-    <div class="modal-title">Tạo link cho <span id="crewLinkPackageLabel"></span></div>
+    <div class="modal-title">Link báo tiến độ — <span id="crewLinkPackageLabel"></span></div>
     <input type="hidden" id="crewLinkPackageId">
-    <div><span class="field-label">Tên người nhận link (không bắt buộc)</span><input type="text" id="crewLinkPersonName" placeholder="VD: anh Sơn"></div>
-    <div>
-      <span class="field-label">Vai trò</span>
-      <select id="crewLinkRole"><option value="crew">Công nhân</option><option value="manager">Quản lý đội</option></select>
+    <div class="field-label">Link đang dùng</div>
+    <div id="crewLinkList"></div>
+    <div class="field-label" style="margin-top:8px;">Cấp link mới</div>
+    <div class="row-inline">
+      <div><input type="text" id="crewLinkPersonName" placeholder="Tên người nhận (VD: anh Sơn)"></div>
+      <div style="flex:none;width:150px;">
+        <select id="crewLinkRole"><option value="manager">Quản lý đội</option><option value="crew">Công nhân</option></select>
+      </div>
     </div>
-    <button class="btn btn-primary" id="btnCrewLinkGenerate">Tạo link</button>
-    <div id="crewLinkResult" style="display:none;">
-      <div class="field-label">Link — gửi qua Zalo cho đội</div>
-      <div class="approval-note" id="crewLinkUrl" style="word-break:break-all;"></div>
-      <button class="btn btn-ghost" id="btnCrewLinkCopy" style="width:100%;margin-top:8px;">📋 Copy link</button>
-    </div>
+    <button class="btn btn-primary" id="btnCrewLinkGenerate">＋ Tạo & gửi qua Zalo</button>
     <div class="modal-actions"><button class="btn btn-ghost" id="btnCrewLinkCancel" style="flex:none;width:100%;">Đóng</button></div>
   </div>
 </div>
