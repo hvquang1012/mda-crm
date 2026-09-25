@@ -115,6 +115,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
 .header-title{font-weight:800;font-size:17px;letter-spacing:-.015em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .header-sub{font-size:11px;color:var(--on-grad-soft);}
 .header-user{max-width:128px;color:var(--on-grad-soft);font-weight:600;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Tên ở đầu trang = nút mở "Cài đặt tài khoản" */
+button.header-user{display:block;background:none;border:0;padding:4px 0;margin:0;font-family:inherit;text-align:left;cursor:pointer;
+  text-decoration:underline dotted rgba(255,255,255,.45);text-underline-offset:3px;}
+button.header-user::before{content:"⚙ ";text-decoration:none;display:inline;}
+button.header-user:hover{color:var(--on-grad);}
 .online-dot{flex:none;width:10px;height:10px;border-radius:50%;background:#4ADE80;box-shadow:0 0 0 3px rgba(255,255,255,.28);}
 .online-dot.off{background:#FB7185;box-shadow:0 0 0 3px rgba(255,255,255,.28);}
 .logout-btn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);color:var(--on-grad);font-size:12px;font-weight:700;
@@ -399,6 +404,11 @@ button.dash-chip{cursor:pointer;}
 .member-check input{width:20px;height:20px;accent-color:var(--primary-strong);}
 .member-row select{width:auto;padding:7px 10px;font-size:13px;}
 .member-role{font-size:12px;color:var(--ink-soft);}
+.zalo-btn{flex:none;display:inline-flex;align-items:center;padding:5px 12px;border-radius:var(--pill);background:var(--primary-soft);
+  color:var(--primary-strong);font-size:12px;font-weight:800;text-decoration:none;}
+.zalo-btn:hover{background:var(--primary);color:#fff;}
+.profile-zalo{display:inline-block;margin-top:8px;font-size:13px;font-weight:700;color:var(--primary);text-decoration:none;}
+.profile-zalo[hidden]{display:none;}
 
 /* Lightbox dùng chung (js/lightbox.js) */
 .lightbox .lb-btn{position:absolute;border:none;background:rgba(255,255,255,.14);color:#fff;border-radius:50%;

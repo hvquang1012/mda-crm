@@ -10,7 +10,7 @@
     { id: 'i3', work_package_id: 'wp2', name: 'Kéo dây, đấu hộp', seq: 1, unit: 'diem', qty_plan: 40, qty_done: 40, percent: 100, status: 'done', planned_start: d(-10), planned_end: d(-3) },
   ];
   const tables = {
-    staff: [{ id: 'u1', full_name: 'Quang (Quản trị)', role: 'admin' }, { id: 'u2', full_name: 'KTS Lan', role: 'kts' }],
+    staff: [{ id: 'u1', full_name: 'Quang (Quản trị)', role: 'admin' }, { id: 'u2', full_name: 'KTS Lan', role: 'kts', phone: '0912345678' }],
     project_members: [{ project_id: P1, staff_id: 'u2' }],
     projects: [
       { id: P1, name: 'Nhà anh Minh — Ocean Park', client_name: 'Anh Minh', start_date: d(-20), end_date: d(25), status: 'active', created_at: '2026-09-01' },

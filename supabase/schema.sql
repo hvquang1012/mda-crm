@@ -225,6 +225,10 @@ create table if not exists staff (
 alter table staff drop constraint if exists staff_role_check;
 alter table staff add constraint staff_role_check check (role in ('staff','kts','manager','admin'));
 alter table staff alter column role set default 'kts';
+-- Số điện thoại (0xxxxxxxxx) — hộp "Cài đặt tài khoản", nút Zalo ở danh sách nhân viên.
+alter table staff add column if not exists phone text;
+alter table staff drop constraint if exists staff_phone_check;
+alter table staff add constraint staff_phone_check check (phone is null or phone ~ '^0[0-9]{9}$');
 
 -- Người tạo công trình — KTS tạo xong phải thấy ngay công trình của mình.
 alter table projects add column if not exists created_by uuid references auth.users(id) on delete set null default auth.uid();
@@ -1412,12 +1416,12 @@ grant select, insert, update, delete on
 to authenticated;
 grant select on photo_archive to authenticated;  -- chỉ Edge Function (service_role) được ghi
 
--- staff: ai cũng đọc được danh sách, chỉ tự sửa được TÊN của mình.
--- Cột role chỉ đổi qua set_staff_role() — nếu cho update cả dòng, KTS
--- tự nâng mình thành admin là thấy hết mọi công trình.
+-- staff: ai cũng đọc được danh sách, chỉ tự sửa được TÊN + SỐ ĐIỆN THOẠI
+-- của mình. Cột role chỉ đổi qua set_staff_role() — nếu cho update cả
+-- dòng, KTS tự nâng mình thành admin là thấy hết mọi công trình.
 revoke all on staff from authenticated;
 grant select on staff to authenticated;
-grant update (full_name) on staff to authenticated;
+grant update (full_name, phone) on staff to authenticated;
 
 -- Xoá policy cũ trước khi tạo lại — "create policy" không idempotent.
 drop policy if exists "staff full access" on subcontractors;

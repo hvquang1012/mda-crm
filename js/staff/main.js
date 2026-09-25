@@ -11,6 +11,7 @@ import { renderAlerts, wireCheckNowButton, refreshIssuesBadge } from './alerts.j
 import { initItemsTab, renderProjectSelect, renderPackages } from './items.js';
 import { wireExportButton } from './export.js';
 import { setupPush, pushState } from '../push.js';
+import { renderStaffName, openProfileModal } from './profile.js';
 
 const { client: supabase, ready } = initSupabase();
 state.supabase = supabase;
@@ -38,6 +39,8 @@ document.getElementById('btnLogin').onclick = async () => {
   await enterStaffApp();
 };
 
+document.getElementById('staffName').onclick = openProfileModal;
+
 document.getElementById('btnLogout').onclick = async () => {
   await supabase.auth.signOut();
   location.reload();
@@ -58,10 +61,11 @@ async function enterStaffApp() {
 // Vai trò quyết định KTS chỉ thấy công trình được giao (RLS lọc ở DB,
 // ở đây chỉ để ẩn/hiện nút quản trị).
 async function loadStaffProfile() {
-  const { data } = await supabase.from('staff').select('full_name, role').eq('id', state.user.id).maybeSingle();
+  // select('*') — chưa chạy migration thêm cột phone thì vẫn không lỗi
+  const { data } = await supabase.from('staff').select('*').eq('id', state.user.id).maybeSingle();
+  state.profile = data || {};
   state.staffRole = data?.role === 'staff' ? 'kts' : (data?.role || 'kts');
-  const roleVi = { kts: 'KTS', manager: 'Quản lý', admin: 'Quản trị' }[state.staffRole] || '';
-  document.getElementById('staffName').textContent = (data?.full_name || state.user.email) + (roleVi ? ' · ' + roleVi : '');
+  renderStaffName();
   document.body.classList.toggle('is-manager', state.staffRole === 'manager' || state.staffRole === 'admin');
 }
 
