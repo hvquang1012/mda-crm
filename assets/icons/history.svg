@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" fill="none">
+  <!-- Lịch sử: đồng hồ + vòng mũi tên quay ngược -->
+  <defs>
+    <clipPath id="face"><circle cx="34" cy="36" r="15"/></clipPath>
+  </defs>
+  <g id="fills">
+    <path d="M15.8 25.5A21 21 0 1 1 15.8 46.5" stroke="#1E1E24" stroke-width="10" stroke-linecap="round"/>
+    <path d="M15.8 25.5A21 21 0 1 1 15.8 46.5" stroke="#4CC9F0" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="34" cy="36" r="15" fill="#FFD166"/>
+  </g>
+  <g id="shadows">
+    <rect x="0" y="44" width="64" height="10" fill="#E9B443" clip-path="url(#face)"/>
+  </g>
+  <g id="details">
+    <path d="M9.3 21.8L22.3 29.2L11.3 33.3Z" fill="#EF476F"/>
+  </g>
+  <g id="strokes" stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="34" cy="36" r="15"/>
+    <path d="M9.3 21.8L22.3 29.2L11.3 33.3Z"/>
+    <path d="M34 25.5V27.5M44.5 36H42.5M34 46.5V44.5M23.5 36H25.5" stroke-width="2"/>
+    <path d="M34 36V28.5M34 36L40 39.5"/>
+  </g>
+  <g id="details-top">
+    <circle cx="34" cy="36" r="2.6" fill="#EF476F" stroke="#1E1E24" stroke-width="1.5"/>
+  </g>
+  <g id="highlights" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round">
+    <path d="M24.2 32Q25.6 27 30.2 24.8"/>
+    <path d="M40.5 16.2Q44.5 17.3 47.4 19.6" stroke-width="1.5"/>
+  </g>
+  <g id="accents">
+    <path d="M55 3.5Q55 8 59.5 8Q55 8 55 12.5Q55 8 50.5 8Q55 8 55 3.5Z" fill="#1E1E24" stroke="#1E1E24" stroke-width="1.2" stroke-linejoin="round"/>
+    <circle cx="8" cy="53" r="1.8" fill="#1E1E24"/>
+    <circle cx="59" cy="57" r="1.4" fill="#1E1E24"/>
+  </g>
+</svg>

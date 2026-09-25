@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" fill="none">
+  <!-- Duyệt: bìa kẹp hồ sơ + huy hiệu dấu tích -->
+  <defs>
+    <clipPath id="board"><rect x="9" y="10" width="36" height="46" rx="6"/></clipPath>
+    <clipPath id="badge"><circle cx="45" cy="45" r="11"/></clipPath>
+  </defs>
+  <g id="fills">
+    <rect x="9" y="10" width="36" height="46" rx="6" fill="#FFD166"/>
+  </g>
+  <g id="shadows">
+    <rect x="0" y="50" width="64" height="8" fill="#E9B443" clip-path="url(#board)"/>
+  </g>
+  <g id="details">
+    <rect x="14" y="16" width="26" height="34" rx="3" fill="#FFFFFF"/>
+    <rect x="14" y="46" width="26" height="4" fill="#E4E7F6"/>
+    <rect x="19" y="6" width="16" height="9" rx="3" fill="#EF476F"/>
+    <rect x="19" y="11.5" width="16" height="3.5" fill="#C9345A"/>
+  </g>
+  <g id="strokes" stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9" y="10" width="36" height="46" rx="6"/>
+    <rect x="14" y="16" width="26" height="34" rx="3" stroke-width="2.5"/>
+    <rect x="19" y="6" width="16" height="9" rx="3"/>
+    <path d="M19 25H34M19 31H30M19 37H27" stroke-width="2.5"/>
+  </g>
+  <g id="highlights" fill="#FFFFFF">
+    <rect x="11.6" y="13" width="2.2" height="9" rx="1.1"/>
+    <rect x="21.5" y="8" width="5" height="1.8" rx="0.9"/>
+  </g>
+  <g id="badge">
+    <circle cx="45" cy="45" r="11" fill="#06D6A0"/>
+    <rect x="30" y="49.5" width="30" height="10" fill="#05B386" clip-path="url(#badge)"/>
+    <path d="M38.6 42.2Q39.8 38.8 43 37.6" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+    <g stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="45" cy="45" r="11"/>
+      <path d="M40 45.3L43.6 48.8L50 41.8"/>
+    </g>
+  </g>
+  <g id="accents">
+    <path d="M54 7.5Q54 12 58.5 12Q54 12 54 16.5Q54 12 49.5 12Q54 12 54 7.5Z" fill="#1E1E24" stroke="#1E1E24" stroke-width="1.2" stroke-linejoin="round"/>
+    <circle cx="58" cy="25" r="1.6" fill="#1E1E24"/>
+    <circle cx="4.5" cy="58" r="1.8" fill="#1E1E24"/>
+  </g>
+</svg>
