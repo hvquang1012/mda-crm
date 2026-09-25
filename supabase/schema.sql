@@ -208,9 +208,50 @@ create table if not exists push_subscriptions (
 create table if not exists staff (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
-  role text not null default 'staff' check (role in ('staff','manager','admin')),
+  role text not null default 'kts' check (role in ('staff','kts','manager','admin')),
   created_at timestamptz default now()
 );
+-- Vai trò: kts (và 'staff' cũ, coi như kts) chỉ thấy công trình được
+-- giao qua project_members; manager/admin thấy tất cả. Chỉ admin đổi
+-- được vai trò (hàm set_staff_role).
+alter table staff drop constraint if exists staff_role_check;
+alter table staff add constraint staff_role_check check (role in ('staff','kts','manager','admin'));
+alter table staff alter column role set default 'kts';
+
+-- Người tạo công trình — KTS tạo xong phải thấy ngay công trình của mình.
+alter table projects add column if not exists created_by uuid references auth.users(id) on delete set null default auth.uid();
+
+-- KTS / giám sát phụ trách công trình
+create table if not exists project_members (
+  project_id uuid not null references projects(id) on delete cascade,
+  staff_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  primary key (project_id, staff_id)
+);
+create index if not exists idx_project_members_staff on project_members(staff_id);
+
+-- Lưu trữ ảnh sang Dropbox (xem Edge Function dropbox-link / dropbox-sync).
+-- Không phải progress_reports nên được phép cập nhật trạng thái.
+--   uploading: đã cấp link, máy thợ đang gửi ảnh gốc
+--   pending:   ảnh gốc đã nằm trong thư mục "_Chờ duyệt"
+--   approved / rejected: đã chuyển sang thư mục tương ứng
+--   failed:    hỏng quá 5 lần hoặc ảnh gốc không bao giờ tới
+create table if not exists photo_archive (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references projects(id) on delete cascade,
+  report_id uuid not null references progress_reports(id) on delete cascade,
+  storage_path text,                       -- bản nén trong Storage (khớp photos[].path)
+  dropbox_path text not null,
+  source text not null default 'original' check (source in ('original','compressed')),
+  state text not null default 'uploading' check (state in ('uploading','pending','approved','rejected','failed')),
+  attempts int not null default 0,
+  error text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_photo_archive_report on photo_archive(report_id);
+create index if not exists idx_photo_archive_state on photo_archive(state);
+create index if not exists idx_photo_archive_storage on photo_archive(storage_path);
 
 -- Mẫu hạng mục cho đá / điện — front-end đọc bảng này để dựng UI chọn
 -- template, tự tạo work_items theo mẫu thay vì gõ lại từng đầu việc.
@@ -260,6 +301,96 @@ $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function handle_new_staff();
+
+-- Tài khoản tạo trước khi có trigger vẫn phải có hồ sơ staff.
+insert into staff(id, full_name) select id, email from auth.users on conflict (id) do nothing;
+
+-- Chuyển sang phân quyền theo công trình: trước đây mọi tài khoản thấy
+-- toàn bộ. Lần đầu chạy (chưa có quản lý nào) nâng mọi tài khoản cũ lên
+-- admin để không ai bị mất quyền đột ngột — sau đó admin tự hạ ai là KTS.
+update staff set role = 'admin'
+  where role = 'staff'
+    and not exists (select 1 from staff where role in ('manager','admin'));
+
+-- ============================================================
+-- PHÂN QUYỀN THEO CÔNG TRÌNH — dùng trong mọi policy bên dưới
+-- security definer để đọc được staff / project_members mà không vướng
+-- RLS của chính các bảng đó (tránh đệ quy policy).
+-- ============================================================
+
+create or replace function is_manager()
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from staff where id = auth.uid() and role in ('manager','admin'));
+$$;
+
+create or replace function can_access_project(p_project_id uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select auth.uid() is not null and (
+    is_manager()
+    or exists (select 1 from project_members m where m.project_id = p_project_id and m.staff_id = auth.uid())
+    or exists (select 1 from projects p where p.id = p_project_id and p.created_by = auth.uid())
+  );
+$$;
+
+create or replace function _package_project(p_package_id uuid)
+returns uuid
+language sql stable security definer set search_path = public as $$
+  select project_id from work_packages where id = p_package_id;
+$$;
+
+create or replace function _item_project(p_item_id uuid)
+returns uuid
+language sql stable security definer set search_path = public as $$
+  select wp.project_id from work_items wi join work_packages wp on wp.id = wi.work_package_id where wi.id = p_item_id;
+$$;
+
+-- Thư mục đầu của đường dẫn ảnh là project_id; path lạ (không phải
+-- uuid) trả null thay vì làm hỏng cả câu truy vấn Storage.
+create or replace function _path_project(p_path text)
+returns uuid
+language plpgsql immutable set search_path = public as $$
+begin
+  return split_part(p_path, '/', 1)::uuid;
+exception when others then
+  return null;
+end;
+$$;
+
+-- Tự thêm người tạo vào thành viên công trình
+create or replace function handle_new_project() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.created_by is not null then
+    insert into project_members(project_id, staff_id) values (new.id, new.created_by)
+    on conflict do nothing;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_projects_add_creator on projects;
+create trigger trg_projects_add_creator after insert on projects
+  for each row execute function handle_new_project();
+
+-- Chỉ admin đổi vai trò (bảng staff không cho tự sửa cột role)
+create or replace function set_staff_role(p_staff_id uuid, p_role text)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from staff where id = auth.uid() and role = 'admin') then
+    raise exception 'admin_only';
+  end if;
+  if p_role not in ('kts','manager','admin') then
+    raise exception 'invalid_role';
+  end if;
+  if p_staff_id = auth.uid() and p_role <> 'admin' then
+    raise exception 'cannot_demote_self';
+  end if;
+  update staff set role = p_role where id = p_staff_id;
+  if not found then raise exception 'staff_not_found'; end if;
+end;
+$$;
 
 -- ============================================================
 -- HÀM RPC CHO THẦU PHỤ / CÔNG NHÂN (không đăng nhập, chỉ có token)
@@ -511,84 +642,153 @@ $$;
 
 -- ============================================================
 -- HÀM RPC CHO STAFF (đăng nhập) — duyệt / trả lại báo cáo
--- security invoker: chạy bằng quyền người gọi, RLS phía dưới quyết định.
+--
+-- security definer: progress_reports KHÔNG có policy update (append-only),
+-- nên hàm chạy bằng quyền invoker sẽ không đổi được status — bản trước
+-- dùng security invoker và mọi lần duyệt đều thất bại ngầm. Thay vào
+-- đó hàm tự kiểm tra: đã đăng nhập + có quyền trên công trình.
+--
+-- Duyệt theo NHÓM trong 1 transaction: hộp duyệt gộp nhiều báo cáo
+-- cùng (đầu việc, ngày) thành 1 thẻ. Hỏng giữa chừng thì rollback cả
+-- nhóm, không để lại trạng thái nửa vời.
 -- ============================================================
 
-create or replace function approve_report(p_report_id uuid, p_approved_qty numeric default null)
+-- work_packages.status là cache tổng hợp từ work_items — client_view()
+-- đọc cột này để hiện tiến độ cho chủ nhà.
+create or replace function _refresh_package_status(p_package_id uuid)
 returns void
-language plpgsql security invoker set search_path = public as $$
+language sql security definer set search_path = public as $$
+  update work_packages set
+    status = coalesce((
+      select case
+        when count(*) = 0 then 'notStarted'
+        when count(*) filter (where wi.status <> 'done') = 0 then 'done'
+        when bool_or(wi.status = 'delayed') then 'delayed'
+        when bool_or(wi.status in ('onTrack', 'ahead', 'done')) then 'onTrack'
+        else 'notStarted'
+      end
+      from work_items wi where wi.work_package_id = p_package_id
+    ), 'notStarted'),
+    updated_at = now()
+  where id = p_package_id;
+$$;
+
+create or replace function approve_report_group(p_report_ids uuid[], p_total numeric default null)
+returns numeric
+language plpgsql security definer set search_path = public as $$
 declare
-  v_report progress_reports;
-  v_qty numeric;
+  v_ids uuid[];
+  v_found int;
+  v_pending int;
+  v_item_count int;
+  v_item_id uuid;
+  v_first uuid;
+  v_total numeric;
   v_package_id uuid;
 begin
-  if auth.role() <> 'authenticated' then
+  if auth.role() <> 'authenticated' or auth.uid() is null then
     raise exception 'not_authenticated';
   end if;
-
-  -- Khoá bản ghi ngay khi đọc — hai giám sát duyệt cùng lúc thì người
-  -- thứ hai phải đợi người thứ nhất commit rồi mới thấy status đã đổi,
-  -- tránh cộng qty_done hai lần (race condition).
-  select * into v_report from progress_reports where id = p_report_id for update;
-  if v_report.id is null then
-    raise exception 'report_not_found';
+  v_ids := array(select distinct unnest(p_report_ids));
+  if coalesce(cardinality(v_ids), 0) = 0 then
+    raise exception 'empty_group';
   end if;
-  if v_report.status <> 'pending' then
-    raise exception 'already_processed';
+  if p_total is not null and p_total < 0 then
+    raise exception 'negative_qty';
   end if;
 
-  v_qty := coalesce(p_approved_qty, v_report.qty_delta);
+  -- Khoá theo thứ tự id — hai giám sát duyệt cùng lúc thì người thứ hai
+  -- đợi người thứ nhất commit rồi mới thấy status đã đổi (không cộng 2 lần).
+  perform 1 from progress_reports where id = any(v_ids) order by id for update;
 
-  update progress_reports
-    set status = 'approved', approved_qty = v_qty, approved_by = auth.uid(), approved_at = now()
-    where id = p_report_id and status = 'pending';
-  if not found then
-    raise exception 'already_processed';
-  end if;
+  select count(*), count(*) filter (where status = 'pending'), count(distinct work_item_id), min(work_item_id::text)::uuid
+    into v_found, v_pending, v_item_count, v_item_id
+    from progress_reports where id = any(v_ids);
+  if v_found <> cardinality(v_ids) then raise exception 'report_not_found'; end if;
+  if v_pending <> v_found then raise exception 'already_processed'; end if;
+  if v_item_count <> 1 then raise exception 'mixed_items'; end if;
+  if not can_access_project(_item_project(v_item_id)) then raise exception 'forbidden'; end if;
+
+  select coalesce(p_total, sum(qty_delta)) into v_total from progress_reports where id = any(v_ids);
+  select id into v_first from progress_reports where id = any(v_ids) order by created_at, id limit 1;
+
+  -- Báo cáo đầu nhận tổng khối lượng đã chỉnh, các báo cáo còn lại 0 —
+  -- tổng approved_qty của nhóm luôn bằng đúng số giám sát chốt.
+  update progress_reports set
+    status = 'approved',
+    approved_qty = case when id = v_first then v_total else 0 end,
+    approved_by = auth.uid(),
+    approved_at = now()
+  where id = any(v_ids) and status = 'pending';
 
   update work_items set
-    qty_done = qty_done + v_qty,
+    qty_done = qty_done + v_total,
     percent = case when qty_plan is not null and qty_plan > 0
-                   then least(100, round((qty_done + v_qty) / qty_plan * 100))
+                   then least(100, round((qty_done + v_total) / qty_plan * 100))
                    else percent end,
     status = case
-                when qty_plan is not null and qty_plan > 0 and (qty_done + v_qty) >= qty_plan then 'done'
+                when qty_plan is not null and qty_plan > 0 and (qty_done + v_total) >= qty_plan then 'done'
                 when status = 'notStarted' then 'onTrack'
                 else status
               end
-    where id = v_report.work_item_id;
+    where id = v_item_id
+    returning work_package_id into v_package_id;
 
-  -- work_packages.status là cache tổng hợp từ work_items — client_view()
-  -- đọc cột này để hiện tiến độ cho chủ nhà, phải đồng bộ sau mỗi lần duyệt.
-  select work_package_id into v_package_id from work_items where id = v_report.work_item_id;
-  update work_packages set
-    status = (
-      select case
-        when count(*) filter (where wi.status <> 'done') = 0 then 'done'
-        when bool_or(wi.status = 'delayed') then 'delayed'
-        when bool_or(wi.status in ('onTrack', 'ahead')) then 'onTrack'
-        else 'notStarted'
-      end
-      from work_items wi where wi.work_package_id = v_package_id
-    ),
-    updated_at = now()
-  where id = v_package_id;
+  perform _refresh_package_status(v_package_id);
+  return v_total;
+end;
+$$;
+
+-- Giữ tương thích: duyệt 1 báo cáo = nhóm 1 phần tử
+create or replace function approve_report(p_report_id uuid, p_approved_qty numeric default null)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform approve_report_group(array[p_report_id], p_approved_qty);
+end;
+$$;
+
+create or replace function reject_report_group(p_report_ids uuid[], p_reason text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_ids uuid[];
+  v_found int;
+  v_pending int;
+  v_bad int;
+begin
+  if auth.role() <> 'authenticated' or auth.uid() is null then
+    raise exception 'not_authenticated';
+  end if;
+  v_ids := array(select distinct unnest(p_report_ids));
+  if coalesce(cardinality(v_ids), 0) = 0 then
+    raise exception 'empty_group';
+  end if;
+
+  perform 1 from progress_reports where id = any(v_ids) order by id for update;
+
+  select count(*), count(*) filter (where status = 'pending'),
+         count(*) filter (where not can_access_project(_item_project(work_item_id)))
+    into v_found, v_pending, v_bad
+    from progress_reports where id = any(v_ids);
+  if v_found <> cardinality(v_ids) then raise exception 'report_not_found'; end if;
+  if v_bad > 0 then raise exception 'forbidden'; end if;
+  if v_pending <> v_found then raise exception 'already_processed'; end if;
+
+  update progress_reports set
+    status = 'rejected',
+    reject_reason = coalesce(nullif(trim(p_reason), ''), 'Không đạt yêu cầu'),
+    approved_by = auth.uid(),
+    approved_at = now()
+  where id = any(v_ids) and status = 'pending';
 end;
 $$;
 
 create or replace function reject_report(p_report_id uuid, p_reason text)
 returns void
-language plpgsql security invoker set search_path = public as $$
+language plpgsql security definer set search_path = public as $$
 begin
-  if auth.role() <> 'authenticated' then
-    raise exception 'not_authenticated';
-  end if;
-  update progress_reports
-    set status = 'rejected', reject_reason = p_reason, approved_by = auth.uid(), approved_at = now()
-    where id = p_report_id and status = 'pending';
-  if not found then
-    raise exception 'report_not_found_or_processed';
-  end if;
+  perform reject_report_group(array[p_report_id], p_reason);
 end;
 $$;
 
@@ -682,7 +882,9 @@ begin
     join work_packages wp_s on wp_s.id = wi_s.work_package_id
     where wi_p.status <> 'done'
       and wi_s.planned_start is not null
-      and wi_s.planned_start <= current_date + 3
+      -- lag_days: đầu việc trước phải xong sớm hơn N ngày (VD chờ vữa
+      -- khô) — nên cửa sổ cảnh báo lùi sớm hơn đúng N ngày.
+      and wi_s.planned_start - d.lag_days <= current_date + 3
       and not exists (
         select 1 from alerts a where a.work_item_id = wi_s.id and a.kind = 'chain_block'
           and a.created_at >= current_date - 1
@@ -746,6 +948,42 @@ begin
     end;
   end loop;
 
+  -- 6. Cập nhật trạng thái đầu việc theo lịch. Chỉ đổi cột status
+  -- (không động tới qty_done/percent — hai cột đó chỉ approve_report_group
+  -- được cộng). Trước đây status không bao giờ tự thành "Trễ", dashboard
+  -- và trang chủ nhà hiện "Đúng tiến độ" dù đã quá hạn.
+  --   quá planned_end mà chưa xong               → delayed
+  --   có khối lượng: thực tế thấp hơn dự kiến >10% → delayed
+  --                  cao hơn >10%                 → ahead
+  --                  còn lại (đã có khối lượng)   → onTrack
+  -- Đầu việc 'done' giữ nguyên (giám sát chốt tay với đầu việc trọn gói).
+  with calc as (
+    select wi.id,
+      case
+        when wi.planned_end is not null and current_date > wi.planned_end then 'delayed'
+        when wi.qty_plan is not null and wi.qty_plan > 0
+             and wi.planned_start is not null and wi.planned_end is not null
+             and current_date >= wi.planned_start then
+          case
+            when least(100, 100.0 * greatest(current_date - wi.planned_start, 0) / greatest(wi.planned_end - wi.planned_start, 1))
+                 - 100.0 * wi.qty_done / wi.qty_plan > 10 then 'delayed'
+            when 100.0 * wi.qty_done / wi.qty_plan
+                 - least(100, 100.0 * greatest(current_date - wi.planned_start, 0) / greatest(wi.planned_end - wi.planned_start, 1)) > 10 then 'ahead'
+            when wi.qty_done > 0 or wi.status = 'delayed' then 'onTrack'
+            else wi.status
+          end
+        when wi.status = 'delayed' then 'onTrack'   -- đã dời lịch, hết trễ
+        else wi.status
+      end as new_status
+    from work_items wi
+    where wi.status <> 'done'
+  )
+  update work_items wi set status = c.new_status
+  from calc c
+  where wi.id = c.id and wi.status is distinct from c.new_status;
+
+  perform _refresh_package_status(wp.id) from work_packages wp;
+
   return v_count;
 end;
 $$;
@@ -785,12 +1023,218 @@ select cron.schedule('mda-compute-alerts-afternoon', '0 15 * * *', $$select comp
 -- $$);
 
 -- ============================================================
--- REALTIME
+-- ĐỒNG BỘ ẢNH DROPBOX — mỗi 10 phút gọi Edge Function dropbox-sync
+-- (chuyển ảnh gốc từ "_Chờ duyệt" sang thư mục ngày sau khi duyệt, sao
+-- chép bản nén cho báo cáo thiếu ảnh gốc). Cũng cần điền 2 giá trị thật
+-- như trên và đã đặt secrets DROPBOX_* (xem HUONG_DAN_TRIEN_KHAI.md).
 -- ============================================================
-alter publication supabase_realtime add table work_items;
-alter publication supabase_realtime add table progress_reports;
-alter publication supabase_realtime add table issues;
-alter publication supabase_realtime add table alerts;
+-- select cron.schedule('mda-dropbox-sync', '*/10 * * * *', $$
+--   select net.http_post(
+--     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/dropbox-sync',
+--     headers := jsonb_build_object('Authorization', 'Bearer <SERVICE_ROLE_KEY>', 'Content-Type', 'application/json'),
+--     body := '{}'::jsonb,
+--     timeout_milliseconds := 120000
+--   );
+-- $$);
+
+-- ============================================================
+-- DASHBOARD QUẢN LÝ — một lần gọi trả đủ số liệu cho tab Tổng quan.
+-- security invoker: chạy bằng quyền người gọi nên RLS tự lọc — KTS chỉ
+-- thấy số liệu công trình mình phụ trách, quản lý thấy tất cả.
+--
+-- % thực tế / % kế hoạch có TRỌNG SỐ theo thời lượng đầu việc (đầu
+-- việc 10 ngày nặng gấp 10 lần đầu việc 1 ngày) — trung bình cộng
+-- thường làm "Nghiệm thu 1 ngày xong" kéo % cả hạng mục lên ảo.
+-- % kế hoạch dùng cùng công thức với compute_alerts() mục 5.
+-- ============================================================
+create or replace function dashboard_summary()
+returns json
+language sql stable security invoker set search_path = public as $$
+  with items as (
+    select wi.id, wi.work_package_id, wp.project_id, wp.subcontractor_id, wi.status,
+      case when wi.status = 'done' then 100 else wi.percent end::numeric as pct,
+      greatest(coalesce(wi.planned_end - wi.planned_start, 0) + 1, 1) as weight,
+      wi.planned_start,
+      case
+        when wi.planned_start is null or wi.planned_end is null then null
+        when current_date < wi.planned_start then 0
+        else least(100, 100.0 * (current_date - wi.planned_start) / greatest(wi.planned_end - wi.planned_start, 1))
+      end as plan_pct
+    from work_items wi
+    join work_packages wp on wp.id = wi.work_package_id
+    join projects p on p.id = wp.project_id
+    where p.status = 'active'
+  ),
+  reports as (
+    select pr.id, pr.status, pr.report_date, pr.created_at, pr.approved_at, wp.project_id, wp.subcontractor_id, pr.work_item_id
+    from progress_reports pr
+    join work_items wi on wi.id = pr.work_item_id
+    join work_packages wp on wp.id = wi.work_package_id
+  ),
+  proj as (
+    select p.id, p.name, p.client_name, p.start_date, p.end_date,
+      p.end_date - current_date as days_left,
+      (p.created_by = auth.uid() or exists (
+        select 1 from project_members m where m.project_id = p.id and m.staff_id = auth.uid()
+      )) as is_mine,
+      round(coalesce(sum(i.pct * i.weight) / nullif(sum(i.weight), 0), 0)) as actual_pct,
+      round(coalesce(sum(coalesce(i.plan_pct, i.pct) * i.weight) / nullif(sum(i.weight), 0), 0)) as planned_pct,
+      count(i.id) as item_count,
+      count(i.id) filter (where i.status = 'done') as done_items,
+      count(i.id) filter (where i.status = 'delayed') as delayed_items
+    from projects p
+    left join items i on i.project_id = p.id
+    where p.status = 'active'
+    group by p.id
+  ),
+  pkg as (
+    select wp.id, wp.project_id, wp.name, wp.trade, s.name as sub_name, wp.status,
+      round(coalesce(sum(i.pct * i.weight) / nullif(sum(i.weight), 0), 0)) as actual_pct,
+      round(coalesce(sum(coalesce(i.plan_pct, i.pct) * i.weight) / nullif(sum(i.weight), 0), 0)) as planned_pct,
+      count(i.id) filter (where i.status = 'delayed') as delayed_items,
+      (select a.kind from alerts a join work_items wi on wi.id = a.work_item_id
+        where wi.work_package_id = wp.id and a.acknowledged_at is null
+        order by (a.severity = 'critical') desc, a.created_at desc limit 1) as top_alert
+    from work_packages wp
+    join subcontractors s on s.id = wp.subcontractor_id
+    left join items i on i.work_package_id = wp.id
+    where wp.project_id in (select id from proj)
+    group by wp.id, s.name
+  )
+  select json_build_object(
+    'generated_at', now(),
+    'today', current_date,
+    'projects', coalesce((
+      select json_agg(json_build_object(
+        'id', pr.id, 'name', pr.name, 'client_name', pr.client_name,
+        'start_date', pr.start_date, 'end_date', pr.end_date, 'days_left', pr.days_left,
+        'is_mine', pr.is_mine,
+        'actual_pct', pr.actual_pct, 'planned_pct', pr.planned_pct,
+        'gap', pr.planned_pct - pr.actual_pct,
+        'item_count', pr.item_count, 'done_items', pr.done_items, 'delayed_items', pr.delayed_items,
+        'pending_reports', (select count(*) from reports r where r.project_id = pr.id and r.status = 'pending'),
+        'open_issues', (select count(*) from issues x where x.project_id = pr.id and x.status = 'open'),
+        'blocking_issues', (select count(*) from issues x where x.project_id = pr.id and x.status = 'open' and x.is_blocking),
+        'critical_alerts', (select count(*) from alerts a where a.project_id = pr.id and a.acknowledged_at is null and a.severity = 'critical'),
+        'warning_alerts', (select count(*) from alerts a where a.project_id = pr.id and a.acknowledged_at is null and a.severity = 'warning'),
+        'last_report_date', (select max(r.report_date) from reports r where r.project_id = pr.id),
+        'packages', coalesce((
+          select json_agg(json_build_object(
+            'id', k.id, 'name', k.name, 'trade', k.trade, 'sub_name', k.sub_name, 'status', k.status,
+            'actual_pct', k.actual_pct, 'planned_pct', k.planned_pct,
+            'delayed_items', k.delayed_items, 'top_alert', k.top_alert
+          ) order by k.planned_pct - k.actual_pct desc, k.name)
+          from pkg k where k.project_id = pr.id
+        ), '[]'::json)
+      ) order by pr.planned_pct - pr.actual_pct desc, pr.end_date)
+      from proj pr
+    ), '[]'::json),
+    'subcontractors', coalesce((
+      select json_agg(sx order by sx.score desc, sx.name)
+      from (
+        select s.id, s.name, s.trade,
+          count(distinct i.project_id) as projects,
+          count(i.id) filter (where i.status = 'delayed') as delayed_items,
+          count(i.id) filter (where i.status <> 'done' and i.planned_start <= current_date
+            and not exists (select 1 from reports r where r.work_item_id = i.id and r.report_date >= current_date - 2)) as idle_items,
+          (select count(*) from reports r where r.subcontractor_id = s.id and r.created_at >= now() - interval '30 days') as reports_30d,
+          (select count(*) from reports r where r.subcontractor_id = s.id and r.status = 'rejected' and r.created_at >= now() - interval '30 days') as rejected_30d,
+          count(i.id) filter (where i.status = 'delayed') * 2
+            + count(i.id) filter (where i.status <> 'done' and i.planned_start <= current_date
+                and not exists (select 1 from reports r where r.work_item_id = i.id and r.report_date >= current_date - 2)) as score
+        from subcontractors s
+        join items i on i.subcontractor_id = s.id
+        group by s.id
+      ) sx
+    ), '[]'::json),
+    'activity', coalesce((
+      select json_agg(json_build_object(
+        'd', d::date,
+        'submitted', (select count(*) from reports r where r.created_at::date = d::date),
+        'approved', (select count(*) from reports r where r.status = 'approved' and r.approved_at::date = d::date)
+      ) order by d)
+      from generate_series(current_date - 13, current_date, interval '1 day') d
+    ), '[]'::json)
+  );
+$$;
+
+-- ============================================================
+-- DROPBOX — hàng đợi cho Edge Function dropbox-sync (chỉ service_role gọi)
+-- ============================================================
+
+-- Ảnh gốc cấp link quá 6 giờ mà máy thợ chưa báo gửi xong → coi như
+-- hỏng, để bước sao chép bản nén (dropbox_missing_copies) lấp chỗ trống.
+create or replace function dropbox_expire_uploads()
+returns int
+language sql security definer set search_path = public as $$
+  with x as (
+    update photo_archive set state = 'failed', error = 'Không nhận được ảnh gốc từ máy thợ', updated_at = now()
+    where state = 'uploading' and created_at < now() - interval '6 hours'
+    returning 1
+  ) select count(*)::int from x;
+$$;
+
+-- Ảnh đang nằm "_Chờ duyệt" mà báo cáo đã được duyệt / trả lại → cần chuyển thư mục
+create or replace function dropbox_moves_due(p_limit int default 100)
+returns table (
+  archive_id uuid, dropbox_path text, report_status text, report_date date,
+  project_name text, sub_name text, item_name text
+)
+language sql stable security definer set search_path = public as $$
+  select pa.id, pa.dropbox_path, pr.status, pr.report_date, p.name, s.name, wi.name
+  from photo_archive pa
+  join progress_reports pr on pr.id = pa.report_id
+  join work_items wi on wi.id = pr.work_item_id
+  join work_packages wp on wp.id = wi.work_package_id
+  join projects p on p.id = wp.project_id
+  join subcontractors s on s.id = wp.subcontractor_id
+  where pa.state = 'pending' and pr.status in ('approved', 'rejected') and pa.attempts < 5
+  order by pa.created_at
+  limit p_limit;
+$$;
+
+-- Ảnh của báo cáo ĐÃ DUYỆT chưa có bản nào trên Dropbox (thợ mất sóng
+-- không gửi được ảnh gốc, hoặc staff nhập thay) → sao chép bản nén.
+create or replace function dropbox_missing_copies(p_limit int default 30)
+returns table (
+  report_id uuid, project_id uuid, storage_path text, photo_no int, report_date date,
+  project_name text, sub_name text, item_name text, reporter_name text, prior_attempts int
+)
+language sql stable security definer set search_path = public as $$
+  select pr.id, wp.project_id, ph.value->>'path', ph.ord::int, pr.report_date,
+    p.name, s.name, wi.name, pr.reporter_name,
+    coalesce((select max(pa.attempts) from photo_archive pa
+      where pa.report_id = pr.id and pa.storage_path = ph.value->>'path' and pa.source = 'compressed'), 0)
+  from progress_reports pr
+  join work_items wi on wi.id = pr.work_item_id
+  join work_packages wp on wp.id = wi.work_package_id
+  join projects p on p.id = wp.project_id
+  join subcontractors s on s.id = wp.subcontractor_id
+  cross join lateral jsonb_array_elements(pr.photos) with ordinality as ph(value, ord)
+  where pr.status = 'approved'
+    and coalesce(ph.value->>'path', '') <> ''
+    and not exists (
+      select 1 from photo_archive pa
+      where pa.report_id = pr.id and pa.storage_path = ph.value->>'path'
+        and (pa.state <> 'failed' or (pa.source = 'compressed' and pa.attempts >= 5))
+    )
+  order by pr.approved_at
+  limit p_limit;
+$$;
+
+-- ============================================================
+-- REALTIME (bọc exception để chạy lại file này nhiều lần không lỗi)
+-- ============================================================
+do $$
+declare t text;
+begin
+  foreach t in array array['work_items', 'progress_reports', 'issues', 'alerts'] loop
+    begin
+      execute format('alter publication supabase_realtime add table %I', t);
+    exception when duplicate_object then null;
+    end;
+  end loop;
+end $$;
 
 -- ============================================================
 -- BẢO MẬT (Row Level Security)
@@ -816,6 +1260,8 @@ alter table push_subscriptions enable row level security;
 alter table staff enable row level security;
 alter table work_package_templates enable row level security;
 alter table work_package_template_items enable row level security;
+alter table project_members enable row level security;
+alter table photo_archive enable row level security;
 
 revoke all on all tables in schema public from anon;
 revoke all on all sequences in schema public from anon;
@@ -829,36 +1275,122 @@ revoke execute on all functions in schema public from public;
 grant select, insert, update, delete on
   subcontractors, projects, work_packages, work_items, dependencies,
   progress_reports, issues, crew_links, client_links, alerts,
-  push_subscriptions, staff, work_package_templates, work_package_template_items
+  push_subscriptions, work_package_templates, work_package_template_items,
+  project_members
 to authenticated;
+grant select on photo_archive to authenticated;  -- chỉ Edge Function (service_role) được ghi
 
+-- staff: ai cũng đọc được danh sách, chỉ tự sửa được TÊN của mình.
+-- Cột role chỉ đổi qua set_staff_role() — nếu cho update cả dòng, KTS
+-- tự nâng mình thành admin là thấy hết mọi công trình.
+revoke all on staff from authenticated;
+grant select on staff to authenticated;
+grant update (full_name) on staff to authenticated;
+
+-- Xoá policy cũ trước khi tạo lại — "create policy" không idempotent.
+drop policy if exists "staff full access" on subcontractors;
+drop policy if exists "staff full access" on projects;
+drop policy if exists "staff full access" on work_packages;
+drop policy if exists "staff full access" on work_items;
+drop policy if exists "staff full access" on dependencies;
+drop policy if exists "staff full access" on issues;
+drop policy if exists "staff full access" on crew_links;
+drop policy if exists "staff full access" on client_links;
+drop policy if exists "staff full access" on alerts;
+drop policy if exists "staff full access" on work_package_templates;
+drop policy if exists "staff full access" on work_package_template_items;
+
+-- Danh mục dùng chung mọi công trình: đội thầu phụ, mẫu đầu việc
 create policy "staff full access" on subcontractors for all to authenticated using (true) with check (true);
-create policy "staff full access" on projects for all to authenticated using (true) with check (true);
-create policy "staff full access" on work_packages for all to authenticated using (true) with check (true);
-create policy "staff full access" on work_items for all to authenticated using (true) with check (true);
-create policy "staff full access" on dependencies for all to authenticated using (true) with check (true);
-create policy "staff full access" on issues for all to authenticated using (true) with check (true);
-create policy "staff full access" on crew_links for all to authenticated using (true) with check (true);
-create policy "staff full access" on client_links for all to authenticated using (true) with check (true);
-create policy "staff full access" on alerts for all to authenticated using (true) with check (true);
 create policy "staff full access" on work_package_templates for all to authenticated using (true) with check (true);
 create policy "staff full access" on work_package_template_items for all to authenticated using (true) with check (true);
 
--- progress_reports: staff xem/duyệt/trả lại và có thể nhập thay đội
--- không dùng app. KHÔNG có policy insert cho anon — thầu phụ chỉ ghi
--- được qua crew_submit() (security definer, bỏ qua RLS).
--- KHÔNG có policy update trực tiếp — progress_reports là append-only,
--- chỉ approve_report()/reject_report() (security invoker + kiểm tra
--- riêng) được phép đổi status/approved_qty/reject_reason. Một policy
--- update "using (true)" ở đây sẽ cho phép bất kỳ tài khoản đăng nhập
--- nào ghi đè thẳng mọi cột qua supabase-js, phá vỡ bất biến append-only.
-drop policy if exists "staff update reports" on progress_reports;
-create policy "staff read reports" on progress_reports for select to authenticated using (true);
-create policy "staff insert reports" on progress_reports for insert to authenticated with check (true);
+-- Dữ liệu theo công trình: KTS chỉ chạm được công trình mình phụ trách
+drop policy if exists "project read" on projects;
+drop policy if exists "project create" on projects;
+drop policy if exists "project update" on projects;
+drop policy if exists "project delete" on projects;
+create policy "project read" on projects for select to authenticated
+  using (created_by = auth.uid() or can_access_project(id));
+create policy "project create" on projects for insert to authenticated
+  with check (created_by = auth.uid() or is_manager());
+create policy "project update" on projects for update to authenticated
+  using (can_access_project(id)) with check (can_access_project(id));
+create policy "project delete" on projects for delete to authenticated
+  using (is_manager());
 
+drop policy if exists "project scope" on work_packages;
+create policy "project scope" on work_packages for all to authenticated
+  using (can_access_project(project_id)) with check (can_access_project(project_id));
+
+drop policy if exists "project scope" on work_items;
+create policy "project scope" on work_items for all to authenticated
+  using (can_access_project(_package_project(work_package_id)))
+  with check (can_access_project(_package_project(work_package_id)));
+
+drop policy if exists "project scope" on dependencies;
+create policy "project scope" on dependencies for all to authenticated
+  using (can_access_project(_item_project(predecessor_item_id)))
+  with check (can_access_project(_item_project(predecessor_item_id))
+          and can_access_project(_item_project(successor_item_id)));
+
+drop policy if exists "project scope" on issues;
+create policy "project scope" on issues for all to authenticated
+  using (can_access_project(project_id)) with check (can_access_project(project_id));
+
+drop policy if exists "project scope" on crew_links;
+create policy "project scope" on crew_links for all to authenticated
+  using (can_access_project(project_id)) with check (can_access_project(project_id));
+
+drop policy if exists "project scope" on client_links;
+create policy "project scope" on client_links for all to authenticated
+  using (can_access_project(project_id)) with check (can_access_project(project_id));
+
+drop policy if exists "project scope" on alerts;
+create policy "project scope" on alerts for all to authenticated
+  using (can_access_project(project_id)) with check (can_access_project(project_id));
+
+drop policy if exists "project scope read" on photo_archive;
+create policy "project scope read" on photo_archive for select to authenticated
+  using (can_access_project(project_id));
+
+-- Thành viên công trình: ai cũng xem được mình phụ trách gì, chỉ quản lý gán/bỏ.
+drop policy if exists "members read" on project_members;
+drop policy if exists "members manage" on project_members;
+drop policy if exists "members remove" on project_members;
+create policy "members read" on project_members for select to authenticated
+  using (staff_id = auth.uid() or is_manager() or can_access_project(project_id));
+create policy "members manage" on project_members for insert to authenticated
+  with check (is_manager());
+create policy "members remove" on project_members for delete to authenticated
+  using (is_manager());
+
+-- progress_reports: staff xem và có thể nhập thay đội không dùng app.
+-- KHÔNG có policy insert cho anon — thầu phụ chỉ ghi được qua
+-- crew_submit() (security definer, bỏ qua RLS).
+-- KHÔNG có policy update trực tiếp — progress_reports là append-only,
+-- chỉ approve_report_group()/reject_report_group() (security definer +
+-- kiểm tra quyền công trình) được đổi status/approved_qty/reject_reason.
+-- Insert của staff bị ép status='pending' — không tự tạo báo cáo "đã
+-- duyệt" để lách bước duyệt.
+drop policy if exists "staff update reports" on progress_reports;
+drop policy if exists "staff read reports" on progress_reports;
+drop policy if exists "staff insert reports" on progress_reports;
+create policy "staff read reports" on progress_reports for select to authenticated
+  using (can_access_project(_item_project(work_item_id)));
+create policy "staff insert reports" on progress_reports for insert to authenticated
+  with check (
+    can_access_project(_item_project(work_item_id))
+    and reporter_kind = 'staff' and staff_id = auth.uid()
+    and status = 'pending' and approved_qty is null and approved_by is null and approved_at is null
+  );
+
+drop policy if exists "staff manage own push" on push_subscriptions;
 create policy "staff manage own push" on push_subscriptions for all to authenticated
   using (staff_id = auth.uid()) with check (staff_id = auth.uid());
 
+drop policy if exists "staff read all profiles" on staff;
+drop policy if exists "staff update own profile" on staff;
 create policy "staff read all profiles" on staff for select to authenticated using (true);
 create policy "staff update own profile" on staff for update to authenticated
   using (id = auth.uid()) with check (id = auth.uid());
@@ -870,7 +1402,21 @@ grant execute on function crew_raise_issue(text, uuid, text, text, jsonb, boolea
 grant execute on function client_view(text) to anon, authenticated;
 grant execute on function approve_report(uuid, numeric) to authenticated;
 grant execute on function reject_report(uuid, text) to authenticated;
+grant execute on function approve_report_group(uuid[], numeric) to authenticated;
+grant execute on function reject_report_group(uuid[], text) to authenticated;
 grant execute on function compute_alerts() to authenticated; -- nút "Kiểm tra ngay" thủ công
+grant execute on function dashboard_summary() to authenticated;
+grant execute on function set_staff_role(uuid, text) to authenticated;
+-- Dùng bên trong policy — người gọi (authenticated) phải được thực thi
+grant execute on function is_manager() to authenticated;
+grant execute on function can_access_project(uuid) to authenticated;
+grant execute on function _package_project(uuid) to authenticated;
+grant execute on function _item_project(uuid) to authenticated;
+grant execute on function _path_project(text) to authenticated;
+-- Hàng đợi Dropbox: chỉ Edge Function dropbox-sync (service_role)
+grant execute on function dropbox_expire_uploads() to service_role;
+grant execute on function dropbox_moves_due(int) to service_role;
+grant execute on function dropbox_missing_copies(int) to service_role;
 
 -- ============================================================
 -- STORAGE: bucket private cho ảnh hiện trường
@@ -881,16 +1427,19 @@ grant execute on function compute_alerts() to authenticated; -- nút "Kiểm tra
 -- tiếp bằng anon/authenticated key).
 --
 -- Staff (đăng nhập) upload trực tiếp khi nhập thay đội không dùng app,
--- và cần đọc (createSignedUrl) để xem lại ảnh trong hộp duyệt.
+-- và cần đọc (createSignedUrl) để xem lại ảnh trong hộp duyệt. Đường
+-- dẫn ảnh bắt đầu bằng project_id/ nên lọc được theo quyền công trình.
 -- ============================================================
 insert into storage.buckets (id, name, public)
   values ('site-photos', 'site-photos', false)
   on conflict (id) do nothing;
 
+drop policy if exists "staff read site-photos" on storage.objects;
+drop policy if exists "staff upload site-photos" on storage.objects;
 create policy "staff read site-photos" on storage.objects for select to authenticated
-  using (bucket_id = 'site-photos');
+  using (bucket_id = 'site-photos' and can_access_project(_path_project(name)));
 create policy "staff upload site-photos" on storage.objects for insert to authenticated
-  with check (bucket_id = 'site-photos');
+  with check (bucket_id = 'site-photos' and can_access_project(_path_project(name)));
 
 -- ============================================================
 -- DỮ LIỆU MẪU: template đầu việc cho đá và điện
@@ -901,7 +1450,10 @@ insert into work_package_templates (id, trade, name) values
   ('00000000-0000-0000-0000-000000000002', 'dien', 'Thi công điện — mẫu chuẩn')
 on conflict (id) do nothing;
 
-insert into work_package_template_items (template_id, name, seq, unit, default_duration_days) values
+-- Bảng này không có khoá duy nhất nên "on conflict do nothing" không
+-- chặn được trùng — chỉ seed khi mẫu chưa có đầu việc nào.
+insert into work_package_template_items (template_id, name, seq, unit, default_duration_days)
+select v.template_id::uuid, v.name, v.seq, v.unit, v.days from (values
   ('00000000-0000-0000-0000-000000000001', 'Khảo sát đo thực tế', 1, 'm2', 1),
   ('00000000-0000-0000-0000-000000000001', 'Chốt mẫu & duyệt vân đá', 2, 'tron_goi', 2),
   ('00000000-0000-0000-0000-000000000001', 'Gia công tại xưởng', 3, 'm2', 5),
@@ -917,7 +1469,8 @@ insert into work_package_template_items (template_id, name, seq, unit, default_d
   ('00000000-0000-0000-0000-000000000002', 'Ổ cắm, công tắc, mặt nạ', 5, 'diem', 2),
   ('00000000-0000-0000-0000-000000000002', 'Tủ điện, aptomat', 6, 'tron_goi', 1),
   ('00000000-0000-0000-0000-000000000002', 'Test toàn hệ, bàn giao', 7, 'tron_goi', 1)
-on conflict do nothing;
+) as v(template_id, name, seq, unit, days)
+where not exists (select 1 from work_package_template_items t where t.template_id = v.template_id::uuid);
 
 -- ============================================================
 -- GHI CHÚ: 4 cặp phụ thuộc nên tạo thủ công trong app cho mỗi công
