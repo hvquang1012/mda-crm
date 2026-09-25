@@ -123,7 +123,7 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 
 **Tiếng Việt.** Comment, tên biến nghiệp vụ, và toàn bộ chuỗi hiển thị. Chuỗi UI viết từ phía người dùng: "Đã gửi — chờ giám sát duyệt", không phải "submit thành công".
 
-**CSS ở `css/app.css`**, dùng design token trong `:root`. Không thêm inline style mới cho những gì token đã có. Bảng màu là bộ nhận diện thương hiệu (đồng thau/kem, Fraunces + IBM Plex) — không đổi tuỳ tiện.
+**CSS ở `css/app.css`**, dùng design token trong `:root`. Không thêm inline style mới cho những gì token đã có. Bảng màu là bộ nhận diện thương hiệu (xanh tím `#5B4CF0→#4338CA` dạng gradient, nền lavender, font Plus Jakarta Sans đóng gói offline ở `vendor/fonts/`, có dark mode theo máy) — không đổi tuỳ tiện. Icon app vẽ từ `assets/app-icon.svg` (logo vector: `assets/logo-mark.svg`); sửa SVG thì render lại `apple-touch-icon.png` 180, `icon-192.png`, `icon-512.png`.
 
 **`state` object** (`js/staff/state.js`) là kênh chia sẻ duy nhất giữa các module tab, cố ý để tránh import vòng. Không import chéo giữa `dashboard.js` / `approvals.js` / `items.js` / `alerts.js`. Chuyển tab từ module khác: `state.navigate('items')` (main.js gán). `wizard.js` là module phụ chỉ `items.js` import.
 
