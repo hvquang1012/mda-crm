@@ -42,7 +42,7 @@
       subcontractors: [{ id: 's1', name: 'Đội đá Sơn', trade: 'da', projects: 2, delayed_items: 2, idle_items: 1, reports_30d: 14, rejected_30d: 2 }], activity: act },
     crew_bootstrap: { crew_link_id: 'cl1', project: { id: P1, name: 'Nhà anh Minh — Ocean Park' }, subcontractor: { id: 's1', name: 'Đội đá Sơn', trade: 'da' }, person_name: 'anh Sơn', role: 'manager', work_items: items.map(i => ({ ...i })) },
     crew_my_reports: [{ id: 'r9', work_item_id: 'i1', work_item_name: 'Lắp đá mặt bếp', report_date: d(-1), qty_delta: 2, crew_size: 3, note: 'lắp mặt bếp', photos: [], status: 'rejected', reject_reason: 'Ảnh không rõ', created_at: new Date().toISOString() }],
-    approve_report_group: 3.5, compute_alerts: 0
+    approve_report_group: 3.5, compute_alerts: 0, crew_submit: 'new-report-id'
   };
   window.__calls = [];
   function builder(table) {

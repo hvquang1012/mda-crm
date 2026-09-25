@@ -145,11 +145,32 @@ function itemCard(it) {
   return card;
 }
 
+// Xác nhận đã gửi phải NHÌN THẤY được — toast 2 giây dễ lỡ, nhất là
+// khi form vừa đóng lại và trang nhảy. Thông báo nằm yên trên đầu danh
+// sách tới khi thợ chọn đầu việc khác.
+function showSentNotice(text, tone = 'ok') {
+  const el = document.getElementById('crewSentBanner');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'crew-sent-banner ' + tone;
+  el.hidden = false;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function hideSentNotice() {
+  const el = document.getElementById('crewSentBanner');
+  if (el) el.hidden = true;
+}
+function nowHM() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
 function currentItem() { return (state.boot.work_items || []).find(i => i.id === state.selectedItemId); }
 
 function selectItem(id) {
   if (state.selectedItemId && state.selectedItemId !== id) saveDraft();
   state.selectedItemId = id;
+  hideSentNotice();
   renderItemPicker();
   const it = currentItem();
   document.getElementById('crewFormItemName').textContent = it ? it.name : '';
@@ -319,14 +340,14 @@ document.getElementById('crewSubmitBtn').onclick = async () => {
       await state.outbox.queueReport(payload);
       resetForm(it.id);
       if (!navigator.onLine) {
-        showToast('Mất sóng — báo cáo đã lưu trong máy, sẽ tự gửi khi có mạng');
+        showSentNotice(`📤 Mất sóng — báo cáo "${it.name}" đã lưu trong máy, sẽ tự gửi khi có mạng.`, 'queued');
       } else {
-        await flushOutbox((msg) => { btn.textContent = msg; }, true);
+        await flushOutbox((msg) => { btn.textContent = msg; }, true, it.name);
       }
     } else {
       await sendDirect(payload, (msg) => { btn.textContent = msg; });
       resetForm(it.id);
-      showToast('Đã gửi — chờ giám sát duyệt');
+      showSentNotice(`✅ Đã gửi báo cáo "${it.name}" lúc ${nowHM()} — chờ giám sát duyệt. Xem lại ở tab Lịch sử.`);
       loadHistory();
     }
   } catch (e) {
@@ -367,19 +388,22 @@ function resetForm(itemId) {
 }
 
 // ---- Hàng đợi: gửi những báo cáo còn nằm trong máy ----
-async function flushOutbox(onProgress, fromSubmit = false) {
+async function flushOutbox(onProgress, fromSubmit = false, itemName = '') {
   if (!state.outbox) return;
   const before = (await state.outbox.pendingReports(token)).length;
   if (before && navigator.onLine) {
     const { sent } = await state.outbox.processOutbox(supabase, token, onProgress);
     const left = await state.outbox.pendingReports(token);
     if (sent) {
-      showToast(sent === 1 && fromSubmit ? 'Đã gửi — chờ giám sát duyệt' : `Đã gửi ${sent} báo cáo — chờ giám sát duyệt`);
+      showSentNotice(sent === 1 && fromSubmit && itemName
+        ? `✅ Đã gửi báo cáo "${itemName}" lúc ${nowHM()} — chờ giám sát duyệt. Xem lại ở tab Lịch sử.`
+        : `✅ Đã gửi ${sent} báo cáo lúc ${nowHM()} — chờ giám sát duyệt. Xem lại ở tab Lịch sử.`);
       refreshBoot();
       if (state.tab === 'history') loadHistory();
     } else if (fromSubmit && left.length) {
       const dead = left.find(j => j.dead);
-      showToast(dead ? errText(dead) : 'Sóng yếu — báo cáo đã lưu trong máy, sẽ tự gửi lại', true);
+      if (dead) showToast(errText(dead), true);
+      else showSentNotice('📤 Sóng yếu — báo cáo đã lưu trong máy, sẽ tự gửi lại khi có mạng.', 'queued');
     }
   } else if (navigator.onLine && state.outbox) {
     // Không còn báo cáo chờ nhưng có thể còn ảnh gốc chờ lên Dropbox
