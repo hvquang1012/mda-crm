@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#4338CA">
 <meta name="color-scheme" content="light dark">
+<!-- Sáng/Tối người dùng tự chọn (Cài đặt tài khoản) — áp trước CSS để không chớp màu -->
+<script>try{var t=localStorage.getItem('mda-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Minh Đức Tiến độ">
@@ -170,6 +172,14 @@
       <input type="tel" id="profilePhone" inputmode="tel" maxlength="16" autocomplete="tel" placeholder="0912 345 678">
       <div class="field-hint">Quản lý bấm nút Zalo ở danh sách nhân viên để nhắn cho bạn.</div>
       <a class="profile-zalo" id="profileZalo" target="_blank" rel="noopener" hidden></a>
+    </div>
+    <div>
+      <span class="field-label">Giao diện (trên máy này)</span>
+      <div class="seg-switch theme-switch" role="group" aria-label="Giao diện">
+        <button type="button" data-theme-opt="auto">Tự động</button>
+        <button type="button" data-theme-opt="light">☀ Sáng</button>
+        <button type="button" data-theme-opt="dark">☾ Tối</button>
+      </div>
     </div>
     <div class="login-error" id="profileError" role="alert"></div>
     <div class="modal-actions">
