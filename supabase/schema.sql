@@ -261,6 +261,21 @@ create index if not exists idx_photo_archive_report on photo_archive(report_id);
 create index if not exists idx_photo_archive_state on photo_archive(state);
 create index if not exists idx_photo_archive_storage on photo_archive(storage_path);
 
+-- Báo cáo mới đã đẩy thông báo cho quản lý chưa (Edge Function send-alerts
+-- ghi). Bảng riêng vì progress_reports append-only — không thêm cột trạng
+-- thái vào đó.
+do $$
+begin
+  if to_regclass('public.report_notifications') is null then
+    create table report_notifications (
+      report_id uuid primary key references progress_reports(id) on delete cascade,
+      notified_at timestamptz not null default now()
+    );
+    -- Lần đầu tạo: coi mọi báo cáo cũ là đã báo, tránh dội thông báo cũ
+    insert into report_notifications(report_id) select id from progress_reports;
+  end if;
+end $$;
+
 -- Mẫu hạng mục cho đá / điện — front-end đọc bảng này để dựng UI chọn
 -- template, tự tạo work_items theo mẫu thay vì gõ lại từng đầu việc.
 create table if not exists work_package_templates (
@@ -1064,6 +1079,24 @@ select cron.schedule('mda-compute-alerts-afternoon', '0 15 * * *', $$select comp
 -- $$);
 
 -- ============================================================
+-- THÔNG BÁO NGAY KHI CÓ BÁO CÁO MỚI — mỗi phút kiểm tra notify_due(),
+-- có việc mới gọi send-alerts (gửi luôn cả cảnh báo trễ hạn nên không
+-- cần 2 job mda-send-alerts-* ở trên nữa). Đoạn dưới lấy lại URL + key
+-- từ job mda-dropbox-sync đã tạo — không phải dán key lần nữa.
+-- ============================================================
+-- do $do$
+-- declare v_cmd text; v_url text; v_key text;
+-- begin
+--   select command into v_cmd from cron.job where command like '%dropbox-sync%' limit 1;
+--   v_url := substring(v_cmd from '(https://[a-z0-9]+\.supabase\.co)');
+--   v_key := substring(v_cmd from 'Bearer ([^'']+)');
+--   if v_url is null or v_key is null then raise exception 'Chưa có job dropbox-sync để lấy URL/key'; end if;
+--   perform cron.schedule('mda-notify', '* * * * *', format(
+--     $f$select net.http_post(url := %L, headers := jsonb_build_object('Authorization', %L, 'Content-Type', 'application/json'), body := '{}'::jsonb) where notify_due()$f$,
+--     v_url || '/functions/v1/send-alerts', 'Bearer ' || v_key));
+-- end $do$;
+
+-- ============================================================
 -- DỜI LỊCH CẢ HẠNG MỤC — thầu phụ vào trễ / sớm N ngày thì dời toàn bộ
 -- đầu việc cùng lúc, thay vì sửa tay từng ngày. security invoker: RLS
 -- quyết định ai được dời (KTS chỉ dời được công trình mình phụ trách).
@@ -1268,6 +1301,58 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- ============================================================
+-- THÔNG BÁO BÁO CÁO MỚI — hàng đợi cho Edge Function send-alerts.
+-- Gom theo (công trình, người gửi): thợ gửi liền 3 đầu việc thì quản lý
+-- nhận 1 thông báo, không phải 3. Nhóm còn báo cáo gửi trong p_quiet
+-- gần đây thì chờ lượt sau — thợ có thể đang gửi tiếp.
+-- ============================================================
+create or replace function reports_to_notify(p_quiet interval default interval '90 seconds')
+returns table (
+  report_id uuid, project_id uuid, project_name text, reporter_key text,
+  reporter_name text, staff_id uuid, sub_name text, item_name text, created_at timestamptz
+)
+language sql stable security definer set search_path = public as $$
+  with q as (
+    select pr.id, wp.project_id, p.name as project_name,
+      coalesce(pr.crew_link_id::text, pr.staff_id::text) as reporter_key,
+      pr.reporter_name, pr.staff_id, s.name as sub_name, wi.name as item_name, pr.created_at
+    from progress_reports pr
+    join work_items wi on wi.id = pr.work_item_id
+    join work_packages wp on wp.id = wi.work_package_id
+    join projects p on p.id = wp.project_id
+    join subcontractors s on s.id = wp.subcontractor_id
+    where pr.status = 'pending'
+      and pr.created_at > now() - interval '3 days'
+      and not exists (select 1 from report_notifications rn where rn.report_id = pr.id)
+  )
+  select * from q
+  where not exists (
+    select 1 from q y
+    where y.project_id = q.project_id and y.reporter_key = q.reporter_key
+      and y.created_at > now() - p_quiet
+  )
+  order by q.created_at;
+$$;
+
+create or replace function mark_reports_notified(p_ids uuid[])
+returns void
+language sql security definer set search_path = public as $$
+  insert into report_notifications(report_id)
+  select unnest(p_ids) on conflict (report_id) do nothing;
+$$;
+
+-- Cron mỗi phút chỉ gọi Edge Function khi có việc — tránh tốn lượt gọi
+create or replace function notify_due()
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from progress_reports pr
+    where pr.status = 'pending' and pr.created_at > now() - interval '3 days'
+      and not exists (select 1 from report_notifications rn where rn.report_id = pr.id)
+  ) or exists (select 1 from alerts where notified_at is null);
+$$;
+
+-- ============================================================
 -- REALTIME (bọc exception để chạy lại file này nhiều lần không lỗi)
 -- ============================================================
 do $$
@@ -1307,6 +1392,7 @@ alter table work_package_templates enable row level security;
 alter table work_package_template_items enable row level security;
 alter table project_members enable row level security;
 alter table photo_archive enable row level security;
+alter table report_notifications enable row level security;  -- không cấp quyền cho ai, chỉ hàm security definer ghi
 
 revoke all on all tables in schema public from anon;
 revoke all on all sequences in schema public from anon;
@@ -1463,6 +1549,10 @@ grant execute on function _path_project(text) to authenticated;
 grant execute on function dropbox_expire_uploads() to service_role;
 grant execute on function dropbox_moves_due(int) to service_role;
 grant execute on function dropbox_missing_copies(int) to service_role;
+-- Thông báo báo cáo mới: Edge Function send-alerts + cron mda-notify
+grant execute on function reports_to_notify(interval) to service_role;
+grant execute on function mark_reports_notified(uuid[]) to service_role;
+grant execute on function notify_due() to service_role;
 
 -- ============================================================
 -- STORAGE: bucket private cho ảnh hiện trường

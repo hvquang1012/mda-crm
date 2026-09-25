@@ -86,3 +86,15 @@ reset role; insert into auth.users(id,email) values ('aaaaaaaa-0000-0000-0000-00
 set role authenticated; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000004';
 select 'K3 (không phụ trách) dời lịch (phải lỗi forbidden)' t; select shift_package_schedule('44444444-4444-4444-4444-444444444444', 3);
 reset role;
+
+-- Thông báo báo cáo mới: gom theo người gửi, chờ yên 90 giây, đánh dấu xong thì hết
+reset role;
+select 'hàng đợi thông báo: vừa gửi → chờ (0 dòng)' t, count(*) from reports_to_notify();
+select 'bỏ chờ → có báo cáo pending chưa báo' t, count(*) > 0 as ok from reports_to_notify(interval '0');
+select 'notify_due' t, notify_due();
+select mark_reports_notified(array(select report_id from reports_to_notify(interval '0')));
+select 'đánh dấu xong → hàng đợi rỗng' t, count(*) from reports_to_notify(interval '0');
+set role authenticated; set request.jwt.claim.role='authenticated'; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'nhân viên gọi reports_to_notify (phải lỗi permission)' t; select * from reports_to_notify();
+select 'nhân viên đọc report_notifications (phải lỗi permission)' t; select count(*) from report_notifications;
+reset role;

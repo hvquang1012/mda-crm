@@ -13,6 +13,15 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
+// iPhone chỉ nhận push khi mở từ biểu tượng trên màn hình chính
+export function pushState() {
+  if (!('serviceWorker' in navigator)) return 'unsupported';
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone;
+  if (!('PushManager' in window) || !('Notification' in window)) return ios && !standalone ? 'needs-install' : 'unsupported';
+  return Notification.permission;   // 'granted' | 'denied' | 'default'
+}
+
 export async function setupPush(supabaseClient, staffId) {
   const cfg = window.MDA_CONFIG || {};
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
@@ -31,12 +40,12 @@ export async function setupPush(supabaseClient, staffId) {
   }
 
   const json = sub.toJSON();
-  await supabaseClient.from('push_subscriptions').upsert({
+  const { error } = await supabaseClient.from('push_subscriptions').upsert({
     staff_id: staffId,
     endpoint: json.endpoint,
     p256dh: json.keys.p256dh,
     auth: json.keys.auth
   }, { onConflict: 'endpoint' });
 
-  return true;
+  return !error;
 }

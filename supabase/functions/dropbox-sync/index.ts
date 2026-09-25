@@ -14,29 +14,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import {
   dropboxConfigured, rpc, upload, approvedFolder, rejectedFolder, basename, safeName, DropboxError
 } from '../_shared/dropbox.ts';
+import { isServiceRole } from '../_shared/auth.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const TIME_BUDGET_MS = 110_000;   // dừng trước giới hạn thời gian của Edge Function
-
-// Chỉ nhận lời gọi mang khoá quyền quản trị (service_role). Không so
-// nguyên chuỗi với SUPABASE_SERVICE_ROLE_KEY: project dùng hệ khoá API
-// mới thì biến đó KHÁC khoá "legacy service_role" mà cron gửi lên, dù cả
-// hai đều hợp lệ (bản đầu so nguyên chuỗi → cron luôn nhận 403).
-// Cổng Supabase đã kiểm chữ ký JWT trước khi request tới đây (verify_jwt
-// mặc định bật khi deploy), nên chỉ cần đọc claim role trong JWT.
-function isServiceRole(header: string | null) {
-  const token = header?.replace(/^Bearer\s+/i, '') ?? '';
-  if (!token) return false;
-  if (token === SERVICE_ROLE_KEY) return true;
-  try {
-    const part = token.split('.')[1];
-    const payload = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '=')));
-    return payload?.role === 'service_role';
-  } catch {
-    return false;
-  }
-}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -47,7 +29,7 @@ function errText(e: unknown) {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
-  if (!isServiceRole(req.headers.get('Authorization'))) return json({ error: 'forbidden' }, 403);
+  if (!isServiceRole(req.headers.get('Authorization'), SERVICE_ROLE_KEY)) return json({ error: 'forbidden' }, 403);
   if (!dropboxConfigured()) return json({ error: 'dropbox_not_configured' }, 503);
 
   const started = Date.now();

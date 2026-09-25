@@ -170,7 +170,7 @@ Rồi mở `http://localhost:8080`. `config.js` đã trỏ sẵn vào Supabase t
 
 **Chưa làm:**
 
-- `pg_cron` gọi `send-alerts` còn **comment trong `schema.sql`** — cần điền service_role key rồi chạy tay để bật Web Push tự động. `compute_alerts()` thì đã lên lịch chạy 7h/15h.
+- `pg_cron` gọi `send-alerts` (job `mda-notify`, mỗi phút) còn **comment trong `schema.sql`** — chạy tay 1 lần để bật Web Push (báo cáo mới + cảnh báo). `compute_alerts()` thì đã lên lịch chạy 7h/15h.
 - Dọn ảnh gốc >180 ngày (giữ thumbnail) — cần Edge Function riêng, chưa viết.
 - Test tự động mới phủ SQL (Postgres cục bộ) và giao diện với backend giả lập — chưa có test Edge Function.
 - Đồng bộ Dropbox cần tự cấu hình (HUONG_DAN_TRIEN_KHAI.md bước 9) — mặc định tắt.

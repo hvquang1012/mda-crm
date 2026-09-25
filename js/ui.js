@@ -31,14 +31,14 @@ export function escapeHtml(s) {
   return d.innerHTML;
 }
 
-export function showToast(msg, isError) {
+export function showToast(msg, isError, ms = 2200) {
   const t = document.getElementById('toast');
   if (!t) return;
   t.textContent = msg;
   t.classList.toggle('error', !!isError);
   t.classList.add('show');
   clearTimeout(t._hideTimer);
-  t._hideTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  t._hideTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
 
 export function showScreen(id) {
