@@ -62,7 +62,7 @@ client.html  ─ ?t=token ──────────→  RPC client_view() s
                                      ↓
 ảnh ─ nén client-side ─────────────→ Edge Function crew-upload → Storage (private)
                                      ↓
-                                     pg_cron 7h & 15h → compute_alerts()
+                                     pg_cron 7h & 15h (giờ VN) → compute_alerts()
                                      → Edge Function send-alerts → Web Push
 ```
 

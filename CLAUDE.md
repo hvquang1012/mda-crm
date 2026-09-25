@@ -95,7 +95,7 @@ Git Bash là chính, PowerShell cũng có. `curl`, `python3`, `openssl`, `git` �
 | GitHub | `git@github.com:hvquang1012/mda-crm.git` |
 | Storage bucket | `site-photos` (private) |
 | Edge Functions | `crew-upload`, `get-photo-url`, `send-alerts` |
-| Cron | `compute_alerts()` chạy 7h & 15h hằng ngày |
+| Cron | `compute_alerts()` 7h & 15h giờ VN (lịch ghi theo UTC: `0 0`, `0 8`); `mda-notify` mỗi phút; `mda-dropbox-sync` 10 phút |
 
 Domain riêng dự kiến: `tiendo.noithatminhduc.com` (CNAME → Netlify, Cloudflare DNS, **DNS only** không bật proxy). Xem [huong-dan-domain.html](huong-dan-domain.html).
 

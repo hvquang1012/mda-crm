@@ -1033,8 +1033,9 @@ $$;
 -- denied" hoặc "extension pg_cron does not exist", vào Dashboard >
 -- Database > Extensions > bật "pg_cron" trước, rồi chạy lại 2 dòng này.
 create extension if not exists pg_cron;
-select cron.schedule('mda-compute-alerts-morning', '0 7 * * *', $$select compute_alerts();$$);
-select cron.schedule('mda-compute-alerts-afternoon', '0 15 * * *', $$select compute_alerts();$$);
+-- pg_cron chạy theo giờ UTC: 0h UTC = 7h, 8h UTC = 15h giờ Việt Nam
+select cron.schedule('mda-compute-alerts-morning', '0 0 * * *', $$select compute_alerts();$$);
+select cron.schedule('mda-compute-alerts-afternoon', '0 8 * * *', $$select compute_alerts();$$);
 
 -- ============================================================
 -- ĐẨY WEB PUSH — chạy sau compute_alerts() 10 phút, gọi Edge Function
