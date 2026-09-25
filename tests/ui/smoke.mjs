@@ -36,6 +36,15 @@ const shot = (p, n) => p.screenshot({ path: path.join(OUT, n + '.png'), fullPage
 let p = await page('index.html', 390, 844);
 await shot(p, 'm-dashboard');
 await p.click('#nav-approvals'); await p.waitForTimeout(400); await shot(p, 'm-approvals');
+// Khung ảnh: 3 ảnh + 6 ảnh → slide, 4 ảnh → lưới 2×2; vuốt slide cập nhật nhãn đếm
+for (const [sel, want] of [['.pg-slider[data-n="3"]', 1], ['.pg-grid4', 1], ['.pg-slider[data-n="6"]', 1]])
+  if ((await p.$$(sel)).length !== want) errors.push('gallery: thiếu ' + sel);
+await p.$eval('.pg-slider[data-n="3"] .pg-track', t => t.scrollTo({ left: t.scrollWidth }));
+await p.waitForTimeout(300);
+if ((await p.textContent('.pg-slider[data-n="3"] .pg-count')) !== '3/3') errors.push('gallery: vuốt slide không cập nhật nhãn đếm');
+await p.click('.pg-slider[data-n="3"] .pg-slide:nth-child(2) img'); await p.waitForTimeout(200);
+if ((await p.textContent('.lightbox .lb-counter')) !== '2 / 3') errors.push('gallery: bấm ảnh 2 không mở đúng ảnh trong lightbox');
+await p.click('.lightbox .lb-close');
 await p.click('[data-action=reject]'); await p.waitForTimeout(200); await shot(p, 'm-reject'); await p.click('#btnRejectCancel');
 await p.click('[data-action=approve]'); await p.waitForTimeout(300);
 console.log('calls', JSON.stringify((await p.evaluate(() => window.__calls)).filter(c => c[0] === 'rpc' && c[1] !== 'dashboard_summary')));
@@ -51,6 +60,10 @@ await p.click('#btnWizardNext'); await p.waitForTimeout(500); await shot(p, 'm-w
 
 p = await page('index.html', 1440, 900);
 await shot(p, 'd-dashboard');
+await p.click('#nav-approvals'); await p.waitForTimeout(500); await shot(p, 'd-approvals');
+await p.click('.pg-slider[data-n="6"] .pg-nav.next'); await p.waitForTimeout(500);
+if (!/^2\//.test(await p.textContent('.pg-slider[data-n="6"] .pg-count'))) errors.push('gallery: nút › không chuyển ảnh');
+await p.click('#nav-dashboard'); await p.waitForTimeout(300);
 await p.click('[data-open-project]'); await p.waitForTimeout(500); await shot(p, 'd-timeline');
 await p.click('#btnMembers'); await p.waitForTimeout(300); await shot(p, 'd-members');
 

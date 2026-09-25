@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Icon app (iPhone / PWA): nền gradient xanh tím, biểu tượng Minh Đức màu trắng -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6A5CF6"/>
+      <stop offset=".55" stop-color="#5B4CF0"/>
+      <stop offset="1" stop-color="#3B30B8"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".82" cy=".12" r=".7">
+      <stop offset="0" stop-color="#fff" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="c"><circle cx="310" cy="310" r="268"/></clipPath>
+    <mask id="ring">
+      <circle cx="310" cy="310" r="268" fill="#fff"/>
+      <circle cx="310" cy="310" r="218" fill="#000"/>
+      <rect x="150" y="380" width="295" height="240" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+  <g fill="none" stroke="#fff">
+    <circle cx="880" cy="120" r="230" stroke-opacity=".14" stroke-width="44"/>
+    <circle cx="880" cy="120" r="380" stroke-opacity=".08" stroke-width="44"/>
+    <circle cx="120" cy="960" r="200" stroke-opacity=".07" stroke-width="40"/>
+  </g>
+  <g fill="#fff" transform="translate(512 512) scale(1.2) translate(-310 -310)">
+    <rect width="620" height="620" mask="url(#ring)"/>
+    <g clip-path="url(#c)">
+      <path d="M175 205 310 128 332 140V600H290V180L218 222V600H175Z"/>
+      <path d="M360 158 447 205V600H405V224L360 200Z"/>
+    </g>
+  </g>
+</svg>

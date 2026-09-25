@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 620" role="img" aria-label="Minh Đức">
+  <!-- Biểu tượng Minh Đức vẽ lại dạng vector: vòng tròn hở đáy + hai khối nhà -->
+  <defs>
+    <clipPath id="c"><circle cx="310" cy="310" r="268"/></clipPath>
+    <mask id="ring">
+      <circle cx="310" cy="310" r="268" fill="#fff"/>
+      <circle cx="310" cy="310" r="218" fill="#000"/>
+      <rect x="150" y="380" width="295" height="240" fill="#000"/>
+    </mask>
+  </defs>
+  <circle cx="310" cy="310" r="300" fill="#2B2E7E"/>
+  <g fill="#fff">
+    <rect width="620" height="620" mask="url(#ring)"/>
+    <g clip-path="url(#c)">
+      <path d="M175 205 310 128 332 140V600H290V180L218 222V600H175Z"/>
+      <path d="M360 158 447 205V600H405V224L360 200Z"/>
+    </g>
+  </g>
+</svg>

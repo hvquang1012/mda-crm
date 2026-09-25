@@ -27,7 +27,12 @@
       { id: 'r1', work_item_id: 'i1', report_date: today, reporter_name: 'anh Sơn', qty_delta: 2, crew_size: 3, note: 'Lắp xong khu bếp chính', photos: [{ path: 'p1/s1/a.jpg' }, { path: 'p1/s1/b.jpg' }], status: 'pending', created_at: new Date(Date.now() - 3 * 3600e3).toISOString(),
         work_items: { id: 'i1', name: 'Lắp đá mặt bếp', unit: 'm2', qty_plan: 12, qty_done: 5, work_package_id: 'wp1', work_packages: { project_id: P1, name: 'Đá bếp', subcontractor_id: 's1', subcontractors: { name: 'Đội đá Sơn' }, projects: { name: 'Nhà anh Minh — Ocean Park' } } } },
       { id: 'r2', work_item_id: 'i1', report_date: today, reporter_name: 'Tuấn', qty_delta: 1.5, crew_size: 2, note: 'Cắt đá đảo bếp', photos: [{ path: 'p1/s1/c.jpg' }], status: 'pending', created_at: new Date(Date.now() - 2 * 3600e3).toISOString(),
-        work_items: { id: 'i1', name: 'Lắp đá mặt bếp', unit: 'm2', qty_plan: 12, qty_done: 5, work_package_id: 'wp1', work_packages: { project_id: P1, name: 'Đá bếp', subcontractor_id: 's1', subcontractors: { name: 'Đội đá Sơn' }, projects: { name: 'Nhà anh Minh — Ocean Park' } } } }],
+        work_items: { id: 'i1', name: 'Lắp đá mặt bếp', unit: 'm2', qty_plan: 12, qty_done: 5, work_package_id: 'wp1', work_packages: { project_id: P1, name: 'Đá bếp', subcontractor_id: 's1', subcontractors: { name: 'Đội đá Sơn' }, projects: { name: 'Nhà anh Minh — Ocean Park' } } } },
+      // Thêm nhóm 4 ảnh và 6 ảnh để kiểm bố cục khung ảnh (lưới 2×2 / slide)
+      { id: 'r3', work_item_id: 'i2', report_date: today, reporter_name: 'anh Sơn', qty_delta: 3, crew_size: 2, note: 'Mài thô xong khu bếp', photos: ['d', 'e', 'f', 'g'].map(n => ({ path: `p1/s1/${n}.jpg` })), status: 'pending', created_at: new Date(Date.now() - 1 * 3600e3).toISOString(),
+        work_items: { id: 'i2', name: 'Mài, đánh bóng', unit: 'm2', qty_plan: 12, qty_done: 0, work_package_id: 'wp1', work_packages: { project_id: P1, name: 'Đá bếp', subcontractor_id: 's1', subcontractors: { name: 'Đội đá Sơn' }, projects: { name: 'Nhà anh Minh — Ocean Park' } } } },
+      { id: 'r4', work_item_id: 'i3', report_date: today, reporter_name: 'Điện Hùng', qty_delta: 4, crew_size: 2, note: 'Đấu hộp tầng 2', photos: ['h', 'i', 'j', 'k', 'l', 'm'].map(n => ({ path: `p1/s2/${n}.jpg` })), status: 'pending', created_at: new Date(Date.now() - 0.5 * 3600e3).toISOString(),
+        work_items: { id: 'i3', name: 'Kéo dây, đấu hộp', unit: 'diem', qty_plan: 40, qty_done: 36, work_package_id: 'wp2', work_packages: { project_id: P1, name: 'Điện', subcontractor_id: 's2', subcontractors: { name: 'Điện Hùng' }, projects: { name: 'Nhà anh Minh — Ocean Park' } } } }],
     issues: [{ id: 'is1', project_id: P1, kind: 'material', description: 'Thiếu keo dán đá, cần gấp', photos: [{ path: 'p1/s1/x.jpg' }], is_blocking: true, status: 'open', raised_by_name: 'anh Sơn', created_at: new Date(Date.now() - 26 * 3600e3).toISOString(), projects: { name: 'Nhà anh Minh — Ocean Park' }, work_items: { name: 'Lắp đá mặt bếp' } }],
     alerts: [{ id: 'a1', project_id: P2, severity: 'critical', kind: 'forecast_delay', message: '"Ốp đá lavabo" đã quá hạn 2 ngày', created_at: new Date().toISOString(), projects: { name: 'Căn hộ chị Hoa' } }],
     crew_links: [{ id: 'cl1', token: 'abc', project_id: P1, subcontractor_id: 's1', person_name: 'anh Sơn', role: 'manager', created_at: '2026-09-10T00:00:00Z', last_used_at: new Date().toISOString() }],
@@ -73,7 +78,11 @@
     rpc: async (name, args) => { window.__calls.push(['rpc', name, args]); return { data: rpcs[name] ?? null, error: null }; },
     channel() { const c = { on() { return c; }, subscribe(cb) { cb && cb('SUBSCRIBED'); return c; } }; return c; },
     storage: { from() { return {
-      createSignedUrl: async () => ({ data: { signedUrl: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#8aa"/></svg>') }, error: null }),
+      // Mỗi path một màu + chữ riêng để nhìn ra ảnh nào đang hiện trong slide/lightbox
+      createSignedUrl: async (path) => {
+        const n = path.split('/').pop().replace('.jpg', ''); const hue = [...n].reduce((a, c) => a + c.charCodeAt(0) * 47, 0) % 360;
+        return { data: { signedUrl: 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="hsl(${hue} 35% 62%)"/><text x="200" y="170" font-size="64" text-anchor="middle" fill="#fff" font-family="sans-serif">${n}</text></svg>`) }, error: null };
+      },
       uploadToSignedUrl: async () => ({ error: null }), upload: async () => ({ error: null }) }; } },
     functions: { invoke: async (n) => ({ data: { paths: ['p1/s1/x.jpg', 'p1/s1/x-thumb.jpg'], tokens: ['a', 'b'] }, error: null }) }
   }; } };
