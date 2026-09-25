@@ -410,15 +410,15 @@ button.dash-chip{cursor:pointer;}
 
 /* ---------- FAB + bottom nav ---------- */
 .fab{
-  position:fixed;right:calc(50% - 240px + 20px);bottom:calc(84px + var(--safe-bottom));
+  position:fixed;right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(84px + var(--safe-bottom));
   width:60px;height:60px;border-radius:50%;background:var(--grad);color:#fff;border:none;
   font-size:26px;box-shadow:var(--shadow-btn),0 0 0 4px color-mix(in srgb,var(--paper) 70%,transparent);cursor:pointer;z-index:20;
   transition:transform .12s;
 }
 .fab:active{transform:scale(.92);}
-.fab.secondary{bottom:calc(150px + var(--safe-bottom));width:54px;height:54px;font-size:22px;
+/* Nút báo vướng mắc (màn thợ, không có thanh điều hướng dưới) → nổi sát góc dưới-phải */
+.fab.secondary{bottom:calc(20px + var(--safe-bottom));width:54px;height:54px;font-size:22px;
   background:linear-gradient(135deg,#F43F5E,#D12A4A);box-shadow:0 10px 22px -6px rgba(209,42,74,.6),0 0 0 4px color-mix(in srgb,var(--paper) 70%,transparent);}
-@media (max-width:560px){.fab{right:20px;}}
 
 .bottom-nav{
   display:flex;gap:4px;background:var(--paper);padding:8px 10px calc(8px + var(--safe-bottom));
