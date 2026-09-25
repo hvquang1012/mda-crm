@@ -84,13 +84,21 @@ supabase functions deploy send-alerts
    supabase secrets set VAPID_PRIVATE_KEY="<private key>"
    supabase secrets set VAPID_SUBJECT="mailto:ban@mdarchitects.vn"
    ```
-4. Nối `pg_cron` với `send-alerts` để tự động gửi 2 lần/ngày: mở
-   `supabase/schema.sql`, kéo xuống phần **"ĐẨY WEB PUSH"** ở cuối file,
-   bỏ dấu `--` (uncomment) 2 khối `cron.schedule`, thay `<PROJECT_REF>`
-   bằng project ref và `<SERVICE_ROLE_KEY>` bằng **service_role key**
-   (Project Settings → API — khác với anon key, giữ kín, không đưa vào
-   `config.js`). Chạy đoạn đó trong SQL Editor.
+4. Nối `pg_cron` với `send-alerts`: mở `supabase/schema.sql`, kéo xuống
+   phần **"THÔNG BÁO NGAY KHI CÓ BÁO CÁO MỚI"**, bỏ dấu `--` ở khối
+   `do $do$ ... end $do$;` rồi chạy trong SQL Editor. Khối này mượn URL
+   + khoá của job Dropbox (bước 9.4) nên phải làm bước 9.4 trước. Chưa
+   dùng Dropbox thì dùng 2 khối **"ĐẨY WEB PUSH"** phía trên (điền tay
+   `<PROJECT_REF>` và **service_role key** — giữ kín, không đưa vào
+   `config.js`), đổi lịch `'10 7 * * *'` thành `'* * * * *'`.
    - Nếu báo lỗi thiếu extension: bật **pg_net** ở Database → Extensions.
+5. Mỗi người muốn nhận thông báo: mở app → bấm biểu tượng **🔔** góc
+   trên → Cho phép. iPhone phải "Thêm vào MH chính" và mở từ đó trước.
+
+Nhận được gì: **📋 báo cáo mới chờ duyệt** (trong ~2 phút sau khi thợ
+gửi, gom các đầu việc gửi liền nhau thành 1 thông báo) và cảnh báo trễ
+hạn. Quản lý nhận mọi công trình, KTS chỉ công trình mình phụ trách.
+Bấm vào thông báo mở thẳng tab Duyệt.
 
 Không làm bước này thì app vẫn chạy bình thường — chỉ là nhân viên
 không nhận được thông báo đẩy khi có cảnh báo, phải tự mở tab "Cảnh báo"

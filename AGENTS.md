@@ -88,6 +88,8 @@ Mỗi hàm **bắt buộc** có đủ:
 
 **Dropbox là bản lưu trữ, không phải nguồn.** `photo_archive` ghi trạng thái từng ảnh (`uploading → pending → approved/rejected`, hoặc `failed`). App không bao giờ đọc ảnh từ Dropbox.
 
+**Thông báo báo cáo mới** ghi vào bảng riêng `report_notifications` (không thêm cột vào `progress_reports`). Cron `mda-notify` chạy mỗi phút, chỉ gọi `send-alerts` khi `notify_due()`; hàng đợi `reports_to_notify()` gom theo (công trình, người gửi) và chờ 90 giây yên lặng.
+
 **Ảnh và ghi chú bắt buộc — kiểm tra ở server.** `crew_submit()` raise `note_required` / `photo_required`. Validate ở client là để UX, không phải là lớp bảo vệ. Đừng bỏ kiểm tra phía SQL.
 
 **Nén ảnh phía client là bắt buộc.** `js/photos.js`: bản chính 1280px/q0.7 (~150KB) + thumbnail 400px/q0.6 (~30KB). Ảnh gốc điện thoại 3–5MB sẽ đốt hết 1GB gói free trong vài tuần.
@@ -166,7 +168,7 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 
 | Vấn đề | Ghi chú |
 |---|---|
-| `pg_cron` gọi `send-alerts` còn comment trong `schema.sql` | Cần điền service_role key thủ công. Đã ghi trong README. |
+| `pg_cron` gọi `send-alerts` (job `mda-notify`) còn comment trong `schema.sql` | Chạy tay 1 lần; khối mẫu mượn key từ job dropbox-sync. |
 | Chưa dọn ảnh gốc >180 ngày | Cần Edge Function riêng, chưa viết. |
 | Test tự động còn mỏng | `supabase/tests/run.sh` (SQL trên Postgres cục bộ) + `tests/ui/smoke.mjs` (giao diện với backend giả lập). Chưa có test cho Edge Functions. |
 | `dropbox-link` chỉ nhận token thợ | Ảnh staff nhập thay không có bản gốc — `dropbox-sync` chép bản nén. |

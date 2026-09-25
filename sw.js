@@ -43,16 +43,24 @@ self.addEventListener('push', (e) => {
     badge: './icon-192.png',
     data: { url: payload.url || './index.html' }
   };
+  // Cùng tag (vd. báo cáo mới của 1 công trình) thì thay thông báo cũ, vẫn rung
+  if (payload.tag) { options.tag = payload.tag; options.renotify = true; }
   e.waitUntil(self.registration.showNotification(title, options));
 });
 
+// Bấm thông báo: app đang mở thì chuyển tới đúng tab, chưa mở thì mở mới
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || './index.html';
+  const url = new URL((e.notification.data && e.notification.data.url) || './index.html', self.registration.scope);
   e.waitUntil(
-    clients.matchAll({ type: 'window' }).then(list => {
-      for (const c of list) { if (c.url.includes(url) && 'focus' in c) return c.focus(); }
-      if (clients.openWindow) return clients.openWindow(url);
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        if (new URL(c.url).pathname === url.pathname && 'focus' in c) {
+          c.postMessage({ type: 'open-tab', tab: url.hash.slice(1) });
+          return c.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(url.href);
     })
   );
 });
