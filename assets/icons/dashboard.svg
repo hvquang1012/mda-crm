@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" fill="none">
+  <!-- Tổng quan: máy tính bảng hiện biểu đồ tiến độ -->
+  <defs>
+    <clipPath id="body"><rect x="7" y="12" width="48" height="38" rx="7"/></clipPath>
+    <clipPath id="screen"><rect x="12.5" y="17" width="37" height="27" rx="3"/></clipPath>
+  </defs>
+  <g id="fills">
+    <rect x="7" y="12" width="48" height="38" rx="7" fill="#4CC9F0"/>
+    <rect x="12.5" y="17" width="37" height="27" rx="3" fill="#FFD166"/>
+  </g>
+  <g id="shadows">
+    <rect x="0" y="45" width="64" height="8" fill="#2BA8CF" clip-path="url(#body)"/>
+    <rect x="0" y="39.5" width="64" height="6" fill="#E9B443" clip-path="url(#screen)"/>
+  </g>
+  <g id="details">
+    <rect x="17" y="30" width="6.5" height="11" rx="1.5" fill="#06D6A0"/>
+    <rect x="27.5" y="25" width="6.5" height="16" rx="1.5" fill="#EF476F"/>
+    <rect x="38" y="21" width="6.5" height="20" rx="1.5" fill="#4CC9F0"/>
+    <rect x="20.5" y="30" width="3" height="11" fill="#05B386"/>
+    <rect x="31" y="25" width="3" height="16" fill="#C9345A"/>
+    <rect x="41.5" y="21" width="3" height="20" fill="#2BA8CF"/>
+  </g>
+  <g id="strokes" stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="7" y="12" width="48" height="38" rx="7"/>
+    <rect x="12.5" y="17" width="37" height="27" rx="3" stroke-width="2.5"/>
+    <g stroke-width="2"><rect x="17" y="30" width="6.5" height="11" rx="1.5"/><rect x="27.5" y="25" width="6.5" height="16" rx="1.5"/><rect x="38" y="21" width="6.5" height="20" rx="1.5"/></g>
+    <circle cx="52.2" cy="31" r="0.6" stroke-width="2"/>
+  </g>
+  <g id="highlights" fill="#FFFFFF">
+    <rect x="10" y="14.8" width="9" height="2.2" rx="1.1"/>
+    <rect x="15.5" y="19.8" width="7" height="2" rx="1"/>
+  </g>
+  <g id="accents">
+    <path d="M57 2.5Q57 7 61.5 7Q57 7 57 11.5Q57 7 52.5 7Q57 7 57 2.5Z" fill="#1E1E24" stroke="#1E1E24" stroke-width="1.2" stroke-linejoin="round"/>
+    <circle cx="4" cy="57" r="1.8" fill="#1E1E24"/>
+    <circle cx="60" cy="56" r="1.4" fill="#1E1E24"/>
+  </g>
+</svg>
