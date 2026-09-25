@@ -9,5 +9,10 @@ window.MDA_CONFIG = {
   // Bật cảnh báo đẩy (Web Push) cho nhân viên. Tạo cặp khoá VAPID bằng
   // lệnh: npx web-push generate-vapid-keys — dán PUBLIC KEY vào đây,
   // PRIVATE KEY dán vào Supabase Edge Function secret (xem HUONG_DAN_TRIEN_KHAI.md).
-  VAPID_PUBLIC_KEY: "BHH2ZZQK43H2MLWT1oI-x2LPH6GSpDhgswy882ew2mKERf20PSQPAqR-FDk8mbGD64bq0H_JQge668Br6TmOYOE"
+  VAPID_PUBLIC_KEY: "BHH2ZZQK43H2MLWT1oI-x2LPH6GSpDhgswy882ew2mKERf20PSQPAqR-FDk8mbGD64bq0H_JQge668Br6TmOYOE",
+
+  // Gửi thêm ẢNH GỐC (chưa nén) của thợ thẳng lên Dropbox. Chỉ bật (true)
+  // SAU KHI đã cài Dropbox theo HUONG_DAN_TRIEN_KHAI.md mục "Dropbox" —
+  // bật sớm thì máy thợ tốn dung lượng giữ ảnh gốc mà không gửi được.
+  DROPBOX_ORIGINALS: false
 };

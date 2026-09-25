@@ -2,7 +2,9 @@
 // Edge Function: send-alerts
 // Gọi bởi pg_cron (qua pg_net, xem cuối supabase/schema.sql) 10 phút
 // sau mỗi lần compute_alerts() chạy. Lấy các alert chưa notified_at,
-// gửi Web Push tới TẤT CẢ nhân viên đã đăng ký (push_subscriptions).
+// gửi Web Push tới nhân viên đã đăng ký (push_subscriptions) CÓ QUYỀN
+// trên công trình đó: quản lý/quản trị nhận tất cả, KTS chỉ nhận công
+// trình mình phụ trách (project_members hoặc người tạo).
 //
 // Deploy: supabase functions deploy send-alerts
 // Secrets cần set thêm (supabase secrets set ...):
@@ -37,10 +39,17 @@ Deno.serve(async (req) => {
   if (alertsErr) return new Response(JSON.stringify({ error: alertsErr.message }), { status: 500 });
   if (!alerts || alerts.length === 0) return new Response(JSON.stringify({ sent: 0 }), { status: 200 });
 
-  const { data: subs } = await admin.from('push_subscriptions').select('id, endpoint, p256dh, auth');
+  const { data: subs } = await admin.from('push_subscriptions').select('id, staff_id, endpoint, p256dh, auth');
   const projectIds = [...new Set(alerts.map(a => a.project_id))];
-  const { data: projects } = await admin.from('projects').select('id, name').in('id', projectIds);
+  const { data: projects } = await admin.from('projects').select('id, name, created_by').in('id', projectIds);
   const projectName = new Map((projects || []).map(p => [p.id, p.name]));
+  const { data: staff } = await admin.from('staff').select('id, role');
+  const managers = new Set((staff || []).filter(s => s.role === 'manager' || s.role === 'admin').map(s => s.id));
+  const { data: members } = await admin.from('project_members').select('project_id, staff_id').in('project_id', projectIds);
+  const canSee = (staffId: string, projectId: string) =>
+    managers.has(staffId)
+    || (members || []).some(m => m.project_id === projectId && m.staff_id === staffId)
+    || (projects || []).some(p => p.id === projectId && p.created_by === staffId);
 
   let sent = 0;
   const staleEndpoints: string[] = [];
@@ -49,7 +58,7 @@ Deno.serve(async (req) => {
     const title = severityEmoji(alert.severity) + ' ' + (projectName.get(alert.project_id) || 'Công trình');
     const payload = JSON.stringify({ title, body: alert.message, url: './index.html' });
 
-    for (const sub of subs || []) {
+    for (const sub of (subs || []).filter(s => canSee(s.staff_id, alert.project_id))) {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },

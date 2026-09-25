@@ -46,7 +46,7 @@ Bản v1 của dự án này có lỗ hổng cho phép **bất kỳ ai có link 
 | Hàm | Dùng bởi |
 |---|---|
 | `crew_bootstrap(token)` | crew.html |
-| `crew_submit(token, item_id, qty, crew_size, note, photos)` | crew.html |
+| `crew_submit(token, item_id, qty, crew_size, note, photos, reporter_name, report_date, client_ref)` | crew.html (qua hàng đợi `js/outbox.js`) |
 | `crew_my_reports(token)` | crew.html |
 | `crew_raise_issue(token, ...)` | crew.html |
 | `client_view(token)` | client.html |
@@ -55,6 +55,14 @@ Mỗi hàm **bắt buộc** có đủ:
 - `security definer` **và** `set search_path = public` (thiếu `search_path` là lỗ hổng leo thang quyền)
 - Kiểm tra `revoked_at is null and (expires_at is null or expires_at > now())`
 - Cập nhật `last_used_at`
+
+### 2.2b Phân quyền nhân viên theo công trình
+
+`staff.role`: `kts` (và `staff` cũ, coi như kts) chỉ thấy công trình trong `project_members` hoặc do mình tạo (`projects.created_by`); `manager`/`admin` thấy tất cả. Mọi policy bảng theo công trình dùng `can_access_project(project_id)` (security definer, đọc `staff`/`project_members` không vướng RLS). Storage lọc theo thư mục đầu của path = `project_id`.
+
+- Chỉ `set_staff_role()` (admin) đổi được `role` — `authenticated` chỉ có quyền `update(full_name)` trên `staff`. 🚩 Từ chối mọi `grant update on staff`.
+- Hàm thao tác dữ liệu nhiều công trình từ phía staff phải là `security invoker` (RLS tự lọc) **hoặc** `security definer` có gọi `can_access_project()` tường minh.
+- Edge Function dùng service_role phải tự kiểm tra phạm vi (xem `send-alerts` lọc người nhận).
 
 ### 2.3 Kiểm tra phạm vi token
 
@@ -72,9 +80,13 @@ Mỗi hàm **bắt buộc** có đủ:
 
 ## 3. Bất biến về dữ liệu
 
-**`progress_reports` là append-only.** Không `UPDATE` cột nghiệp vụ, không `DELETE`. Chỉ được đổi `status` / `approved_qty` / `approved_by` / `approved_at` / `reject_reason` qua `approve_report()` và `reject_report()`.
+**`progress_reports` là append-only.** Không `UPDATE` cột nghiệp vụ, không `DELETE`. Chỉ được đổi `status` / `approved_qty` / `approved_by` / `approved_at` / `reject_reason` qua `approve_report_group()` / `reject_report_group()` (hàm 1 báo cáo `approve_report`/`reject_report` gọi lại hàm nhóm). Bảng **không có policy update** — nên hai hàm này phải là `security definer` + kiểm tra `can_access_project()`. (Bản trước để `security invoker` → RLS chặn, mọi lần duyệt thất bại ngầm.) Staff chỉ `insert` được báo cáo `status='pending'`.
 
-**`work_items.qty_done` và `percent` là cache, không phải nguồn.** Chỉ `approve_report()` được cộng vào. 🚩 Từ chối mọi code ghi thẳng `qty_done` từ client.
+**`work_items.qty_done` và `percent` là cache, không phải nguồn.** Chỉ `approve_report_group()` được cộng vào. 🚩 Từ chối mọi code ghi thẳng `qty_done` từ client. `work_items.status` thì `compute_alerts()` tự cập nhật theo lịch (quá hạn → `delayed`, lệch >10% → `delayed`/`ahead`) — trừ đầu việc đã `done`.
+
+**Hàng đợi offline của thợ (`js/outbox.js`).** Mỗi báo cáo mang `client_ref` (uuid sinh ở máy); `crew_submit` gặp lại `client_ref` cũ thì trả id cũ — gửi lại sau khi rớt mạng không tạo bản trùng. `report_date` do máy gửi, server chỉ nhận trong khoảng [hôm nay − 7, hôm nay + 1].
+
+**Dropbox là bản lưu trữ, không phải nguồn.** `photo_archive` ghi trạng thái từng ảnh (`uploading → pending → approved/rejected`, hoặc `failed`). App không bao giờ đọc ảnh từ Dropbox.
 
 **Ảnh và ghi chú bắt buộc — kiểm tra ở server.** `crew_submit()` raise `note_required` / `photo_required`. Validate ở client là để UX, không phải là lớp bảo vệ. Đừng bỏ kiểm tra phía SQL.
 
@@ -111,7 +123,9 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 
 **CSS ở `css/app.css`**, dùng design token trong `:root`. Không thêm inline style mới cho những gì token đã có. Bảng màu là bộ nhận diện thương hiệu (đồng thau/kem, Fraunces + IBM Plex) — không đổi tuỳ tiện.
 
-**`state` object** (`js/staff/state.js`) là kênh chia sẻ duy nhất giữa các module tab, cố ý để tránh import vòng. Không import chéo giữa `dashboard.js` / `approvals.js` / `items.js` / `alerts.js`.
+**`state` object** (`js/staff/state.js`) là kênh chia sẻ duy nhất giữa các module tab, cố ý để tránh import vòng. Không import chéo giữa `dashboard.js` / `approvals.js` / `items.js` / `alerts.js`. Chuyển tab từ module khác: `state.navigate('items')` (main.js gán). `wizard.js` là module phụ chỉ `items.js` import.
+
+**Thông báo lỗi RPC:** dùng `rpcErrorText(error)` (`js/ui.js`) để đổi mã lỗi SQL (`already_processed`, `forbidden`...) ra câu tiếng Việt. Thêm mã lỗi mới trong SQL thì thêm vào bảng `RPC_ERROR_VI`.
 
 **`sw.js` phải giữ network-first.** Bản v1 dùng cache-first khiến máy đã cài PWA kẹt ở bản cũ vĩnh viễn sau mỗi lần deploy. 🚩 Từ chối mọi thay đổi đưa `caches.match()` lên trước `fetch()`.
 
@@ -141,6 +155,7 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 - [ ] Nén ảnh còn nguyên không?
 - [ ] Ngày trễ còn hiển thị số âm được không?
 - [ ] Hộp duyệt còn gộp theo `(work_item_id, report_date)` không? Bỏ gộp thì giám sát ngập sau 2 tuần dùng thật.
+- [ ] Policy mới có dùng `can_access_project()` không? `using (true)` cho bảng theo công trình là lộ dữ liệu KTS khác.
 
 **4. Vận hành**
 - [ ] `sw.js` còn network-first không?
@@ -151,16 +166,15 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 
 | Vấn đề | Ghi chú |
 |---|---|
-| `staff.role` không được RLS dùng | Mọi tài khoản đăng nhập có quyền như nhau. Có chủ ý ở giai đoạn này. |
 | `pg_cron` gọi `send-alerts` còn comment trong `schema.sql` | Cần điền service_role key thủ công. Đã ghi trong README. |
 | Chưa dọn ảnh gốc >180 ngày | Cần Edge Function riêng, chưa viết. |
-| Không có test tự động | Chưa có hạ tầng test. |
+| Test tự động còn mỏng | `supabase/tests/run.sh` (SQL trên Postgres cục bộ) + `tests/ui/smoke.mjs` (giao diện với backend giả lập). Chưa có test cho Edge Functions. |
+| `dropbox-link` chỉ nhận token thợ | Ảnh staff nhập thay không có bản gốc — `dropbox-sync` chép bản nén. |
 | `config.js` chứa anon key công khai | Đúng thiết kế — anon key vốn để public, RLS chặn ở tầng DB. |
 
 ### Bug đã biết, chưa sửa
 
-- **`js/staff/approvals.js` — `approveGroup()` / `rejectGroup()` nuốt lỗi.** Dùng `try/catch` quanh `await supabase.rpc()`, nhưng RPC không throw khi Postgres raise exception. Nếu `approve_report` báo `already_processed` hoặc `not_authenticated`, người dùng vẫn thấy toast "Đã duyệt". Thêm nữa: nhóm nhiều báo cáo được duyệt bằng nhiều lời gọi RPC tuần tự, không phải một transaction — hỏng giữa chừng để lại trạng thái nửa vời. Nên gộp thành một RPC `approve_report_group(ids[], total)` chạy trong một transaction.
-- **`js/staff/export.js` — gộp dòng bằng chuỗi tên.** Key là `subcontractor.name|package.name|item.name` vì query không select `id`. Hai đầu việc trùng tên trong cùng hạng mục sẽ bị cộng gộp sai. Sửa bằng cách select thêm `work_items.id` và dùng làm key.
+(Không còn — hai bug duyệt nhóm nuốt lỗi và xuất CSV gộp theo tên đã sửa: `approve_report_group` chạy 1 transaction, `export.js` gộp theo `work_items.id`.)
 
 ---
 
@@ -192,6 +206,18 @@ npx --yes supabase secrets set VAPID_SUBJECT="mailto:..." --project-ref lneaqpfi
 
 Cần `SUPABASE_ACCESS_TOKEN` (Personal Access Token) trong biến môi trường. Token này có quyền trên **toàn bộ tài khoản** Supabase, không giới hạn một project — chỉ dùng khi cần, thu hồi sau tại `supabase.com/dashboard/account/tokens`.
 
+Kiểm thử SQL trên Postgres cục bộ (không đụng project thật):
+
+```bash
+PGHOST=/tmp PGPORT=5433 PGUSER=postgres bash supabase/tests/run.sh
+```
+
+Kiểm thử khói giao diện (backend giả lập, cần Playwright):
+
+```bash
+python3 -m http.server 8765 & node tests/ui/smoke.mjs
+```
+
 Chạy web local:
 
 ```bash
@@ -202,7 +228,7 @@ python3 -m http.server 8080
 
 ## 7. Kiểm thử thủ công
 
-Chưa có test tự động. Thay đổi chạm vào các vùng dưới đây phải test tay:
+Test tự động (mục 6) chỉ phủ SQL cục bộ và giao diện giả lập. Thay đổi chạm vào các vùng dưới đây vẫn phải test tay trên project thật:
 
 **Bảo mật** — với anon key, `curl` thẳng REST API:
 
@@ -218,5 +244,11 @@ Phải trả `42501 permission denied`. Trả về dữ liệu là lỗ hổng.
 **Hộp duyệt** — ba người cùng đội báo cùng đầu việc trong cùng ngày phải hiện **một** thẻ gộp. Chỉnh `approved_qty` khác số đề xuất rồi duyệt → `work_items.qty_done` cộng đúng số đã chỉnh.
 
 **Cảnh báo** — `select compute_alerts();` rồi đối chiếu bảng `alerts`.
+
+**Phân quyền KTS** — đăng nhập tài khoản `kts` chưa được giao công trình → không thấy công trình, báo cáo, ảnh nào; giao 1 công trình → chỉ thấy đúng công trình đó.
+
+**Hàng đợi offline** — bật chế độ máy bay trên điện thoại thật, gửi báo cáo → thanh cam "đang chờ gửi" → tắt chế độ máy bay → tự gửi, hộp duyệt chỉ có 1 bản.
+
+**Dropbox** — xem HUONG_DAN_TRIEN_KHAI.md bước 9.6.
 
 **Deploy** — thiết bị đã cài PWA phải nhận bản mới sau khi mở lại (kiểm tra network-first thật sự hoạt động).
