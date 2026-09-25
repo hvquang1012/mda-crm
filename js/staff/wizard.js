@@ -184,7 +184,7 @@ function renderPreview() {
   return `
     <div class="wz-summary">
       <div class="task-name">${escapeHtml(info.name)}</div>
-      <div class="task-meta">${escapeHtml(info.client_name || '')}${info.address ? ' · ' + escapeHtml(info.address) : ''} · ${displayDate(info.start_date)} → ${displayDate(info.end_date)}</div>
+      <div class="task-meta">${[info.client_name, info.address].filter(Boolean).map(escapeHtml).concat(`${displayDate(info.start_date)} → ${displayDate(info.end_date)}`).join(' · ')}</div>
     </div>
     ${teamsHtml || '<div class="empty-hint compact">Chưa thêm đội nào — thêm sau ở tab Công việc cũng được.</div>'}
     <div class="field-hint">Bấm Tạo: hệ thống tạo công trình, hạng mục, đầu việc và link Zalo cho từng đội trong một lần.</div>`;

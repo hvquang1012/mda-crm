@@ -14,3 +14,4 @@ Thumbs.db
 
 # Node (nếu sau này thêm tooling)
 node_modules/
+tests/ui/out/

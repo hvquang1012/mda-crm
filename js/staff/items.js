@@ -645,7 +645,7 @@ function parsePaste() {
     const st = parseDateCell(cols[3]); if (st.error) errors.push(st.error);
     const en = parseDateCell(cols[4]); if (en.error) errors.push(en.error);
     if (st.date && en.date && en.date < st.date) errors.push('kết thúc trước bắt đầu');
-    return { name, unit: u.unit, qty_plan: qty, planned_start: st.date, planned_end: en.date || st.date, errors };
+    return { name, unit: u.unit, qty_plan: qty, qtyRaw: String(cols[2] || '').trim(), planned_start: st.date, planned_end: en.date || st.date, errors };
   });
   // Dòng đầu là tiêu đề cột ("Tên đầu việc | Đơn vị | ...") thì bỏ
   if (pasteRows.length && /^(tên|ten|đầu việc|hạng mục|stt)/i.test(pasteRows[0].name) && pasteRows[0].errors.length) pasteRows.shift();
@@ -658,7 +658,7 @@ function parsePaste() {
         <tr class="${r.errors.length ? 'bad' : ''}">
           <td>${escapeHtml(r.name || '—')}${r.errors.length ? `<div class="paste-err">${escapeHtml(r.errors.join(', '))}</div>` : ''}</td>
           <td>${escapeHtml(unitLabelFull(r.unit))}</td>
-          <td>${r.qty_plan ?? ''}</td>
+          <td>${Number.isFinite(r.qty_plan) ? r.qty_plan : escapeHtml(r.qtyRaw)}</td>
           <td>${r.planned_start ? displayDate(r.planned_start) + (r.planned_end && r.planned_end !== r.planned_start ? ' → ' + displayDate(r.planned_end) : '') : ''}</td>
         </tr>`).join('')}
       </tbody>
