@@ -8,6 +8,7 @@
     { id: 'i1', work_package_id: 'wp1', name: 'Lắp đá mặt bếp', seq: 1, unit: 'm2', qty_plan: 12, qty_done: 5, percent: 42, status: 'delayed', planned_start: d(-5), planned_end: d(2) },
     { id: 'i2', work_package_id: 'wp1', name: 'Mài, đánh bóng', seq: 2, unit: 'm2', qty_plan: 12, qty_done: 0, percent: 0, status: 'notStarted', planned_start: d(3), planned_end: d(5) },
     { id: 'i3', work_package_id: 'wp2', name: 'Kéo dây, đấu hộp', seq: 1, unit: 'diem', qty_plan: 40, qty_done: 40, percent: 100, status: 'done', planned_start: d(-10), planned_end: d(-3) },
+    { id: 'i4', work_package_id: 'wp1', name: 'Nghiệm thu', seq: 3, unit: 'tron_goi', qty_plan: null, qty_done: 0, percent: 0, status: 'notStarted', planned_start: d(6), planned_end: d(6) },
   ];
   const tables = {
     staff: [{ id: 'u1', full_name: 'Quang (Quản trị)', role: 'admin' }, { id: 'u2', full_name: 'KTS Lan', role: 'kts', phone: '0912345678' }],
@@ -19,9 +20,11 @@
     work_package_templates: [{ id: 't1', trade: 'da', name: 'Thi công đá — mẫu chuẩn' }],
     work_package_template_items: [
       { id: 'ti1', template_id: 't1', name: 'Khảo sát', seq: 1, unit: 'm2', default_duration_days: 1 },
-      { id: 'ti2', template_id: 't1', name: 'Lắp đặt', seq: 2, unit: 'm2', default_duration_days: 3 }],
+      { id: 'ti1b', template_id: 't1', name: 'Khảo sát', seq: 1, unit: 'm2', default_duration_days: 1 }, // mẫu bị seed 2 lần
+      { id: 'ti2', template_id: 't1', name: 'Lắp đặt', seq: 2, unit: 'm2', default_duration_days: 3 },
+      { id: 'ti2b', template_id: 't1', name: 'Lắp đặt', seq: 2, unit: 'm2', default_duration_days: 3 }],
     work_packages: [
-      { id: 'wp1', project_id: P1, subcontractor_id: 's1', trade: 'da', name: 'Đá bếp', unit: 'm2', contract_qty: 12, planned_start: d(-5), planned_end: d(5), status: 'delayed', created_at: '1', subcontractors: { id: 's1', name: 'Đội đá Sơn', trade: 'da' }, work_items: items.slice(0, 2) },
+      { id: 'wp1', project_id: P1, subcontractor_id: 's1', trade: 'da', name: 'Đá bếp', unit: 'm2', contract_qty: 12, planned_start: d(-5), planned_end: d(5), status: 'delayed', created_at: '1', subcontractors: { id: 's1', name: 'Đội đá Sơn', trade: 'da' }, work_items: [items[0], items[1], items[3]] },
       { id: 'wp2', project_id: P1, subcontractor_id: 's2', trade: 'dien', name: 'Điện', unit: 'diem', contract_qty: 40, planned_start: d(-10), planned_end: d(-3), status: 'done', created_at: '2', subcontractors: { id: 's2', name: 'Điện Hùng', trade: 'dien' }, work_items: [items[2]] }],
     progress_reports: [
       { id: 'r1', work_item_id: 'i1', report_date: today, reporter_name: 'anh Sơn', qty_delta: 2, crew_size: 3, note: 'Lắp xong khu bếp chính', photos: [{ path: 'p1/s1/a.jpg' }, { path: 'p1/s1/b.jpg' }], status: 'pending', created_at: new Date(Date.now() - 3 * 3600e3).toISOString(),
