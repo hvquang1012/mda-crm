@@ -14,5 +14,5 @@ window.MDA_CONFIG = {
   // Gửi thêm ẢNH GỐC (chưa nén) của thợ thẳng lên Dropbox. Chỉ bật (true)
   // SAU KHI đã cài Dropbox theo HUONG_DAN_TRIEN_KHAI.md mục "Dropbox" —
   // bật sớm thì máy thợ tốn dung lượng giữ ảnh gốc mà không gửi được.
-  DROPBOX_ORIGINALS: false
+  DROPBOX_ORIGINALS: true
 };
