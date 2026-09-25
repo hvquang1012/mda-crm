@@ -409,6 +409,9 @@ button.dash-chip{cursor:pointer;}
   padding:12px 14px;margin:14px 0 0;font-size:14px;line-height:1.45;}
 .crew-outbox-banner .outbox-actions{display:flex;gap:8px;margin-top:10px;}
 .crew-outbox-banner .btn{flex:1;padding:11px;font-size:14px;}
+.crew-sent-banner{border-radius:12px;padding:13px 15px;margin:14px 0 0;font-size:15px;font-weight:600;line-height:1.45;
+  background:var(--success-soft);color:var(--success);border:1px solid var(--success);}
+.crew-sent-banner.queued{background:var(--warning-soft);color:var(--ink);border-color:var(--warning);}
 .crew-status-pill.queued{background:var(--warning-soft);color:var(--warning);}
 .crew-photo-btn.compact{padding:12px;font-size:14px;display:block;}
 .resend-btn{width:100%;margin-top:10px;padding:11px;font-size:14px;}

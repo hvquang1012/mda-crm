@@ -41,6 +41,7 @@
       <div class="list-wrap crew-content">
       <div id="crewReportTab" class="crew-tab-panel active" role="tabpanel">
         <div class="crew-outbox-banner" id="crewOutboxBanner" hidden></div>
+        <div class="crew-sent-banner" id="crewSentBanner" role="status" hidden></div>
         <div class="crew-page">
           <div class="crew-picker-pane">
             <div class="section-label">Chọn đầu việc đang làm</div>
@@ -71,8 +72,8 @@
             </div>
             <div class="crew-field">
               <label>Ảnh hiện trường <span style="color:var(--danger)">*</span> (tối đa 4)</label>
-              <label class="crew-photo-btn" for="crewPhotoInput">📷 Chụp ảnh / chọn ảnh</label>
-              <input type="file" id="crewPhotoInput" accept="image/*,.heic,.heif,.dng" capture="environment" multiple style="display:none;">
+              <label class="crew-photo-btn" for="crewPhotoInput">📷 Chụp ảnh hoặc chọn từ thư viện</label>
+              <input type="file" id="crewPhotoInput" accept="image/*,.heic,.heif,.dng" multiple style="display:none;">
               <div class="crew-photo-preview" id="crewPhotoPreview"></div>
             </div>
             <button class="btn btn-primary crew-submit-btn" id="crewSubmitBtn">GỬI BÁO CÁO</button>
@@ -117,7 +118,7 @@
     <div>
       <span class="field-label">Ảnh (không bắt buộc, tối đa 3)</span>
       <label class="crew-photo-btn compact" for="issuePhotoInput">📷 Chụp ảnh vướng mắc</label>
-      <input type="file" id="issuePhotoInput" accept="image/*,.heic,.heif,.dng" capture="environment" multiple style="display:none;">
+      <input type="file" id="issuePhotoInput" accept="image/*,.heic,.heif,.dng" multiple style="display:none;">
       <div class="crew-photo-preview" id="issuePhotoPreview"></div>
     </div>
     <label style="display:flex;align-items:center;gap:8px;font-size:14px;">
