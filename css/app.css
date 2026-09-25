@@ -116,10 +116,15 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
 .header-sub{font-size:11px;color:var(--on-grad-soft);}
 .header-user{max-width:128px;color:var(--on-grad-soft);font-weight:600;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* Tên ở đầu trang = nút mở "Cài đặt tài khoản" */
-button.header-user{display:block;background:none;border:0;padding:4px 0;margin:0;font-family:inherit;text-align:left;cursor:pointer;
+button.header-user{display:block;background:none;border:0;padding:4px 0;margin:0;font-family:inherit;text-align:right;min-width:0;cursor:pointer;
   text-decoration:underline dotted rgba(255,255,255,.45);text-underline-offset:3px;}
 button.header-user::before{content:"⚙ ";text-decoration:none;display:inline;}
 button.header-user:hover{color:var(--on-grad);}
+/* Nhóm phải (chấm online · 🔔 · tên · Đăng xuất): tên co lại "…" khi màn hẹp, không đè logo */
+.header-left{flex:none;}
+.app-header > div:last-child{min-width:0;}
+.app-header > div:last-child > *{flex:none;}
+.app-header > div:last-child > .header-user{flex:0 1 auto;}
 .online-dot{flex:none;width:10px;height:10px;border-radius:50%;background:#4ADE80;box-shadow:0 0 0 3px rgba(255,255,255,.28);}
 .online-dot.off{background:#FB7185;box-shadow:0 0 0 3px rgba(255,255,255,.28);}
 .logout-btn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);color:var(--on-grad);font-size:12px;font-weight:700;
