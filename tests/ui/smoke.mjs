@@ -20,8 +20,8 @@ fs.mkdirSync(OUT, { recursive: true });
 const mock = fs.readFileSync(path.join(DIR, 'mock-supabase.js'), 'utf8');
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined }).catch(() => chromium.launch());
 const errors = [];
-async function page(url, w, h) {
-  const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+async function page(url, w, h, colorScheme = 'light') {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, colorScheme });
   const p = await ctx.newPage();
   p.on('pageerror', e => errors.push(url + ' PAGEERROR ' + e.message));
   p.on('console', m => { if (m.type() === 'error') errors.push(url + ' CONSOLE ' + m.text()); });
@@ -45,6 +45,14 @@ if (!(await p.textContent('#profileError')) || (await p.evaluate(() => window.__
 await p.fill('#profilePhone', '0912 345 678'); await p.click('#btnProfileSave'); await p.waitForTimeout(300);
 if (!(await p.evaluate(() => window.__calls)).some(c => c[0] === 'update' && c[1] === 'staff' && c[2].phone === '0912345678' && c[2].full_name === 'Quang MD')) errors.push('profile: không lưu tên/số');
 if (!(await p.textContent('#staffName')).startsWith('Quang MD')) errors.push('profile: tên đầu trang chưa đổi');
+// Sáng/Tối: ép Tối → nền #0B0F19; Tự động → bỏ data-theme
+await p.click('#staffName'); await p.waitForTimeout(150);
+await p.click('[data-theme-opt=dark]'); await p.waitForTimeout(400);
+if ((await p.evaluate(() => document.documentElement.dataset.theme)) !== 'dark' || (await p.evaluate(() => getComputedStyle(document.body).backgroundColor)) !== 'rgb(11, 15, 25)') errors.push('theme: không chuyển sang Tối');
+await shot(p, 'm-profile-dark');
+await p.click('[data-theme-opt=auto]'); await p.waitForTimeout(400);
+if ((await p.evaluate(() => document.documentElement.dataset.theme)) !== undefined) errors.push('theme: Tự động không bỏ data-theme');
+await p.click('#btnProfileCancel');
 await p.click('#nav-approvals'); await p.waitForTimeout(400); await shot(p, 'm-approvals');
 // Khung ảnh: 3 ảnh + 6 ảnh → slide, 4 ảnh → lưới 2×2; vuốt slide cập nhật nhãn đếm
 for (const [sel, want] of [['.pg-slider[data-n="3"]', 1], ['.pg-grid4', 1], ['.pg-slider[data-n="6"]', 1]])
@@ -86,6 +94,15 @@ await shot(p, 'c-form');
 await p.click('[data-tab=history]'); await p.waitForTimeout(400); await shot(p, 'c-history');
 await p.click('.resend-btn'); await p.waitForTimeout(300); await shot(p, 'c-resend');
 await p.click('#btnRaiseIssue'); await p.waitForTimeout(200); await shot(p, 'c-issue');
+
+// Chế độ tối theo máy: dashboard, duyệt, màn thợ
+p = await page('index.html', 390, 844, 'dark');
+await shot(p, 'dk-dashboard');
+await p.click('#nav-approvals'); await p.waitForTimeout(400); await shot(p, 'dk-approvals');
+p = await page('index.html', 1440, 900, 'dark');
+await p.click('#nav-items'); await p.waitForTimeout(500); await shot(p, 'dk-d-items');
+p = await page('crew.html?t=abc', 390, 844, 'dark');
+await shot(p, 'dk-c-list');
 
 console.log('ERRORS:\n' + errors.join('\n'));
 process.exitCode = errors.length ? 1 : 0;

@@ -32,6 +32,27 @@ export function renderStaffName() {
     (state.profile?.full_name || state.user.email) + (roleVi ? ' · ' + roleVi : '');
 }
 
+// ---------- Sáng / Tối ----------
+// Lưu trên máy (localStorage), áp bằng <html data-theme>. Script nhỏ trong
+// <head> của index.html đọc lại lúc mở app để không chớp màu.
+const THEME_KEY = 'mda-theme';
+function currentTheme() {
+  try { const t = localStorage.getItem(THEME_KEY); return t === 'light' || t === 'dark' ? t : 'auto'; } catch { return 'auto'; }
+}
+export function applyTheme(opt) {
+  const root = document.documentElement;
+  root.classList.add('theme-anim');
+  if (opt === 'light' || opt === 'dark') root.dataset.theme = opt; else delete root.dataset.theme;
+  try { if (opt === 'auto') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, opt); } catch { /* chế độ ẩn danh */ }
+  setTimeout(() => root.classList.remove('theme-anim'), 350);
+}
+function wireThemeSwitch() {
+  const btns = document.querySelectorAll('#profileModal [data-theme-opt]');
+  const mark = () => { const t = currentTheme(); btns.forEach(b => b.classList.toggle('active', b.dataset.themeOpt === t)); };
+  btns.forEach(b => b.onclick = () => { applyTheme(b.dataset.themeOpt); mark(); });
+  mark();
+}
+
 export function openProfileModal() {
   const modal = document.getElementById('profileModal');
   const name = document.getElementById('profileName');
@@ -49,6 +70,7 @@ export function openProfileModal() {
   };
   phone.oninput = () => { err.textContent = ''; preview(); };
   preview();
+  wireThemeSwitch();
 
   const close = () => modal.classList.remove('show');
   document.getElementById('btnProfileCancel').onclick = close;

@@ -1,4 +1,4 @@
-const CACHE = 'mda-progress-v4';
+const CACHE = 'mda-progress-v5';
 const SHELL = [
   './', './index.html', './crew.html', './client.html', './manifest.json',
   './config.js', './css/app.css', './assets/logo-minh-duc.png', './icon-192.png', './icon-512.png',
