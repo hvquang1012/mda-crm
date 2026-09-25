@@ -12,6 +12,7 @@ import { state } from './state.js';
 import { escapeHtml, showToast, displayDate, rpcErrorText, unitLabel, ageLabel } from '../ui.js';
 import { signStaffPhotoUrl } from '../photos.js';
 import { openLightbox } from '../lightbox.js';
+import { galleryHtml, wireGalleries } from '../gallery.js';
 
 let groupsCache = [];
 const selected = new Set();       // key nhóm đang tick để duyệt hàng loạt
@@ -88,6 +89,7 @@ function renderCards() {
   wrap.innerHTML = list.map(renderGroupCard).join('');
   wireGroupCards(wrap);
   loadPhotos(wrap);
+  wireGalleries(wrap);
 }
 
 function groupPhotos(g) { return g.reports.flatMap(r => (r.photos || []).map(p => ({ ...p, reportId: r.id }))); }
@@ -117,9 +119,7 @@ function renderGroupCard(g) {
         </div>
         ${stale ? '<span class="approval-stale-flag" title="Ngày chụp ảnh lệch hơn 1 ngày so với lúc gửi">⚠ ảnh cũ</span>' : ''}
       </div>
-      <div class="photo-grid">
-        ${allPhotos.map((p, pi) => `<img data-key="${k}" data-pi="${pi}" alt="ảnh hiện trường ${pi + 1}">`).join('')}
-      </div>
+      ${galleryHtml(allPhotos.length, pi => `data-key="${k}" data-pi="${pi}" alt="ảnh hiện trường ${pi + 1}"`)}
       <div class="approval-note">${notes}</div>
       <div class="reported-by">Báo bởi: ${escapeHtml(reporters)}${maxCrew ? ' · ' + maxCrew + ' thợ có mặt' : ''}${g.reports.length > 1 ? ' · ' + g.reports.length + ' báo cáo gộp' : ''}</div>
       <div class="approval-qty-row">

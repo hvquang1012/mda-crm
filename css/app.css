@@ -292,12 +292,37 @@ button.dash-chip{cursor:pointer;}
 .approval-item-name{font-weight:800;font-size:15px;}
 .approval-meta{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
 .approval-stale-flag{background:var(--danger-soft);color:var(--danger);font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:var(--pill);}
-.photo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0;}
-.photo-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:14px;background:var(--track);cursor:pointer;}
+/* Khung ảnh báo cáo (js/gallery.js): 1 ảnh lớn · 4 ảnh lưới 2×2 · còn lại slide */
+.pg{position:relative;margin:12px 0;}
+.pg img{display:block;width:100%;height:100%;object-fit:cover;cursor:zoom-in;-webkit-user-select:none;user-select:none;
+  background:linear-gradient(100deg,var(--track) 30%,color-mix(in srgb,var(--track) 55%,var(--paper)) 50%,var(--track) 70%) 0 0/300% 100%;
+  animation:pg-shimmer 1.3s linear infinite;}
+.pg img.loaded{animation:none;background:var(--track);}
+@keyframes pg-shimmer{from{background-position:100% 0;}to{background-position:0 0;}}
+@media (prefers-reduced-motion:reduce){.pg img{animation:none;}}
+.pg-single{aspect-ratio:4/3;border-radius:18px;overflow:hidden;}
+.pg-grid4{display:grid;grid-template-columns:1fr 1fr;gap:3px;border-radius:18px;overflow:hidden;background:var(--paper);}
+.pg-grid4 img{aspect-ratio:1;}
+.pg-track{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;
+  overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;border-radius:18px;}
+.pg-track::-webkit-scrollbar{display:none;}
+.pg-slide{flex:0 0 86%;aspect-ratio:4/3;scroll-snap-align:start;border-radius:18px;overflow:hidden;}
+.pg-slide:last-child{scroll-snap-align:end;}
+.pg-count{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:var(--pill);font-size:11.5px;font-weight:700;
+  color:#fff;background:rgba(15,14,36,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  font-variant-numeric:tabular-nums;pointer-events:none;}
+.pg-dots{display:flex;justify-content:center;gap:5px;margin-top:9px;}
+.pg-dots i{width:6px;height:6px;border-radius:var(--pill);background:var(--line);transition:width .2s,background-color .2s;}
+.pg-dots i.on{width:18px;background:var(--primary);}
+.pg-nav{display:none;position:absolute;top:calc(50% - 12px);transform:translateY(-50%);width:38px;height:38px;border:0;border-radius:50%;
+  background:var(--paper);color:var(--ink);font-size:22px;line-height:1;cursor:pointer;box-shadow:0 6px 18px rgba(15,14,36,.22);font-family:inherit;}
+.pg-nav.prev{left:8px;}
+.pg-nav.next{right:8px;}
+.pg-nav[hidden]{display:none!important;}
 .approval-note{font-size:13px;color:var(--ink);background:var(--bg);border-radius:var(--radius-input);padding:10px 12px;margin:8px 0;}
 .approval-qty-row{display:flex;align-items:center;gap:8px;margin:10px 0;}
 .approval-qty-row input{width:100px;}
-.approval-actions{display:flex;gap:8px;}
+.approval-actions{display:flex;gap:8px;margin-top:12px;}
 .approval-actions .btn{flex:1;}
 .reported-by{font-size:11px;color:var(--ink-faint);margin-top:4px;}
 
@@ -616,6 +641,17 @@ button.dash-chip{cursor:pointer;}
     max-height:calc(100dvh - 48px);
   }
   .toast{bottom:32px;}
+
+  /* Ảnh báo cáo: 2–3 ảnh xếp 1 hàng, ≥5 ảnh slide 3 ảnh/khung + nút ‹ › */
+  .pg-single{max-width:380px;}
+  .pg-grid4{max-width:320px;}
+  .pg-slider[data-n="2"] .pg-track,.pg-slider[data-n="3"] .pg-track{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;overflow:visible;}
+  .pg-slider[data-n="2"] .pg-track{max-width:560px;}
+  .pg-slider[data-n="2"] :is(.pg-count,.pg-dots),.pg-slider[data-n="3"] :is(.pg-count,.pg-dots){display:none;}
+  .pg-slide{flex-basis:calc((100% - 16px)/3);border-radius:14px;}
+}
+@media (min-width:900px) and (hover:hover){
+  .pg-nav{display:block;}
 }
 
 @media (min-width:1500px){

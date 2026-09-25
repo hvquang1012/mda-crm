@@ -9,6 +9,7 @@ import { state } from './state.js';
 import { escapeHtml, showToast, ageLabel, rpcErrorText } from '../ui.js';
 import { signStaffPhotoUrl } from '../photos.js';
 import { openLightbox } from '../lightbox.js';
+import { galleryHtml, wireGalleries } from '../gallery.js';
 
 const ISSUE_KIND_VI = {
   blocked_handover: 'Chưa bàn giao mặt bằng', material: 'Thiếu vật tư', access: 'Không vào được công trình',
@@ -43,7 +44,7 @@ async function renderIssues() {
       </div>
       <div class="issue-project">${escapeHtml(i.projects?.name || '')}${i.work_items?.name ? ' · ' + escapeHtml(i.work_items.name) : ''}</div>
       <div class="approval-note">${escapeHtml(i.description)}</div>
-      ${(i.photos || []).length ? `<div class="photo-grid">${i.photos.map((p, pi) => `<img data-issue="${i.id}" data-pi="${pi}" alt="ảnh vướng mắc">`).join('')}</div>` : ''}
+      ${galleryHtml((i.photos || []).length, pi => `data-issue="${i.id}" data-pi="${pi}" alt="ảnh vướng mắc ${pi + 1}"`)}
       <div class="reported-by">Báo bởi: ${escapeHtml(i.raised_by_name)} · ${new Date(i.created_at).toLocaleString('vi-VN')}</div>
       <div class="issue-resolve">
         <input type="text" class="issue-note" data-id="${i.id}" placeholder="Cách xử lý (không bắt buộc) — VD: đã gọi NCC giao vật tư sáng mai">
@@ -61,6 +62,7 @@ async function renderIssues() {
     if (p?.path) signStaffPhotoUrl(state.supabase, p.path).then(u => { if (u) { urls.get(issue.id)[pi] = u; img.src = u; } });
     img.onclick = () => openLightbox(urls.get(issue.id), pi);
   });
+  wireGalleries(wrap);
 
   wrap.querySelectorAll('[data-action=resolve]').forEach(btn => {
     btn.onclick = async () => {
