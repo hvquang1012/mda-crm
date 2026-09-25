@@ -40,6 +40,7 @@
 
       <div class="list-wrap crew-content">
       <div id="crewReportTab" class="crew-tab-panel active" role="tabpanel">
+        <div class="crew-outbox-banner" id="crewOutboxBanner" hidden></div>
         <div class="crew-page">
           <div class="crew-picker-pane">
             <div class="section-label">Chọn đầu việc đang làm</div>
@@ -47,11 +48,16 @@
           </div>
 
           <div class="crew-form" id="crewForm" style="display:none;">
-            <div class="modal-title" style="margin:0;">Hôm nay làm được gì?</div>
+            <div>
+              <div class="modal-title" style="margin:0;">Hôm nay làm được gì?</div>
+              <div class="crew-form-item" id="crewFormItemName"></div>
+            </div>
 
             <div class="crew-field">
-              <label>Làm thêm hôm nay (số lượng)</label>
+              <label for="crewQty">Làm thêm hôm nay (số lượng)</label>
               <input type="number" inputmode="decimal" id="crewQty" placeholder="VD: 4.5" min="0" step="0.1">
+              <div class="chip-row" id="crewQtyChips" style="margin-top:8px;"></div>
+              <div class="field-hint" id="crewQtyHint"></div>
             </div>
             <div class="crew-field">
               <label>Số thợ có mặt hôm nay</label>
@@ -60,6 +66,8 @@
             <div class="crew-field">
               <label>Ghi chú <span style="color:var(--danger)">*</span></label>
               <textarea id="crewNote" rows="3" placeholder="VD: đã lắp xong mặt bếp khu bếp chính, còn khu đảo bếp"></textarea>
+              <div class="chip-row" id="crewNoteChips" style="margin-top:8px;"></div>
+              <div class="field-hint">Đang gõ dở vẫn được lưu nháp — chuyển đầu việc khác không mất.</div>
             </div>
             <div class="crew-field">
               <label>Ảnh hiện trường <span style="color:var(--danger)">*</span> (tối đa 4)</label>
@@ -106,8 +114,14 @@
       <span class="field-label">Mô tả</span>
       <textarea id="issueDesc" rows="3" placeholder="Mô tả cụ thể vướng mắc..."></textarea>
     </div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;">
-      <input type="checkbox" id="issueBlocking" style="width:auto;">
+    <div>
+      <span class="field-label">Ảnh (không bắt buộc, tối đa 3)</span>
+      <label class="crew-photo-btn compact" for="issuePhotoInput">📷 Chụp ảnh vướng mắc</label>
+      <input type="file" id="issuePhotoInput" accept="image/*,.heic,.heif,.dng" capture="environment" multiple style="display:none;">
+      <div class="crew-photo-preview" id="issuePhotoPreview"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;">
+      <input type="checkbox" id="issueBlocking" style="width:22px;height:22px;">
       Vướng mắc này đang chặn không làm tiếp được
     </label>
     <div class="modal-actions">

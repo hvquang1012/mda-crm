@@ -152,7 +152,12 @@ async function edgeErrorDetail(err) {
 // token: crew_link token của người đang gửi báo cáo
 // Trả về {path, thumb_path, taken_at} để đính vào progress_reports.photos
 export async function uploadCrewPhoto(supabaseClient, token, file) {
-  const { mainBlob, thumbBlob, takenAt } = await prepareImage(file);
+  return uploadPreparedCrewPhoto(supabaseClient, token, await prepareImage(file));
+}
+
+// Tách riêng bước gửi: hàng đợi offline (js/outbox.js) nén ảnh ngay lúc
+// thợ bấm gửi, cất bản nén vào máy, có sóng mới gọi hàm này.
+export async function uploadPreparedCrewPhoto(supabaseClient, token, { mainBlob, thumbBlob, takenAt }) {
   const stamp = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 
   const { data: signed, error: signErr } = await supabaseClient.functions.invoke('crew-upload', {
@@ -161,7 +166,9 @@ export async function uploadCrewPhoto(supabaseClient, token, file) {
   if (signErr) {
     const detail = await edgeErrorDetail(signErr);
     if (detail === 'invalid_or_expired_token') {
-      throw new PhotoError('Link của đội đã hết hạn hoặc bị thu hồi — báo giám sát cấp link mới', signErr);
+      const err = new PhotoError('Link của đội đã hết hạn hoặc bị thu hồi — báo giám sát cấp link mới', signErr);
+      err.code = 'invalid_or_expired_token';   // hàng đợi offline dựa vào mã này để ngừng gửi lại
+      throw err;
     }
     throw new PhotoError('Không xin được chỗ lưu ảnh trên máy chủ' + (detail ? ` (${detail})` : ''), signErr);
   }

@@ -65,3 +65,15 @@ select 'admin thấy' t, count(*) from projects;
 select 'admin đổi K2 thành manager' t, set_staff_role('aaaaaaaa-0000-0000-0000-000000000003','manager');
 set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000003';
 select 'K2 (manager) thấy' t, count(*) from projects;
+
+-- Hàng đợi offline: gửi lại cùng client_ref không tạo báo cáo trùng
+reset role;
+set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
+select 'gửi lần 1/2 cùng client_ref → cùng id' t,
+  crew_submit('tok','55555555-5555-5555-5555-555555555555',1,2,'offline','[{"path":"33333333-3333-3333-3333-333333333333/x/d.jpg"}]',null,current_date,'99999999-9999-9999-9999-999999999999')
+  = crew_submit('tok','55555555-5555-5555-5555-555555555555',1,2,'offline','[{"path":"33333333-3333-3333-3333-333333333333/x/d.jpg"}]',null,current_date,'99999999-9999-9999-9999-999999999999') as same_id;
+select 'ngày báo cáo quá cũ (phải lỗi invalid_report_date)' t;
+select crew_submit('tok','55555555-5555-5555-5555-555555555555',1,2,'x','[{"path":"a"}]',null,current_date-30);
+select 'lịch sử có work_item_id' t, (crew_my_reports('tok')->0->>'work_item_id') is not null as ok;
+reset role;
+select 'số báo cáo client_ref' t, count(*) from progress_reports where client_ref is not null;

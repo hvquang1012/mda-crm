@@ -147,6 +147,12 @@ alter table progress_reports drop constraint if exists progress_reports_work_ite
 alter table progress_reports add constraint progress_reports_work_item_id_fkey
   foreign key (work_item_id) references work_items(id) on delete restrict;
 
+-- Mã do máy thợ tự sinh cho mỗi báo cáo trong hàng đợi offline: mạng rớt
+-- đúng lúc máy chủ đã lưu nhưng chưa kịp trả lời thì lần gửi lại không
+-- tạo báo cáo trùng (crew_submit trả về báo cáo cũ).
+alter table progress_reports add column if not exists client_ref uuid;
+create unique index if not exists uq_reports_client_ref on progress_reports(client_ref) where client_ref is not null;
+
 do $$ begin
   alter table progress_reports add constraint progress_reports_qty_delta_nonneg check (qty_delta >= 0);
 exception when duplicate_object then null;
@@ -458,6 +464,9 @@ begin
 end;
 $$;
 
+-- Bản trước không có p_client_ref — xoá chữ ký cũ, nếu không PostgREST
+-- gặp 2 hàm trùng tên và báo lỗi "could not choose the best candidate".
+drop function if exists crew_submit(text, uuid, numeric, int, text, jsonb, text, date);
 create or replace function crew_submit(
   p_token text,
   p_item_id uuid,
@@ -466,7 +475,8 @@ create or replace function crew_submit(
   p_note text,
   p_photos jsonb,
   p_reporter_name text default null,
-  p_report_date date default current_date
+  p_report_date date default current_date,
+  p_client_ref uuid default null
 ) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
@@ -475,6 +485,20 @@ declare
   v_id uuid;
 begin
   v_link := _resolve_crew_link(p_token);
+
+  -- Gửi lại từ hàng đợi offline: báo cáo này đã lưu rồi thì trả id cũ
+  if p_client_ref is not null then
+    select id into v_id from progress_reports where client_ref = p_client_ref and crew_link_id = v_link.id;
+    if v_id is not null then
+      return v_id;
+    end if;
+  end if;
+
+  -- Báo cáo nằm trong hàng đợi vài ngày vẫn giữ đúng ngày làm, nhưng
+  -- không cho lùi quá 7 ngày hay ghi trước ngày tương lai (+1 cho lệch múi giờ).
+  if p_report_date is not null and (p_report_date < current_date - 7 or p_report_date > current_date + 1) then
+    raise exception 'invalid_report_date';
+  end if;
 
   if p_note is null or length(trim(p_note)) = 0 then
     raise exception 'note_required';
@@ -501,11 +525,11 @@ begin
 
   insert into progress_reports(
     work_item_id, report_date, reporter_kind, crew_link_id, reporter_name,
-    qty_delta, crew_size, note, photos
+    qty_delta, crew_size, note, photos, client_ref
   ) values (
     p_item_id, coalesce(p_report_date, current_date), 'crew', v_link.id,
     coalesce(nullif(trim(p_reporter_name), ''), v_link.person_name, 'Đội thi công'),
-    coalesce(p_qty_delta, 0), p_crew_size, p_note, p_photos
+    coalesce(p_qty_delta, 0), p_crew_size, p_note, p_photos, p_client_ref
   ) returning id into v_id;
 
   return v_id;
@@ -532,7 +556,7 @@ begin
     limit 200
   )
   select coalesce(json_agg(json_build_object(
-    'id', id, 'work_item_name', work_item_name, 'report_date', report_date,
+    'id', id, 'work_item_id', work_item_id, 'work_item_name', work_item_name, 'report_date', report_date,
     'qty_delta', qty_delta, 'crew_size', crew_size, 'note', note, 'photos', photos,
     'status', status, 'reject_reason', reject_reason, 'created_at', created_at
   ) order by created_at desc), '[]'::json)
@@ -1398,7 +1422,7 @@ create policy "staff update own profile" on staff for update to authenticated
   using (id = auth.uid()) with check (id = auth.uid());
 
 grant execute on function crew_bootstrap(text) to anon, authenticated;
-grant execute on function crew_submit(text, uuid, numeric, int, text, jsonb, text, date) to anon, authenticated;
+grant execute on function crew_submit(text, uuid, numeric, int, text, jsonb, text, date, uuid) to anon, authenticated;
 grant execute on function crew_my_reports(text) to anon, authenticated;
 grant execute on function crew_raise_issue(text, uuid, text, text, jsonb, boolean, text) to anon, authenticated;
 grant execute on function client_view(text) to anon, authenticated;

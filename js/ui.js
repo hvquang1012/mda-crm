@@ -84,7 +84,8 @@ const RPC_ERROR_VI = {
   item_not_in_scope: 'Đầu việc này không thuộc đội của bạn',
   note_required: 'Vui lòng nhập ghi chú',
   photo_required: 'Vui lòng chụp ít nhất 1 ảnh',
-  description_required: 'Vui lòng mô tả vướng mắc'
+  description_required: 'Vui lòng mô tả vướng mắc',
+  invalid_report_date: 'Báo cáo quá 7 ngày chưa gửi được — báo lại từ đầu'
 };
 export function rpcErrorText(error, fallback = 'Thao tác thất bại — thử lại') {
   const msg = String(error?.message || '');
