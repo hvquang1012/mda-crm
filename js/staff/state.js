@@ -3,6 +3,7 @@
 export const state = {
   supabase: null,
   user: null,
+  profile: {},           // dòng staff của người đang đăng nhập (full_name, phone…)
   staffRole: 'kts',       // kts | manager | admin — đọc từ bảng staff lúc đăng nhập
   projects: [],           // toàn bộ dự án thấy được, dùng cho dashboard + project switcher
   subcontractors: [],

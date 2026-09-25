@@ -35,6 +35,16 @@ const shot = (p, n) => p.screenshot({ path: path.join(OUT, n + '.png'), fullPage
 
 let p = await page('index.html', 390, 844);
 await shot(p, 'm-dashboard');
+// Cài đặt tài khoản: bấm tên → sửa tên + số; số sai không gửi, số +84 đổi về 0…
+await p.click('#staffName'); await p.waitForTimeout(200);
+await p.fill('#profileName', 'Quang MD'); await p.fill('#profilePhone', '+84 912 345 678');
+if ((await p.getAttribute('#profileZalo', 'href')) !== 'https://zalo.me/0912345678') errors.push('profile: link Zalo sai');
+await shot(p, 'm-profile');
+await p.fill('#profilePhone', '123'); await p.click('#btnProfileSave'); await p.waitForTimeout(200);
+if (!(await p.textContent('#profileError')) || (await p.evaluate(() => window.__calls)).some(c => c[0] === 'update' && c[1] === 'staff')) errors.push('profile: số sai vẫn lưu');
+await p.fill('#profilePhone', '0912 345 678'); await p.click('#btnProfileSave'); await p.waitForTimeout(300);
+if (!(await p.evaluate(() => window.__calls)).some(c => c[0] === 'update' && c[1] === 'staff' && c[2].phone === '0912345678' && c[2].full_name === 'Quang MD')) errors.push('profile: không lưu tên/số');
+if (!(await p.textContent('#staffName')).startsWith('Quang MD')) errors.push('profile: tên đầu trang chưa đổi');
 await p.click('#nav-approvals'); await p.waitForTimeout(400); await shot(p, 'm-approvals');
 // Khung ảnh: 3 ảnh + 6 ảnh → slide, 4 ảnh → lưới 2×2; vuốt slide cập nhật nhãn đếm
 for (const [sel, want] of [['.pg-slider[data-n="3"]', 1], ['.pg-grid4', 1], ['.pg-slider[data-n="6"]', 1]])
@@ -66,6 +76,7 @@ if (!/^2\//.test(await p.textContent('.pg-slider[data-n="6"] .pg-count'))) error
 await p.click('#nav-dashboard'); await p.waitForTimeout(300);
 await p.click('[data-open-project]'); await p.waitForTimeout(500); await shot(p, 'd-timeline');
 await p.click('#btnMembers'); await p.waitForTimeout(300); await shot(p, 'd-members');
+if ((await p.getAttribute('#membersList .zalo-btn', 'href')) !== 'https://zalo.me/0912345678') errors.push('members: thiếu nút Zalo');
 
 p = await page('crew.html?t=abc', 390, 844);
 await shot(p, 'c-list');

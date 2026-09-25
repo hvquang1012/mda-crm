@@ -7,6 +7,7 @@
 import { state, isManager } from './state.js';
 import { escapeHtml, showToast, displayDate, todayISO, db, rpcErrorText, shareLink, unitLabel as unitLabelFull } from '../ui.js';
 import { renderTimeline } from '../timeline.js';
+import { zaloLinkHtml } from './profile.js';
 import { openProjectWizard, scheduleFromTemplate, crewLinkUrl, clientLinkUrl } from './wizard.js';
 
 let currentPackages = [];  // work_packages của currentProjectId, kèm work_items lồng bên trong
@@ -699,7 +700,7 @@ async function renderMembers() {
   const wrap = document.getElementById('membersList');
   wrap.innerHTML = '<div class="empty-hint compact">Đang tải...</div>';
   const [{ data: staff, error: e1 }, { data: members, error: e2 }] = await Promise.all([
-    state.supabase.from('staff').select('id, full_name, role').order('full_name'),
+    state.supabase.from('staff').select('*').order('full_name'), // '*': chưa có cột phone vẫn chạy
     state.supabase.from('project_members').select('staff_id').eq('project_id', state.currentProjectId)
   ]);
   if (e1 || e2) { wrap.innerHTML = '<div class="empty-hint compact">Không tải được danh sách nhân viên.</div>'; return; }
@@ -714,6 +715,7 @@ async function renderMembers() {
         <input type="checkbox" data-member="${u.id}" ${inProject.has(u.id) || seesAll ? 'checked' : ''} ${seesAll ? 'disabled' : ''}>
         <span>${escapeHtml(u.full_name || u.id.slice(0, 8))}${u.id === state.user.id ? ' (bạn)' : ''}</span>
       </label>
+      ${zaloLinkHtml(u.phone)}
       ${isAdmin && u.id !== state.user.id ? `
         <select data-role="${u.id}" aria-label="Vai trò">
           ${['kts', 'manager', 'admin'].map(r => `<option value="${r}" ${(u.role === 'staff' ? 'kts' : u.role) === r ? 'selected' : ''}>${roleVi[r]}</option>`).join('')}

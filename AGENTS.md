@@ -60,7 +60,7 @@ Mỗi hàm **bắt buộc** có đủ:
 
 `staff.role`: `kts` (và `staff` cũ, coi như kts) chỉ thấy công trình trong `project_members` hoặc do mình tạo (`projects.created_by`); `manager`/`admin` thấy tất cả. Mọi policy bảng theo công trình dùng `can_access_project(project_id)` (security definer, đọc `staff`/`project_members` không vướng RLS). Storage lọc theo thư mục đầu của path = `project_id`.
 
-- Chỉ `set_staff_role()` (admin) đổi được `role` — `authenticated` chỉ có quyền `update(full_name)` trên `staff`. 🚩 Từ chối mọi `grant update on staff`.
+- Chỉ `set_staff_role()` (admin) đổi được `role` — `authenticated` chỉ có quyền `update(full_name, phone)` trên `staff`. 🚩 Từ chối mọi `grant update on staff`.
 - Hàm thao tác dữ liệu nhiều công trình từ phía staff phải là `security invoker` (RLS tự lọc) **hoặc** `security definer` có gọi `can_access_project()` tường minh.
 - Edge Function dùng service_role phải tự kiểm tra phạm vi (xem `send-alerts` lọc người nhận).
 

@@ -38,7 +38,7 @@
     <div class="app-header">
       <div class="header-left">
         <img class="header-logo" src="assets/logo-minh-duc.png" alt="Minh Đức">
-        <div class="header-user" id="staffName">Nhân viên</div>
+        <button type="button" class="header-user" id="staffName" title="Cài đặt tài khoản">Nhân viên</button>
       </div>
       <div style="display:flex;align-items:center;gap:12px;">
         <span class="online-dot" id="staffOnlineDot"></span>
@@ -153,6 +153,28 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnPasteCancel">Huỷ</button>
       <button class="btn btn-primary" id="btnPasteSave" disabled>Thêm đầu việc</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: CÀI ĐẶT TÀI KHOẢN ===================== -->
+<div class="modal-backdrop" id="profileModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Cài đặt tài khoản</div>
+    <div>
+      <label class="field-label" for="profileName">Tên hiển thị</label>
+      <input type="text" id="profileName" maxlength="60" autocomplete="name" placeholder="VD: KTS Lan">
+    </div>
+    <div>
+      <label class="field-label" for="profilePhone">Số điện thoại (Zalo)</label>
+      <input type="tel" id="profilePhone" inputmode="tel" maxlength="16" autocomplete="tel" placeholder="0912 345 678">
+      <div class="field-hint">Quản lý bấm nút Zalo ở danh sách nhân viên để nhắn cho bạn.</div>
+      <a class="profile-zalo" id="profileZalo" target="_blank" rel="noopener" hidden></a>
+    </div>
+    <div class="login-error" id="profileError" role="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnProfileCancel">Huỷ</button>
+      <button class="btn btn-primary" id="btnProfileSave">Lưu</button>
     </div>
   </div>
 </div>
