@@ -175,6 +175,8 @@ create table if not exists issues (
   created_at timestamptz not null default now()
 );
 create index if not exists idx_issues_project on issues(project_id);
+-- Ghi chú cách xử lý — giám sát ghi khi bấm "Đã xử lý", đội xem lại được.
+alter table issues add column if not exists resolution_note text;
 
 -- Cảnh báo tự động (sinh bởi compute_alerts(), xem phần dưới)
 create table if not exists alerts (

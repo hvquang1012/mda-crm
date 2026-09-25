@@ -66,3 +66,53 @@ export async function db(promise, { successMsg, errorMsg } = {}) {
   if (successMsg) showToast(successMsg);
   return { data, error: null };
 }
+
+// Mã lỗi do các hàm SQL raise (xem supabase/schema.sql) → câu người
+// dùng hiểu được. supabase.rpc() KHÔNG throw — luôn đọc { error } rồi
+// đưa qua đây thay vì hiện error.message thô.
+const RPC_ERROR_VI = {
+  not_authenticated: 'Phiên đăng nhập đã hết — đăng nhập lại giúp',
+  forbidden: 'Bạn không phụ trách công trình này',
+  already_processed: 'Báo cáo đã được người khác duyệt / trả lại trước đó',
+  report_not_found: 'Không tìm thấy báo cáo (có thể đã bị xử lý)',
+  mixed_items: 'Nhóm báo cáo thuộc nhiều đầu việc khác nhau — tải lại trang',
+  negative_qty: 'Khối lượng duyệt không được âm',
+  empty_group: 'Chưa chọn báo cáo nào',
+  admin_only: 'Chỉ quản trị viên được đổi vai trò',
+  cannot_demote_self: 'Không tự hạ quyền của chính mình được',
+  invalid_or_expired_token: 'Link đã hết hạn hoặc bị thu hồi — liên hệ giám sát',
+  item_not_in_scope: 'Đầu việc này không thuộc đội của bạn',
+  note_required: 'Vui lòng nhập ghi chú',
+  photo_required: 'Vui lòng chụp ít nhất 1 ảnh',
+  description_required: 'Vui lòng mô tả vướng mắc'
+};
+export function rpcErrorText(error, fallback = 'Thao tác thất bại — thử lại') {
+  const msg = String(error?.message || '');
+  const code = Object.keys(RPC_ERROR_VI).find(k => msg.includes(k));
+  if (code) return RPC_ERROR_VI[code];
+  if (/Failed to fetch|NetworkError|network/i.test(msg)) return 'Mất kết nối mạng — thử lại';
+  if (/row-level security|permission denied/i.test(msg)) return 'Bạn không có quyền với dữ liệu này';
+  return fallback;
+}
+
+export function unitLabel(u) { return { m2: 'm²', diem: 'điểm', md: 'md', tron_goi: 'trọn gói' }[u] || u || ''; }
+export function tradeLabel(t) { return { da: 'Đá', dien: 'Điện' }[t] || 'Khác'; }
+
+// Số giờ/ngày đã trôi qua kể từ `iso` — "3 giờ", "2 ngày"
+export function ageLabel(iso) {
+  const h = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 3600000));
+  if (h < 1) return 'vừa xong';
+  if (h < 24) return h + ' giờ';
+  return Math.floor(h / 24) + ' ngày';
+}
+
+// Chia sẻ link qua Zalo / Messenger bằng bảng chia sẻ của điện thoại,
+// máy không hỗ trợ thì copy.
+export async function shareLink(url, title) {
+  if (navigator.share) {
+    try { await navigator.share({ title, text: title, url }); return 'shared'; }
+    catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+  }
+  try { await navigator.clipboard.writeText(url); showToast('Đã copy link — dán vào Zalo'); return 'copied'; }
+  catch (e) { prompt('Copy link:', url); return 'prompted'; }
+}

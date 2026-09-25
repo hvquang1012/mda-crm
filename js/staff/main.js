@@ -7,7 +7,7 @@ import { showToast, showScreen, setOnlineDots } from '../ui.js';
 import { state } from './state.js';
 import { renderDashboard } from './dashboard.js';
 import { renderApprovals } from './approvals.js';
-import { renderAlerts, wireCheckNowButton } from './alerts.js';
+import { renderAlerts, wireCheckNowButton, refreshIssuesBadge } from './alerts.js';
 import { initItemsTab, renderProjectSelect, renderPackages } from './items.js';
 import { wireExportButton } from './export.js';
 import { setupPush } from '../push.js';
@@ -45,7 +45,7 @@ document.getElementById('btnLogout').onclick = async () => {
 
 async function enterStaffApp() {
   showScreen('mainScreen');
-  document.getElementById('staffName').textContent = state.user.email;
+  await loadStaffProfile();
   await initItemsTab();
   await renderProjectSelect();
   await switchTab('dashboard');
@@ -53,6 +53,16 @@ async function enterStaffApp() {
   setupPush(supabase, state.user.id).catch(() => {});
   wireCheckNowButton();
   wireExportButton();
+}
+
+// Vai trò quyết định KTS chỉ thấy công trình được giao (RLS lọc ở DB,
+// ở đây chỉ để ẩn/hiện nút quản trị).
+async function loadStaffProfile() {
+  const { data } = await supabase.from('staff').select('full_name, role').eq('id', state.user.id).maybeSingle();
+  state.staffRole = data?.role === 'staff' ? 'kts' : (data?.role || 'kts');
+  const roleVi = { kts: 'KTS', manager: 'Quản lý', admin: 'Quản trị' }[state.staffRole] || '';
+  document.getElementById('staffName').textContent = (data?.full_name || state.user.email) + (roleVi ? ' · ' + roleVi : '');
+  document.body.classList.toggle('is-manager', state.staffRole === 'manager' || state.staffRole === 'admin');
 }
 
 // ---------- Điều hướng tab ----------
@@ -72,6 +82,7 @@ async function switchTab(tab) {
   else if (tab === 'alerts') await renderAlerts();
 }
 TABS.forEach(t => { document.getElementById('nav-' + t).onclick = () => switchTab(t); });
+state.navigate = switchTab;
 
 document.getElementById('projectSelect').addEventListener('change', async (e) => {
   state.currentProjectId = e.target.value;
@@ -83,12 +94,13 @@ function subscribeRealtime() {
   supabase.channel('mda-staff')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'progress_reports' }, () => refreshActive(['approvals', 'dashboard']))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'work_items' }, () => refreshActive(['dashboard', 'items']))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' }, () => refreshActive(['dashboard']))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' }, () => { refreshActive(['dashboard', 'alerts']); refreshIssuesBadge(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts' }, () => refreshActive(['dashboard', 'alerts']))
     .subscribe(status => setOnlineDots(status === 'SUBSCRIBED', ['staffOnlineDot']));
 
-  // Luôn cập nhật số đếm "chờ duyệt" ở bottom nav dù đang xem tab nào
+  // Luôn cập nhật số đếm "chờ duyệt" / "vướng mắc" ở menu dù đang xem tab nào
   refreshApprovalsBadgeOnly();
+  refreshIssuesBadge();
 }
 
 let debounceTimer = null;
