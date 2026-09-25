@@ -123,35 +123,149 @@ chính"** (iOS 16.4+). Mở bằng Safari thường sẽ không xin được quy
 
 ---
 
+## BƯỚC 8 — Cập nhật lên bản mới (phân quyền KTS, duyệt nhóm, Dropbox)
+
+Làm **một lần** sau khi lấy bản code mới:
+
+1. Supabase → **SQL Editor** → New query → dán toàn bộ `supabase/schema.sql`
+   → **Run**. File chạy lại nhiều lần được, không mất dữ liệu.
+   - Lần đầu chạy, **mọi tài khoản cũ được nâng thành Quản trị** để không
+     ai bị mất quyền. Sau đó vào tab Công việc → nút 👥 để hạ ai là KTS.
+2. Deploy lại các Edge Function đã đổi và 2 function mới:
+   ```bash
+   npx --yes supabase functions deploy send-alerts dropbox-link dropbox-sync --project-ref lneaqpfiifqkpccpxgsp
+   ```
+3. Kiểm tra: đăng nhập bằng một tài khoản KTS chưa được giao công trình
+   nào → tab Tổng quan phải báo "Bạn chưa được giao công trình nào".
+
+> **Lỗi đã sửa trong bản này:** trước đây bấm **Duyệt** luôn hiện "Đã duyệt"
+> nhưng thực ra máy chủ từ chối (khối lượng không được cộng). Sau khi chạy
+> bước 1, hãy mở tab Duyệt — các báo cáo "đã duyệt" trước đây vẫn còn nằm
+> chờ, duyệt lại một lần.
+
+---
+
+## BƯỚC 9 — Đồng bộ ảnh sang Dropbox (không bắt buộc)
+
+Kết quả: mỗi ảnh thợ chụp được lưu **bản gốc, nét nhất** vào Dropbox,
+tự xếp thư mục:
+
+```
+MDA Tiến độ/
+  Nhà anh Minh — Ocean Park/
+    Đội đá Sơn/
+      _Chờ duyệt/2026-09-25/        ← ảnh vừa gửi, chưa duyệt
+      2026-09-25 Lắp đá mặt bếp/    ← tự chuyển vào sau khi bấm Duyệt
+      _Bị trả lại/2026-09-24/       ← báo cáo bị trả lại
+```
+
+Ảnh gốc đi **thẳng từ điện thoại lên Dropbox**, không tốn dung lượng
+Supabase. Báo cáo nào thiếu ảnh gốc (thợ mất sóng, giám sát nhập thay,
+báo cáo cũ từ trước khi bật) thì hệ thống tự chép **bản nén** sang, tên
+tệp có chữ "(ban nen)".
+
+### 9.1 Tạo "app" Dropbox (5 phút, làm trên máy tính)
+
+1. Đăng nhập Dropbox bằng tài khoản công ty → mở
+   **dropbox.com/developers/apps** → **Create app**.
+2. Chọn **Scoped access** → **Full Dropbox** (hoặc *App folder* nếu chỉ
+   muốn app đụng vào một thư mục riêng) → đặt tên, VD `MDA Tien do` →
+   **Create app**.
+3. Tab **Permissions**: tick `files.metadata.read`, `files.content.write`,
+   `files.content.read` → bấm **Submit** ở cuối trang.
+4. Tab **Settings**: chép **App key** và **App secret**.
+
+### 9.2 Lấy "refresh token" (mã dùng lâu dài)
+
+1. Mở trình duyệt, dán địa chỉ sau (thay `APP_KEY`):
+   ```
+   https://www.dropbox.com/oauth2/authorize?client_id=APP_KEY&response_type=code&token_access_type=offline
+   ```
+2. Bấm **Allow** → Dropbox hiện một mã (access code), chép lại.
+3. Trên máy tính, mở Git Bash chạy (thay 3 giá trị):
+   ```bash
+   curl https://api.dropbox.com/oauth2/token \
+     -d code=MA_VUA_CHEP -d grant_type=authorization_code \
+     -u APP_KEY:APP_SECRET
+   ```
+   Kết quả có dòng `"refresh_token": "..."` — chép giá trị đó.
+   Mã chỉ dùng được một lần; lỗi thì làm lại từ bước 1.
+
+### 9.3 Đặt bí mật cho Edge Function
+
+```bash
+npx --yes supabase secrets set DROPBOX_APP_KEY=... DROPBOX_APP_SECRET=... DROPBOX_REFRESH_TOKEN=... --project-ref lneaqpfiifqkpccpxgsp
+```
+
+(Không bắt buộc: `DROPBOX_ROOT="/Ten thu muc khac"` nếu không muốn dùng
+thư mục mặc định `/MDA Tiến độ`.)
+
+### 9.4 Bật lịch đồng bộ 10 phút/lần
+
+Mở cuối `supabase/schema.sql`, tìm khối **"ĐỒNG BỘ ẢNH DROPBOX"**, bỏ dấu
+`--` đầu dòng, thay `<PROJECT_REF>` = `lneaqpfiifqkpccpxgsp` và
+`<SERVICE_ROLE_KEY>` (Project Settings → API → service_role), dán vào
+SQL Editor → Run. (Cần bật extension **pg_net** như bước Web Push.)
+
+### 9.5 Bật gửi ảnh gốc từ máy thợ
+
+Sửa `config.js`: đổi `DROPBOX_ORIGINALS: false` thành `true` → commit,
+push. Từ lúc này mỗi báo cáo mới sẽ gửi thêm ảnh gốc lên Dropbox (chạy
+nền sau khi báo cáo đã lưu, mạng yếu thì để dành gửi sau).
+
+### 9.6 Kiểm tra
+
+1. Thợ gửi 1 báo cáo có ảnh → trong ~1 phút, ảnh xuất hiện ở
+   `_Chờ duyệt/<ngày>`.
+2. Giám sát bấm Duyệt → trong ≤ 10 phút ảnh chuyển sang
+   `<ngày> <tên đầu việc>`.
+3. Cài **Dropbox desktop** ở máy văn phòng để thư mục tự về máy.
+
+Nếu có ảnh không sao lưu được sau 5 lần thử, tab **Cần xử lý** hiện dòng
+cảnh báo màu cam.
+
+---
+
 ## CÁCH SỬ DỤNG
 
-### Giám sát / chỉ huy trưởng (index.html)
-1. Đăng nhập.
-2. Tab **Công việc**: tạo dự án → bấm "＋ Thêm đội" → chọn ngành (đá/điện)
-   → chọn mẫu đầu việc có sẵn (tự tạo checklist chuẩn) hoặc tự nhập.
-3. Bấm **"🔗 Link cho đội"** trong từng hạng mục → nhập tên người nhận
-   (không bắt buộc) → **Tạo link** → **Copy link** → gửi qua Zalo cho
-   đội thầu phụ/công nhân. Mỗi người nên có link riêng để biết ai báo
-   cáo gì.
-4. Bấm **"🔗 Khách"** ở thanh trên cùng để lấy link riêng cho chủ nhà
-   của dự án đang chọn.
-5. Tab **Duyệt**: mỗi thẻ là các báo cáo trong ngày của 1 đầu việc đã
-   được gộp lại — xem ảnh, chỉnh số khối lượng nếu cần, **Duyệt** hoặc
-   **Trả lại** kèm lý do.
-6. Tab **Tổng quan**: xem nhanh mọi công trình đang chạy, đội nào đang
-   có cảnh báo.
-7. Tab **Cảnh báo**: danh sách 5 loại cảnh báo tự động, bấm ✓ khi đã xử
-   lý xong. Nút "Kiểm tra ngay" chạy lại thủ công không cần chờ lịch
-   7h/15h.
-8. Nếu một đội không chịu dùng app: trong từng đầu việc có nút
-   **"＋ Nhập thay"** để giám sát tự nhập hộ (vẫn cần ảnh + ghi chú,
-   vẫn qua bước duyệt như bình thường).
+### Quản lý / KTS (index.html)
+
+**Phân quyền:** mỗi tài khoản là **KTS** (chỉ thấy công trình được giao
+hoặc tự tạo), **Quản lý** (thấy tất cả) hoặc **Quản trị** (thấy tất cả +
+đổi vai trò). Giao công trình: tab Công việc → chọn công trình → nút 👥.
+
+1. **Tạo công trình:** tab Công việc → **＋ Dự án** → 3 bước: thông tin
+   → thêm các đội (đá/điện/khác) + chọn mẫu đầu việc → xem trước lịch tự
+   dàn → **Tạo**. Hệ thống tạo luôn link cho từng đội + link chủ nhà, bấm
+   **📤 Gửi** là mở Zalo.
+2. **Thêm đầu việc nhanh:** trong hạng mục bấm **📋 Dán từ Excel** — bôi
+   đen các cột Tên · Đơn vị · Khối lượng · Bắt đầu · Kết thúc trong
+   Excel, copy, dán. Dòng lỗi tô đỏ, không bị thêm.
+3. **Sửa nhanh:** bấm vào tên đầu việc để sửa khối lượng / ngày ngay tại
+   chỗ. Đội vào trễ cả tuần → **⇆ Dời lịch** dời toàn bộ hạng mục.
+4. **💾 Lưu làm mẫu:** hạng mục đã chuẩn thì lưu lại, lần sau chọn mẫu.
+5. **🔗 Link cho đội:** xem ai đang giữ link, lần mở gần nhất, **Thu hồi**
+   link của người đã nghỉ, cấp link mới.
+6. **Tab Duyệt:** mỗi thẻ gộp các báo cáo cùng đầu việc trong ngày. Bấm
+   ảnh để xem to (vuốt qua lại). Sửa số khối lượng nếu cần → **Duyệt**.
+   Nhiều thẻ đã xem kỹ: tick ô vuông → **Duyệt N thẻ đã chọn**. **Trả
+   lại** chọn nhanh lý do — đội thấy lý do và bấm "Sửa & gửi lại".
+7. **Tab Tổng quan:** 4 con số (đang chạy · cần xử lý · chờ duyệt ·
+   vướng mắc), công trình **rủi ro cao lên trước**; thanh xám = kế hoạch
+   đáng đạt hôm nay, thanh màu = thực tế đã nghiệm thu. Bấm vào công
+   trình để mở Timeline.
+8. **Tab Cần xử lý:** vướng mắc đội báo (thiếu vật tư, chưa bàn giao mặt
+   bằng...) kèm ảnh — xử lý xong ghi cách xử lý rồi bấm **Đã xử lý**. Bên
+   dưới là cảnh báo tự động.
+9. Đội không dùng app: nút **＋ Nhập thay** trong từng đầu việc.
 
 ### Thầu phụ / công nhân (crew.html)
-Mở link được gửi qua Zalo → chọn đầu việc đang làm → nhập khối lượng
-làm thêm hôm nay, số thợ có mặt, ghi chú, chụp ảnh → Gửi. Xem lại trạng
-thái ở tab "Lịch sử". Nút ⚠ góc dưới để báo vướng mắc (thiếu vật tư,
-chưa được bàn giao mặt bằng...).
+Mở link Zalo → đầu việc **quá hạn** và **trong lịch hôm nay** nằm trên
+cùng → chọn → bấm nhanh số lượng (+1, +5, "Xong phần còn lại"), chọn ghi
+chú mẫu, chụp ảnh → **Gửi**. **Mất sóng vẫn gửi được**: báo cáo nằm trong
+máy, có mạng tự gửi (thanh màu cam báo số báo cáo đang chờ). Gõ dở
+chuyển đầu việc khác không mất. Báo cáo bị trả lại → tab Lịch sử →
+**Sửa & gửi lại**. Nút ⚠ để báo vướng mắc, chụp kèm ảnh được.
 
 ### Chủ nhà (client.html)
 Mở link riêng → xem tiến độ theo giai đoạn + album ảnh công trình.
@@ -176,7 +290,8 @@ Không thấy tên thầu phụ, giá cả, hay vướng mắc nội bộ.
 - **Ảnh cũ không tự xoá:** kế hoạch dọn ảnh gốc sau 180 ngày (mục 5
   trong thiết kế) chưa được triển khai trong bản này — cần thêm 1 Edge
   Function chạy theo lịch nếu muốn tự động, hiện tại phải xoá thủ công
-  trong Storage nếu gần hết dung lượng.
+  trong Storage nếu gần hết dung lượng. Khi đã bật Dropbox (bước 9),
+  ảnh đã nằm an toàn trên Dropbox nên xoá ảnh cũ trong Supabase không mất gì.
 - **Đơn giá & biên bản nghiệm thu:** theo yêu cầu, hệ thống KHÔNG lưu
   đơn giá thầu phụ hay xuất biên bản — chỉ theo dõi khối lượng.
 

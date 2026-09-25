@@ -41,8 +41,8 @@ Cả bốn mục tiêu của hệ thống đều rơi ra từ đúng một bản
 | Ai | Vào bằng | Màn hình |
 |---|---|---|
 | **Công nhân / đội trưởng thầu phụ** | Link Zalo, **không đăng nhập** (`crew.html?t=<token>`) | Chọn đầu việc → nhập khối lượng + số thợ + ghi chú + ảnh → gửi. Nút "Báo vướng". |
-| **Giám sát** | Email + mật khẩu | Hộp duyệt (màn hình chính), nhập thay đội không dùng app |
-| **Chỉ huy trưởng / ban giám đốc** | Email + mật khẩu | Dashboard đa công trình, cảnh báo, xuất CSV nghiệm thu |
+| **KTS / giám sát** (vai `kts`) | Email + mật khẩu | Chỉ công trình được giao: tạo công trình 3 bước, dán đầu việc từ Excel, hộp duyệt, vướng mắc, nhập thay |
+| **Quản lý / ban giám đốc** (vai `manager`/`admin`) | Email + mật khẩu | Mọi công trình: dashboard rủi ro, giao công trình cho KTS, xuất CSV nghiệm thu |
 | **Chủ nhà** | Link riêng, không đăng nhập (`client.html?t=<token>`) | Tiến độ theo giai đoạn + album ảnh đã duyệt |
 
 Thiết kế cố ý cho phép **cả ba vai nội bộ đều nhập được** — hệ thống không chết khi một đội từ chối dùng app.
@@ -112,18 +112,21 @@ vendor/             supabase-js pin cứng 2.45.4 (không CDN)
 
 js/
   supabase.js       Khởi tạo client dùng chung
-  ui.js             escapeHtml, displayDate, daysUntil, showToast, db()
+  ui.js             escapeHtml, displayDate, daysUntil, showToast, db(), rpcErrorText, shareLink
   photos.js         Nén ảnh + đọc EXIF + upload
+  outbox.js         Hàng đợi báo cáo offline của thợ (IndexedDB) + gửi ảnh gốc lên Dropbox
+  lightbox.js       Xem ảnh toàn màn hình, vuốt qua lại
   push.js           Đăng ký Web Push
   crew.js           Logic crew.html
   client.js         Logic client.html
   staff/
     state.js        State dùng chung giữa các tab
     main.js         Bootstrap: đăng nhập, tab, realtime
-    dashboard.js    Tab Tổng quan
-    approvals.js    Tab Duyệt — gộp theo (đầu việc × ngày)
-    items.js        Tab Công việc — CRUD dự án/hạng mục/đầu việc/link
-    alerts.js       Tab Cảnh báo
+    dashboard.js    Tab Tổng quan — dashboard_summary(), xếp theo rủi ro
+    approvals.js    Tab Duyệt — gộp theo (đầu việc × ngày), duyệt hàng loạt
+    items.js        Tab Công việc — CRUD, dán Excel, dời lịch, link, thành viên
+    wizard.js       Tạo công trình 3 bước (module phụ của items.js)
+    alerts.js       Tab Cần xử lý — vướng mắc + cảnh báo
     export.js       Xuất CSV nghiệm thu theo kỳ
 
 supabase/
@@ -132,7 +135,13 @@ supabase/
   functions/
     crew-upload/          Cấp signed upload URL cho người không đăng nhập
     get-photo-url/        Cấp signed download URL cho chủ nhà
-    send-alerts/          Đẩy Web Push
+    send-alerts/          Đẩy Web Push (lọc theo quyền công trình)
+    dropbox-link/         Cấp link tạm cho máy thợ gửi ảnh gốc lên Dropbox
+    dropbox-sync/         Cron 10 phút: xếp ảnh Dropbox theo kết quả duyệt
+    _shared/dropbox.ts    Gọi Dropbox API
+  tests/                  Kiểm thử SQL trên Postgres cục bộ (run.sh)
+
+tests/ui/                 Kiểm thử khói giao diện với backend giả lập
 ```
 
 ---
@@ -163,8 +172,8 @@ Rồi mở `http://localhost:8080`. `config.js` đã trỏ sẵn vào Supabase t
 
 - `pg_cron` gọi `send-alerts` còn **comment trong `schema.sql`** — cần điền service_role key rồi chạy tay để bật Web Push tự động. `compute_alerts()` thì đã lên lịch chạy 7h/15h.
 - Dọn ảnh gốc >180 ngày (giữ thumbnail) — cần Edge Function riêng, chưa viết.
-- Không có test tự động nào.
-- `staff.role` (`staff`/`manager`/`admin`) mới chỉ là nhãn — RLS đang cấp quyền như nhau cho mọi tài khoản đăng nhập.
+- Test tự động mới phủ SQL (Postgres cục bộ) và giao diện với backend giả lập — chưa có test Edge Function.
+- Đồng bộ Dropbox cần tự cấu hình (HUONG_DAN_TRIEN_KHAI.md bước 9) — mặc định tắt.
 
 **Chi phí:** Supabase free 1GB storage. Ước tính 5 công trình × 5 đội × ~2 báo cáo/ngày × 3 ảnh × 150KB × 90 ngày ≈ 1GB — sát trần, nên tính tới gói Pro $25/tháng trong năm đầu.
 
