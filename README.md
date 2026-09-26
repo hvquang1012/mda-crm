@@ -4,10 +4,10 @@ PWA cho **MD Architects** (thầu chính) theo dõi tiến độ các đội th�
 
 | | |
 |---|---|
-| **Web** | https://zippy-douhua-7a4098.netlify.app |
+| **Web** | https://tiendo.noithatminhduc.com |
 | **Repo** | `git@github.com:hvquang1012/mda-crm.git` |
 | **Supabase** | project `mda-crm` (`lneaqpfiifqkpccpxgsp`, Singapore) |
-| **Deploy** | Netlify, tự động khi push lên `main` |
+| **Deploy** | Cloudflare Pages, tự động khi push lên `main` |
 
 ---
 
@@ -158,7 +158,7 @@ Rồi mở `http://localhost:8080`. `config.js` đã trỏ sẵn vào Supabase t
 
 ## Deploy
 
-**Web:** push lên `main`, Netlify tự deploy. Không cần build command, publish directory để trống.
+**Web:** push lên `main`, Cloudflare Pages tự deploy. Framework None, build command để trống, output directory `/`. Xem [huong-dan-domain.html](huong-dan-domain.html).
 
 **Schema / Edge Functions:** xem [AGENTS.md](AGENTS.md) mục "Lệnh vận hành".
 

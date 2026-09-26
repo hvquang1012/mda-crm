@@ -76,10 +76,10 @@ Git Bash là chính, PowerShell cũng có. `curl`, `python3`, `openssl`, `git` �
 
 - Đổi SQL → chạy lại `schema.sql` (idempotent: `create table if not exists`, `create or replace function`). Nhưng `create policy` **không** idempotent — thêm `drop policy if exists` trước.
 - Đổi Edge Function → deploy lại function đó.
-- Đổi front-end → commit + push, Netlify tự deploy.
+- Đổi front-end → commit + push, Cloudflare Pages tự deploy từ `main`.
 - Đổi thứ chạm vào bảo mật → chạy lại kiểm tra anon bằng `curl` (xem AGENTS.md mục 7).
 
-**Kiểm chứng bằng dữ liệu thật, không phải bằng suy luận.** Có project Supabase thật và site Netlify thật đang chạy — sau khi đổi logic tính toán, query DB đối chiếu thay vì tin là đúng.
+**Kiểm chứng bằng dữ liệu thật, không phải bằng suy luận.** Có project Supabase thật và site thật đang chạy (Cloudflare Pages) — sau khi đổi logic tính toán, query DB đối chiếu thay vì tin là đúng.
 
 **Không tự ý:** đổi bảng màu / typography, thêm dependency, đổi mô hình quyền, chạy migration phá dữ liệu. Hỏi trước.
 
@@ -91,13 +91,13 @@ Git Bash là chính, PowerShell cũng có. `curl`, `python3`, `openssl`, `git` �
 |---|---|
 | Supabase project ref | `lneaqpfiifqkpccpxgsp` (`mda-crm`, ap-southeast-1) |
 | Supabase URL | `https://lneaqpfiifqkpccpxgsp.supabase.co` |
-| Netlify | `zippy-douhua-7a4098.netlify.app` (auto-deploy từ `main`) |
+| Hosting | Cloudflare Pages, project `mda-crm` (auto-deploy từ `main`, không build step, output `/`) — Netlify cũ `zippy-douhua-7a4098.netlify.app` đã ngừng cập nhật (hết lượt gói free) |
 | GitHub | `git@github.com:hvquang1012/mda-crm.git` |
 | Storage bucket | `site-photos` (private) |
 | Edge Functions | `crew-upload`, `get-photo-url`, `send-alerts` |
 | Cron | `compute_alerts()` 7h & 15h giờ VN (lịch ghi theo UTC: `0 0`, `0 8`); `mda-notify` mỗi phút; `mda-dropbox-sync` 10 phút |
 
-Domain riêng dự kiến: `tiendo.noithatminhduc.com` (CNAME → Netlify, Cloudflare DNS, **DNS only** không bật proxy). Xem [huong-dan-domain.html](huong-dan-domain.html).
+Domain: `tiendo.noithatminhduc.com` → Custom domain của Cloudflare Pages (bản ghi DNS do Pages tự tạo). Xem [huong-dan-domain.html](huong-dan-domain.html).
 
 ---
 
