@@ -4,11 +4,13 @@
 // phút khi notify_due() = true. Gửi Web Push tới nhân viên đã đăng ký
 // (push_subscriptions) CÓ QUYỀN trên công trình đó: quản lý/quản trị
 // nhận tất cả, KTS chỉ nhận công trình mình phụ trách (project_members
-// hoặc người tạo). Hai loại thông báo:
+// hoặc người tạo). Ba loại thông báo:
 //   1. Cảnh báo trễ hạn (alerts chưa notified_at) — sinh bởi compute_alerts()
 //   2. Báo cáo mới chờ duyệt — gom theo (công trình, người gửi), xem
 //      reports_to_notify(). Người tự nhập báo cáo không nhận thông báo
 //      về báo cáo của chính mình.
+//   3. Thợ nhắn tin trong luồng trò chuyện của đầu việc — gom theo
+//      (công trình, đầu việc), xem messages_to_notify().
 //
 // Chỉ nhận lời gọi mang khoá service_role (cron) — anon key bị từ chối.
 // Deploy: supabase functions deploy send-alerts
@@ -54,7 +56,10 @@ Deno.serve(async (req) => {
   const { data: reports, error: reportsErr } = await admin.rpc('reports_to_notify');
   if (reportsErr) return json({ error: reportsErr.message }, 500);
 
-  if (!alerts?.length && !reports?.length) return json({ sent: 0 });
+  const { data: messages, error: messagesErr } = await admin.rpc('messages_to_notify');
+  if (messagesErr) return json({ error: messagesErr.message }, 500);
+
+  if (!alerts?.length && !reports?.length && !messages?.length) return json({ sent: 0 });
 
   const notes: Note[] = [];
 
@@ -82,6 +87,25 @@ Deno.serve(async (req) => {
       url: './index.html#approvals',
       tag: 'reports-' + first.project_id,
       exclude: first.staff_id
+    });
+  }
+
+  // Tin nhắn của thợ: gom theo đầu việc, hiện tin cuối
+  const threads = new Map<string, any[]>();
+  for (const m of messages || []) {
+    if (!threads.has(m.work_item_id)) threads.set(m.work_item_id, []);
+    threads.get(m.work_item_id)!.push(m);
+  }
+  for (const list of threads.values()) {
+    const last = list[list.length - 1];
+    const text = (last.body || '').trim() || '📷 Ảnh';
+    const more = list.length > 1 ? ` (+${list.length - 1} tin)` : '';
+    notes.push({
+      projectId: last.project_id,
+      title: '💬 ' + last.project_name,
+      body: `${last.author_name} (${last.sub_name}) · ${last.item_name}: ${text.length > 120 ? text.slice(0, 117) + '...' : text}${more}`,
+      url: './index.html#chat',
+      tag: 'chat-' + last.work_item_id
     });
   }
 
@@ -128,11 +152,14 @@ Deno.serve(async (req) => {
   if (reports?.length) {
     await admin.rpc('mark_reports_notified', { p_ids: reports.map((r: any) => r.report_id) });
   }
+  if (messages?.length) {
+    await admin.rpc('mark_messages_notified', { p_ids: messages.map((m: any) => m.message_id) });
+  }
   if (staleEndpoints.size) {
     await admin.from('push_subscriptions').delete().in('endpoint', [...staleEndpoints]);
   }
 
-  return json({ sent, alerts: alerts?.length || 0, reports: reports?.length || 0, cleaned: staleEndpoints.size });
+  return json({ sent, alerts: alerts?.length || 0, reports: reports?.length || 0, messages: messages?.length || 0, cleaned: staleEndpoints.size });
 });
 
 function severityEmoji(sev: string) {

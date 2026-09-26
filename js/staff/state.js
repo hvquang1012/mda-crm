@@ -15,6 +15,10 @@ export const state = {
   openIssuesCount: 0,     // số vướng mắc chưa xử lý — chấm đỏ tab "Cần xử lý"
   approvalsProjectFilter: '', // lọc hộp duyệt theo công trình ('' = tất cả)
   dashboardScope: 'all',  // all | mine — bộ lọc dashboard cho KTS
+  chatUnread: {},         // work_item_id → số tin chưa đọc (chat.js nạp, items.js vẽ nút 💬)
+  chatUnreadTotal: 0,
+  // chat.js gán — tab Công việc mở luồng trò chuyện mà không import chat.js
+  openChat: async (_itemId) => {},
   // main.js gán hàm chuyển tab vào đây để dashboard mở tab khác mà
   // không import chéo giữa các module tab.
   navigate: async (_tab) => {}

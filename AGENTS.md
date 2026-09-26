@@ -49,6 +49,8 @@ Bản v1 của dự án này có lỗ hổng cho phép **bất kỳ ai có link 
 | `crew_submit(token, item_id, qty, crew_size, note, photos, reporter_name, report_date, client_ref)` | crew.html (qua hàng đợi `js/outbox.js`) |
 | `crew_my_reports(token)` | crew.html |
 | `crew_raise_issue(token, ...)` | crew.html |
+| `crew_messages(token, item_id, since)` | crew.html — đọc luồng trò chuyện của đầu việc (`js/crew-chat.js`) |
+| `crew_send_message(token, item_id, body, photos, author_name, client_ref)` | crew.html (qua hàng đợi `js/outbox.js`) |
 | `client_view(token)` | client.html |
 
 Mỗi hàm **bắt buộc** có đủ:
@@ -66,9 +68,9 @@ Mỗi hàm **bắt buộc** có đủ:
 
 ### 2.3 Kiểm tra phạm vi token
 
-`crew_submit` và `crew_raise_issue` phải xác minh `work_item` thuộc đúng `(project_id, subcontractor_id)` của token — nếu không sẽ raise `item_not_in_scope`. Đội đá không được ghi vào đầu việc của đội điện.
+`crew_submit`, `crew_raise_issue`, `crew_messages`, `crew_send_message` phải xác minh `work_item` thuộc đúng `(project_id, subcontractor_id)` của token — nếu không sẽ raise `item_not_in_scope`. Đội đá không được ghi vào đầu việc của đội điện.
 
-`client_view(token)` chỉ trả về **đúng một** công trình, **không** trả tên thầu phụ, **không** trả `issues`.
+`client_view(token)` chỉ trả về **đúng một** công trình, **không** trả tên thầu phụ, **không** trả `issues`, **không** trả tin nhắn trò chuyện.
 
 ### 2.4 Ranh giới dữ liệu khác
 
@@ -85,6 +87,8 @@ Mỗi hàm **bắt buộc** có đủ:
 **`work_items.qty_done` và `percent` là cache, không phải nguồn.** Chỉ `approve_report_group()` được cộng vào. 🚩 Từ chối mọi code ghi thẳng `qty_done` từ client. `work_items.status` thì `compute_alerts()` tự cập nhật theo lịch (quá hạn → `delayed`, lệch >10% → `delayed`/`ahead`) — trừ đầu việc đã `done`. Giám sát chốt `done` bằng tay (menu ⋯ đầu việc / "Xong cả hạng mục") chỉ đổi `status`, không đụng khối lượng; trigger `trg_work_items_status` cập nhật ngay `work_packages.status` và đóng (`acknowledged_at`) cảnh báo cũ của đầu việc vừa xong. Tổng quan coi công trình xong hết đầu việc là "Đã xong", kể cả khi quá ngày bàn giao. **Đóng công trình** = `projects.status = 'done'` (nút 🏁 ở tab Công việc / thẻ "Đã xong" ở Tổng quan, qua `js/staff/project-status.js`): ẩn khỏi Tổng quan, `compute_alerts()` bỏ qua mọi công trình không `active`, trigger `trg_projects_status` đóng cảnh báo đang mở và khoá link thợ (`revoked_at` + `closed_with_project = true`, nên Edge Function `crew-upload`/`dropbox-link` cũng chặn mà không cần sửa); `_resolve_crew_link` raise `project_closed` khi link bị khoá hoặc công trình không `active` (kể cả link tạo sau khi đóng). `client_links` làm y hệt (`client_view` raise `project_closed`). Mở lại chỉ mở khoá link `closed_with_project`, link thu hồi tay giữ nguyên.
 
 **Hàng đợi offline của thợ (`js/outbox.js`).** Mỗi báo cáo mang `client_ref` (uuid sinh ở máy); `crew_submit` gặp lại `client_ref` cũ thì trả id cũ — gửi lại sau khi rớt mạng không tạo bản trùng. `report_date` do máy gửi, server chỉ nhận trong khoảng [hôm nay − 7, hôm nay + 1].
+
+**Trò chuyện theo đầu việc (`item_messages`) chỉ ghi thêm.** Không có quyền/policy update, delete. Nhân viên `insert` trực tiếp (policy ép `author_kind='staff'`, `staff_id = auth.uid()`, `project_id` đúng công trình của đầu việc, ảnh cùng công trình); thợ ghi qua `crew_send_message()` (kiểm `client_ref` như `crew_submit`, ảnh phải nằm trong `project_id/subcontractor_id/`). Chưa đọc tính theo `item_message_reads` (`chat_inbox()` / `chat_mark_read()`, security invoker). Ảnh nhân viên gửi lưu vào thư mục đội của đầu việc để thợ xem được qua `get-photo-url`. Thông báo đẩy khi thợ nhắn: bảng riêng `item_message_notifications`, `messages_to_notify()` gom theo (công trình, đầu việc), chờ 60 giây yên lặng. Tab `js/staff/chat.js` mở luồng cho tab Công việc qua `state.openChat()`.
 
 **Dropbox là bản lưu trữ, không phải nguồn.** `photo_archive` ghi trạng thái từng ảnh (`uploading → pending → approved/rejected`, hoặc `failed`). App không bao giờ đọc ảnh từ Dropbox.
 
@@ -125,7 +129,7 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 
 **CSS ở `css/app.css`**, dùng design token trong `:root`. Không thêm inline style mới cho những gì token đã có. Bảng màu là bộ nhận diện thương hiệu (xanh tím `#5B4CF0→#4338CA` dạng gradient cho nút/header; nền slate có lưới chấm kỹ thuật `--pattern`, thẻ viền mực 2px + bóng cứng `--shadow-hard` đồng bộ icon Filled Outline ở `assets/icons/`; font Plus Jakarta Sans đóng gói offline ở `vendor/fonts/`; Sáng/Tối theo máy hoặc ép bằng `<html data-theme>` — mọi biến tối phải khai báo ở cả hai khối) — không đổi tuỳ tiện. Icon app vẽ từ `assets/app-icon.svg` (logo vector: `assets/logo-mark.svg`); sửa SVG thì render lại `apple-touch-icon.png` 180, `icon-192.png`, `icon-512.png`.
 
-**`state` object** (`js/staff/state.js`) là kênh chia sẻ duy nhất giữa các module tab, cố ý để tránh import vòng. Không import chéo giữa `dashboard.js` / `approvals.js` / `items.js` / `alerts.js`. Chuyển tab từ module khác: `state.navigate('items')` (main.js gán). `wizard.js` là module phụ chỉ `items.js` import.
+**`state` object** (`js/staff/state.js`) là kênh chia sẻ duy nhất giữa các module tab, cố ý để tránh import vòng. Không import chéo giữa `dashboard.js` / `approvals.js` / `items.js` / `chat.js` / `alerts.js`. Chuyển tab từ module khác: `state.navigate('items')` (main.js gán). `wizard.js` là module phụ chỉ `items.js` import.
 
 **Thông báo lỗi RPC:** dùng `rpcErrorText(error)` (`js/ui.js`) để đổi mã lỗi SQL (`already_processed`, `forbidden`...) ra câu tiếng Việt. Thêm mã lỗi mới trong SQL thì thêm vào bảng `RPC_ERROR_VI`.
 
@@ -141,7 +145,7 @@ await db(supabase.from('work_items').insert(row), { successMsg: 'Đã lưu' });
 - [ ] Có `grant`/`policy` nào mở cho `anon` không?
 - [ ] RPC mới có đủ `security definer` + `set search_path = public` + kiểm tra hạn/thu hồi token?
 - [ ] Có kiểm tra phạm vi token (`item_not_in_scope`) trên mọi hàm nhận `p_item_id`?
-- [ ] `client_view` có rò tên thầu phụ / `issues` / công trình khác không?
+- [ ] `client_view` có rò tên thầu phụ / `issues` / tin nhắn / công trình khác không?
 - [ ] `service_role` key có lọt vào file client không?
 - [ ] Dữ liệu người dùng vào `innerHTML` có qua `escapeHtml()` không?
 

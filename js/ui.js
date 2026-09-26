@@ -86,7 +86,10 @@ const RPC_ERROR_VI = {
   note_required: 'Vui lòng nhập ghi chú',
   photo_required: 'Vui lòng chụp ít nhất 1 ảnh',
   description_required: 'Vui lòng mô tả vướng mắc',
-  invalid_report_date: 'Báo cáo quá 7 ngày chưa gửi được — báo lại từ đầu'
+  invalid_report_date: 'Báo cáo quá 7 ngày chưa gửi được — báo lại từ đầu',
+  message_empty: 'Tin nhắn trống — gõ nội dung hoặc gửi ảnh',
+  message_too_long: 'Tin nhắn quá dài (tối đa 2000 chữ) — chia làm nhiều tin',
+  photo_not_in_scope: 'Ảnh không thuộc công trình của đội — chụp lại rồi gửi'
 };
 export function rpcErrorText(error, fallback = 'Thao tác thất bại — thử lại') {
   const msg = String(error?.message || '');
