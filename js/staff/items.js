@@ -118,14 +118,16 @@ function renderCurrentPackages() {
   }
 }
 
-// Nút 🏁 Đóng / ↺ Mở lại + dòng nhắc theo trạng thái công trình đang xem
+// Nút Đóng / Mở lại (icon close-project / reopen-project) + dòng nhắc theo trạng thái công trình đang xem
 function syncProjectClosed() {
   const p = currentProject();
   const closed = p?.status === 'done';
   const btn = document.getElementById('btnCloseProject');
   if (btn) {
     btn.hidden = !p;
-    btn.innerHTML = closed ? '↺<span class="btn-label"> Mở lại</span>' : '🏁<span class="btn-label"> Đóng</span>';
+    btn.innerHTML = closed
+      ? '<img class="btn-ic" src="assets/icons/reopen-project.svg" alt=""><span class="btn-label">Mở lại</span>'
+      : '<img class="btn-ic" src="assets/icons/close-project.svg" alt=""><span class="btn-label">Đóng</span>';
     btn.title = closed ? 'Mở lại công trình' : 'Đóng công trình đã bàn giao xong';
   }
   const note = document.getElementById('projectClosedNote');

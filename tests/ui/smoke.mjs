@@ -127,9 +127,9 @@ await p.click('[data-action=approve]'); await p.waitForTimeout(300);
 console.log('calls', JSON.stringify((await p.evaluate(() => window.__calls)).filter(c => c[0] === 'rpc' && !['dashboard_summary', 'chat_inbox', 'chat_mark_read'].includes(c[1]))));
 await p.click('#nav-alerts'); await p.waitForTimeout(400); await shot(p, 'm-alerts');
 await p.click('#nav-items'); await p.waitForTimeout(400); await shot(p, 'm-items');
-// Đóng công trình: công trình đã đóng gom vào nhóm riêng; nút 🏁 Đóng ↔ ↺ Mở lại
+// Đóng công trình: công trình đã đóng gom vào nhóm riêng; nút Đóng ↔ Mở lại
 if (!(await p.$('#projectSelect optgroup[label^="Đã đóng"] option[value=p4]'))) errors.push('items: thiếu nhóm Đã đóng trong danh sách công trình');
-if ((await p.textContent('#btnCloseProject')).trim() !== '🏁 Đóng' || !(await p.isHidden('#projectClosedNote'))) errors.push('items: nút Đóng sai với công trình đang chạy');
+if (((await p.textContent('#btnCloseProject')).trim() !== 'Đóng' || !(await p.$('#btnCloseProject img[src*="close-project"]'))) || !(await p.isHidden('#projectClosedNote'))) errors.push('items: nút Đóng sai với công trình đang chạy');
 {
   const n0 = (await p.evaluate(() => window.__calls)).length;
   p.once('dialog', dlg => { if (!dlg.message().includes('chưa xong')) errors.push('items: hộp xác nhận đóng không nhắc đầu việc chưa xong'); dlg.accept(); });
@@ -137,7 +137,7 @@ if ((await p.textContent('#btnCloseProject')).trim() !== '🏁 Đóng' || !(awai
   if (!(await p.evaluate(() => window.__calls)).slice(n0).some(c => c[0] === 'update' && c[1] === 'projects' && c[2].status === 'done')) errors.push('items: bấm Đóng không gửi status=done');
 }
 await p.selectOption('#projectSelect', 'p4'); await p.waitForTimeout(300);
-if ((await p.textContent('#btnCloseProject')).trim() !== '↺ Mở lại' || !(await p.isVisible('#projectClosedNote'))) errors.push('items: công trình đã đóng không hiện Mở lại / dòng nhắc');
+if (((await p.textContent('#btnCloseProject')).trim() !== 'Mở lại' || !(await p.$('#btnCloseProject img[src*="reopen-project"]'))) || !(await p.isVisible('#projectClosedNote'))) errors.push('items: công trình đã đóng không hiện Mở lại / dòng nhắc');
 await shot(p, 'm-items-closed');
 {
   const n0 = (await p.evaluate(() => window.__calls)).length;

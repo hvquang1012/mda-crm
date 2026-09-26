@@ -753,7 +753,7 @@ button.dash-chip{cursor:pointer;}
 }
 
 @media (max-width:480px){
-  .project-bar .btn-label{display:none;}   /* 🏁 / ↺ chỉ còn biểu tượng, nhường chỗ ô chọn công trình */
+  .project-bar .btn-label{display:none;}   /* Đóng / Mở lại chỉ còn biểu tượng, nhường chỗ ô chọn công trình */
 }
 
 @media (max-width:390px){
@@ -943,3 +943,14 @@ button.dash-chip{cursor:pointer;}
   .header-user-name{display:none;}
   .header-user .role-ic{width:26px;height:26px;margin:0;vertical-align:middle;}
 }
+
+/* Icon trên thanh công trình (Khách · Phụ thuộc · KTS phụ trách · Đóng/Mở lại) */
+.project-bar .icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;}
+.btn-ic{width:22px;height:22px;flex:none;display:block;}
+.chip-ic{width:18px;height:18px;vertical-align:-4px;margin-right:5px;}
+/* Tối: viền mực của icon chìm vào nền — thêm quầng sáng mảnh như icon menu dưới */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) :is(.btn-ic,.chip-ic){filter:drop-shadow(0 0 .6px rgba(226,232,240,.85));}
+}
+:root[data-theme="dark"] :is(.btn-ic,.chip-ic){filter:drop-shadow(0 0 .6px rgba(226,232,240,.85));}
+@media (max-width:520px){ .project-bar .btn-ic{width:20px;height:20px;} .project-bar .icon-btn{gap:3px;} }

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" fill="none">
+  <!-- KTS phụ trách: hai người -->
+  <g id="fills">
+    <path d="M30 54V49Q30 38 42 38Q54 38 54 49V54Z" fill="#4CC9F0"/>
+    <circle cx="42" cy="26" r="8" fill="#FFD166"/>
+    <path d="M8 56V48Q8 35 22 35Q36 35 36 48V56Z" fill="#EF476F"/>
+    <circle cx="22" cy="21" r="9.5" fill="#FFD166"/>
+  </g>
+  <g id="shadows">
+    <path d="M8 51H36V56H8Z" fill="#C9345A"/>
+  </g>
+  <g id="strokes" stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M37 38.7Q39.3 38 42 38Q54 38 54 49V54H38"/>
+    <circle cx="42" cy="26" r="8"/>
+    <path d="M8 56V48Q8 35 22 35Q36 35 36 48V56Z"/>
+    <circle cx="22" cy="21" r="9.5"/>
+  </g>
+  <g id="highlights" fill="#FFFFFF">
+    <path d="M15.5 19Q16 15 19.5 13.8" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"/>
+    <rect x="11.5" y="41" width="2.2" height="8" rx="1.1"/>
+  </g>
+  <g id="accents">
+    <path d="M54 5.5Q54 10 58.5 10Q54 10 54 14.5Q54 10 49.5 10Q54 10 54 5.5Z" fill="#1E1E24" stroke="#1E1E24" stroke-width="1.2" stroke-linejoin="round"/>
+    <circle cx="6" cy="8" r="1.8" fill="#1E1E24"/>
+  </g>
+</svg>

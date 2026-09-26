@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" fill="none">
+  <!-- Phụ thuộc giữa các đầu việc: việc A xong → việc B bắt đầu -->
+  <defs>
+    <clipPath id="dep-a"><rect x="5" y="8" width="30" height="18" rx="5"/></clipPath>
+    <clipPath id="dep-b"><rect x="29" y="38" width="30" height="18" rx="5"/></clipPath>
+  </defs>
+  <g id="fills">
+    <rect x="5" y="8" width="30" height="18" rx="5" fill="#06D6A0"/>
+    <rect x="29" y="38" width="30" height="18" rx="5" fill="#4CC9F0"/>
+  </g>
+  <g id="shadows">
+    <rect x="0" y="21" width="64" height="6" fill="#05B386" clip-path="url(#dep-a)"/>
+    <rect x="0" y="51" width="64" height="6" fill="#2BA8CF" clip-path="url(#dep-b)"/>
+  </g>
+  <g id="details">
+    <path d="M11 17L14 20L20 13.5" stroke="#1E1E24" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M36 47H51" stroke="#1E1E24" stroke-width="2.6" stroke-linecap="round"/>
+  </g>
+  <g id="strokes" stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="5" y="8" width="30" height="18" rx="5"/>
+    <rect x="29" y="38" width="30" height="18" rx="5"/>
+    <path d="M20 27V38Q20 43 25 43H25.5M22 37.5L27 43L22 48.5" stroke-width="8"/>
+    <path d="M20 27V38Q20 43 25 43H25.5M22 37.5L27 43L22 48.5" stroke="#EF476F" stroke-width="3.6"/>
+  </g>
+  <g id="highlights" fill="#FFFFFF">
+    <rect x="8" y="11.5" width="2" height="6" rx="1"/>
+    <rect x="32" y="41.5" width="2" height="6" rx="1"/>
+  </g>
+  <g id="accents">
+    <path d="M52 8Q52 12.5 56.5 12.5Q52 12.5 52 17Q52 12.5 47.5 12.5Q52 12.5 52 8Z" fill="#1E1E24" stroke="#1E1E24" stroke-width="1.2" stroke-linejoin="round"/>
+    <circle cx="8" cy="52" r="1.8" fill="#1E1E24"/>
+  </g>
+</svg>
