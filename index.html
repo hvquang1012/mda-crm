@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#4338CA">
 <meta name="color-scheme" content="light dark">
-<!-- Sáng/Tối người dùng tự chọn (Cài đặt tài khoản) — áp trước CSS để không chớp màu -->
-<script>try{var t=localStorage.getItem('mda-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<!-- Sáng/Tối, cỡ chữ, ngôn ngữ người dùng tự chọn (nút ⚙ đầu trang, js/settings.js) — áp trước CSS để không chớp -->
+<script>try{var s=localStorage,d=document.documentElement,t=s.getItem('mda-theme'),f=s.getItem('mda-font'),l=s.getItem('mda-lang');if(t==='light'||t==='dark')d.dataset.theme=t;if(f==='sm'||f==='lg')d.dataset.font=f;if(l==='en')d.lang='en'}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Minh Đức Tiến độ">
@@ -44,8 +44,9 @@
       <div style="display:flex;align-items:center;gap:12px;">
         <span class="online-dot" id="staffOnlineDot"></span>
         <button class="logout-btn push-btn" id="btnPush" title="Bật thông báo" aria-label="Bật thông báo" hidden>🔔</button>
+        <span id="quickSettings"></span>
         <button type="button" class="header-user" id="staffName" title="Cài đặt tài khoản">Nhân viên</button>
-        <button class="logout-btn" id="btnLogout">Đăng xuất</button>
+        <button class="logout-btn" id="btnLogout" data-i18n="logout">Đăng xuất</button>
       </div>
     </div>
 
@@ -130,11 +131,11 @@
       </main>
 
     <nav class="bottom-nav" aria-label="Điều hướng nhân viên">
-      <button id="nav-dashboard" class="active"><img class="ic" src="assets/icons/dashboard.svg" alt="">Tổng quan</button>
-      <button id="nav-approvals"><img class="ic" src="assets/icons/approve.svg" alt="">Duyệt<span class="dot" id="approvalsNavDot" style="display:none;"></span></button>
-      <button id="nav-items"><img class="ic" src="assets/icons/tasks.svg" alt="">Công việc</button>
-      <button id="nav-chat"><img class="ic" src="assets/icons/chat.svg" alt="">Trò chuyện<span class="nav-count" id="chatNavCount" hidden></span></button>
-      <button id="nav-alerts"><img class="ic" src="assets/icons/alert.svg" alt="">Cần xử lý<span class="dot" id="alertsNavDot" style="display:none;"></span></button>
+      <button data-i18n="nav.dashboard" id="nav-dashboard" class="active"><img class="ic" src="assets/icons/dashboard.svg" alt="">Tổng quan</button>
+      <button data-i18n="nav.approvals" id="nav-approvals"><img class="ic" src="assets/icons/approve.svg" alt="">Duyệt<span class="dot" id="approvalsNavDot" style="display:none;"></span></button>
+      <button data-i18n="nav.items" id="nav-items"><img class="ic" src="assets/icons/tasks.svg" alt="">Công việc</button>
+      <button data-i18n="nav.chat" id="nav-chat"><img class="ic" src="assets/icons/chat.svg" alt="">Trò chuyện<span class="nav-count" id="chatNavCount" hidden></span></button>
+      <button data-i18n="nav.alerts" id="nav-alerts"><img class="ic" src="assets/icons/alert.svg" alt="">Cần xử lý<span class="dot" id="alertsNavDot" style="display:none;"></span></button>
     </nav>
     </div>
   </div>
@@ -205,14 +206,6 @@
       <input type="tel" id="profilePhone" inputmode="tel" maxlength="16" autocomplete="tel" placeholder="0912 345 678">
       <div class="field-hint">Quản lý bấm nút Zalo ở danh sách nhân viên để nhắn cho bạn.</div>
       <a class="profile-zalo" id="profileZalo" target="_blank" rel="noopener" hidden></a>
-    </div>
-    <div>
-      <span class="field-label">Giao diện (trên máy này)</span>
-      <div class="seg-switch theme-switch" role="group" aria-label="Giao diện">
-        <button type="button" data-theme-opt="auto">Tự động</button>
-        <button type="button" data-theme-opt="light">☀ Sáng</button>
-        <button type="button" data-theme-opt="dark">☾ Tối</button>
-      </div>
     </div>
     <div class="login-error" id="profileError" role="alert"></div>
     <div class="modal-actions">
