@@ -109,6 +109,17 @@ await p.click('.pg-slider[data-n="6"] .pg-nav.next'); await p.waitForTimeout(500
 if (!/^2\//.test(await p.textContent('.pg-slider[data-n="6"] .pg-count'))) errors.push('gallery: nút › không chuyển ảnh');
 await p.click('#nav-dashboard'); await p.waitForTimeout(300);
 await p.click('[data-open-project]'); await p.waitForTimeout(500); await shot(p, 'd-timeline');
+// Timeline: nút "Xong cả hạng mục" ở đầu đội còn việc dở, không mở hộp sửa đầu việc
+{
+  const n0 = (await p.evaluate(() => window.__calls)).filter(c => c[0] === 'update' && c[1] === 'work_items').length;
+  const btns = await p.$$('.timeline-group-head [data-action=done-package]');
+  if (btns.length !== 1) errors.push('timeline: số nút Xong cả hạng mục sai (' + btns.length + ')');
+  p.once('dialog', dlg => dlg.accept());
+  await btns[0]?.click(); await p.waitForTimeout(300);
+  const ups = (await p.evaluate(() => window.__calls)).filter(c => c[0] === 'update' && c[1] === 'work_items').slice(n0);
+  if (!ups.length || ups.some(c => Object.keys(c[2]).join() !== 'status' || c[2].status !== 'done')) errors.push('timeline: Xong cả hạng mục không gửi status=done');
+  if (await p.isVisible('#itemModal.show')) errors.push('timeline: bấm nút lại mở hộp sửa đầu việc');
+}
 await p.click('#btnMembers'); await p.waitForTimeout(300); await shot(p, 'd-members');
 if ((await p.getAttribute('#membersList .zalo-btn', 'href')) !== 'https://zalo.me/0912345678') errors.push('members: thiếu nút Zalo');
 
