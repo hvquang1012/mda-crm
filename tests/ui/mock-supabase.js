@@ -82,7 +82,12 @@
   window.supabase = { createClient() { return {
     auth: { getSession: async () => ({ data: { session: { user: { id: 'u1', email: 'quang@x.vn' } } } }), signOut: async () => ({}) },
     from: builder,
-    rpc: async (name, args) => { window.__calls.push(['rpc', name, args]); return { data: rpcs[name] ?? null, error: null }; },
+    rpc: async (name, args) => {
+      window.__calls.push(['rpc', name, args]);
+      // Link thợ của công trình đã đóng (crew.html?t=closed)
+      if (args?.p_token === 'closed') return { data: null, error: { message: 'project_closed' } };
+      return { data: rpcs[name] ?? null, error: null };
+    },
     channel() { const c = { on() { return c; }, subscribe(cb) { cb && cb('SUBSCRIBED'); return c; } }; return c; },
     storage: { from() { return {
       // Mỗi path một màu + chữ riêng để nhìn ra ảnh nào đang hiện trong slide/lightbox

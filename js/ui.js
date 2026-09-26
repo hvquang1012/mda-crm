@@ -81,6 +81,7 @@ const RPC_ERROR_VI = {
   admin_only: 'Chỉ quản trị viên được đổi vai trò',
   cannot_demote_self: 'Không tự hạ quyền của chính mình được',
   invalid_or_expired_token: 'Link đã hết hạn hoặc bị thu hồi — liên hệ giám sát',
+  project_closed: 'Công trình đã bàn giao xong — link này đã khoá. Cần báo thêm thì liên hệ giám sát',
   item_not_in_scope: 'Đầu việc này không thuộc đội của bạn',
   note_required: 'Vui lòng nhập ghi chú',
   photo_required: 'Vui lòng chụp ít nhất 1 ảnh',
