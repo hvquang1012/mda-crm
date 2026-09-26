@@ -114,3 +114,23 @@ select 'dashboard: xong hết' t, (dashboard_summary()->'projects'->0->>'done_it
 update work_items set status='onTrack' where id='55555555-5555-5555-5555-555555555555';
 select 'mở lại → hạng mục hết done' t, status from work_packages where id='44444444-4444-4444-4444-444444444444';
 reset role;
+
+-- Đóng công trình → đóng cảnh báo đang mở, compute_alerts bỏ qua, ẩn khỏi dashboard
+insert into alerts(project_id, work_item_id, kind, severity, message) values
+ ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555','no_crew','warning','test đóng');
+set role authenticated; set request.jwt.claim.role='authenticated'; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000004';
+select 'K3 (không phụ trách) đóng P1 (0 dòng)' t; update projects set status='done' where id='33333333-3333-3333-3333-333333333333' returning id;
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+update projects set status='done' where id='33333333-3333-3333-3333-333333333333';
+select 'đóng → cảnh báo mở của P1 = 0' t, count(*) from alerts where project_id='33333333-3333-3333-3333-333333333333' and acknowledged_at is null;
+reset role;
+update work_items set planned_end = current_date - 5, status = 'onTrack' where id='55555555-5555-5555-5555-555555555555';
+select 'compute_alerts trên P1 đã đóng' t, compute_alerts();
+select 'P1 đã đóng: không sinh cảnh báo mới' t, count(*) from alerts where project_id='33333333-3333-3333-3333-333333333333' and acknowledged_at is null;
+select 'P1 đã đóng: status đầu việc giữ nguyên' t, status from work_items where id='55555555-5555-5555-5555-555555555555';
+set role authenticated; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'dashboard không còn P1' t, not exists (select 1 from json_array_elements(dashboard_summary()->'projects') x where x->>'id' = '33333333-3333-3333-3333-333333333333') ok;
+update projects set status='active' where id='33333333-3333-3333-3333-333333333333';
+reset role;
+select 'mở lại → compute_alerts' t, compute_alerts();
+select 'mở lại → đầu việc quá hạn thành delayed' t, status from work_items where id='55555555-5555-5555-5555-555555555555';

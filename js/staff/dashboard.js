@@ -10,6 +10,7 @@
 // ============================================================
 import { state, isManager } from './state.js';
 import { escapeHtml, displayDate, tradeLabel } from '../ui.js';
+import { setProjectStatus } from './project-status.js';
 
 const ALERT_LABEL = {
   no_crew: 'không ra quân', forecast_delay: 'dự báo trễ', chain_block: 'đang bị chặn',
@@ -99,13 +100,18 @@ function render(wrap, data) {
       if (sel) sel.value = state.currentProjectId;
       state.navigate('items');
     };
-    el.onclick = (e) => { if (!e.target.closest('[data-goto-approvals]')) open(); };
-    el.onkeydown = (e) => { if (e.key === 'Enter') open(); };
+    el.onclick = (e) => { if (!e.target.closest('[data-goto-approvals],[data-close-project]')) open(); };
+    el.onkeydown = (e) => { if (e.key === 'Enter' && e.target === el) open(); };
   });
   wrap.querySelectorAll('[data-goto-approvals]').forEach(el => el.onclick = (e) => {
     e.stopPropagation();
     state.approvalsProjectFilter = el.dataset.gotoApprovals;
     state.navigate('approvals');
+  });
+  wrap.querySelectorAll('[data-close-project]').forEach(el => el.onclick = async (e) => {
+    e.stopPropagation();
+    const p = lastData.projects.find(x => x.id === el.dataset.closeProject);
+    if (p && await setProjectStatus(p, true, p.item_count - p.done_items)) renderDashboard();
   });
   wireActivityHover(wrap, data.activity || []);
 }
@@ -141,7 +147,8 @@ function projectCard(p) {
   const chips = [
     p.pending_reports ? `<button type="button" class="dash-chip" data-goto-approvals="${p.id}">✅ ${p.pending_reports} chờ duyệt</button>` : '',
     p.blocking_issues ? `<span class="dash-chip critical">⛔ ${p.blocking_issues} vướng chặn</span>` : p.open_issues ? `<span class="dash-chip warning">❗ ${p.open_issues} vướng mắc</span>` : '',
-    p.delayed_items ? `<span class="dash-chip warning">⏱ ${p.delayed_items} đầu việc trễ</span>` : ''
+    p.delayed_items ? `<span class="dash-chip warning">⏱ ${p.delayed_items} đầu việc trễ</span>` : '',
+    p.risk === 'done' ? `<button type="button" class="dash-chip" data-close-project="${p.id}">🏁 Đóng công trình</button>` : ''
   ].join('');
   const quiet = p.last_report_date ? Math.round((Date.parse(state_today()) - Date.parse(p.last_report_date)) / 86400000) : null;
   const pkgRows = (p.packages || []).map(k => `

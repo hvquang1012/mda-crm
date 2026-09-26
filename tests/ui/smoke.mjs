@@ -42,6 +42,16 @@ await shot(p, 'm-dashboard');
   if (!txt.includes('Đã xong') || txt.includes('Cần xử lý') || txt.includes('chưa có báo cáo') || txt.includes('dự báo trễ') || txt.includes('trễ 11')) errors.push('dashboard: công trình xong hết vẫn báo cần xử lý');
   if ((await p.textContent('.kpi.critical .kpi-value').catch(() => '0')) !== '2') errors.push('dashboard: KPI Cần xử lý đếm cả công trình đã xong');
 }
+// Thẻ "Đã xong" có nút Đóng công trình; bấm không mở timeline
+{
+  const n0 = (await p.evaluate(() => window.__calls)).length;
+  p.once('dialog', dlg => dlg.accept());
+  await p.click('[data-open-project=p3] [data-close-project]'); await p.waitForTimeout(300);
+  const calls = (await p.evaluate(() => window.__calls)).slice(n0);
+  if (!calls.some(c => c[0] === 'update' && c[1] === 'projects' && c[2].status === 'done')) errors.push('dashboard: nút Đóng công trình không gửi status=done');
+  if (await p.isVisible('#tabPanel-items')) errors.push('dashboard: bấm Đóng công trình lại mở timeline');
+  if ((await p.$$('[data-close-project]')).length !== 1) errors.push('dashboard: nút Đóng hiện ở công trình chưa xong');
+}
 // Cài đặt tài khoản: bấm tên → sửa tên + số; số sai không gửi, số +84 đổi về 0…
 await p.click('#staffName'); await p.waitForTimeout(200);
 await p.fill('#profileName', 'Quang MD'); await p.fill('#profilePhone', '+84 912 345 678');
@@ -75,6 +85,25 @@ await p.click('[data-action=approve]'); await p.waitForTimeout(300);
 console.log('calls', JSON.stringify((await p.evaluate(() => window.__calls)).filter(c => c[0] === 'rpc' && c[1] !== 'dashboard_summary')));
 await p.click('#nav-alerts'); await p.waitForTimeout(400); await shot(p, 'm-alerts');
 await p.click('#nav-items'); await p.waitForTimeout(400); await shot(p, 'm-items');
+// Đóng công trình: công trình đã đóng gom vào nhóm riêng; nút 🏁 Đóng ↔ ↺ Mở lại
+if (!(await p.$('#projectSelect optgroup[label^="Đã đóng"] option[value=p4]'))) errors.push('items: thiếu nhóm Đã đóng trong danh sách công trình');
+if ((await p.textContent('#btnCloseProject')).trim() !== '🏁 Đóng' || !(await p.isHidden('#projectClosedNote'))) errors.push('items: nút Đóng sai với công trình đang chạy');
+{
+  const n0 = (await p.evaluate(() => window.__calls)).length;
+  p.once('dialog', dlg => { if (!dlg.message().includes('chưa xong')) errors.push('items: hộp xác nhận đóng không nhắc đầu việc chưa xong'); dlg.accept(); });
+  await p.click('#btnCloseProject'); await p.waitForTimeout(300);
+  if (!(await p.evaluate(() => window.__calls)).slice(n0).some(c => c[0] === 'update' && c[1] === 'projects' && c[2].status === 'done')) errors.push('items: bấm Đóng không gửi status=done');
+}
+await p.selectOption('#projectSelect', 'p4'); await p.waitForTimeout(300);
+if ((await p.textContent('#btnCloseProject')).trim() !== '↺ Mở lại' || !(await p.isVisible('#projectClosedNote'))) errors.push('items: công trình đã đóng không hiện Mở lại / dòng nhắc');
+await shot(p, 'm-items-closed');
+{
+  const n0 = (await p.evaluate(() => window.__calls)).length;
+  p.once('dialog', dlg => dlg.accept());
+  await p.click('#btnCloseProject'); await p.waitForTimeout(300);
+  if (!(await p.evaluate(() => window.__calls)).slice(n0).some(c => c[0] === 'update' && c[1] === 'projects' && c[2].status === 'active')) errors.push('items: bấm Mở lại không gửi status=active');
+}
+await p.selectOption('#projectSelect', 'p1'); await p.waitForTimeout(300);
 // Đầu việc = dòng gọn; menu ⋯; trọn gói không hiện mã thô "tron_goi"
 if (!(await p.$$('.package-card .wi-row')).length) errors.push('items: thiếu dòng đầu việc gọn');
 if ((await p.textContent('#packagesList')).includes('tron_goi')) errors.push('items: còn hiện chữ tron_goi');
