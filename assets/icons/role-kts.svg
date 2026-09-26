@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" fill="none">
+  <!-- Vai trò KTS: mũ bảo hộ công trường -->
+  <defs>
+    <clipPath id="kts-dome"><path d="M11 42Q11 17 32 15Q53 17 53 42Z"/></clipPath>
+  </defs>
+  <g id="fills">
+    <path d="M11 42Q11 17 32 15Q53 17 53 42Z" fill="#FFD166"/>
+    <rect x="5" y="40" width="54" height="9" rx="4.5" fill="#FFD166"/>
+  </g>
+  <g id="shadows">
+    <rect x="0" y="35" width="64" height="7" fill="#E9B443" clip-path="url(#kts-dome)"/>
+    <rect x="7" y="45" width="50" height="4" rx="2" fill="#E9B443"/>
+  </g>
+  <g id="details">
+    <rect x="27" y="14" width="10" height="28" rx="3" fill="#EF476F"/>
+    <rect x="27" y="35" width="10" height="7" fill="#C9345A"/>
+  </g>
+  <g id="strokes" stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 42Q11 17 32 15Q53 17 53 42"/>
+    <rect x="5" y="40" width="54" height="9" rx="4.5"/>
+    <rect x="27" y="14" width="10" height="26" rx="3" stroke-width="2.5"/>
+  </g>
+  <g id="highlights" fill="#FFFFFF">
+    <path d="M16 34Q17 24 24 20" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+    <rect x="29.5" y="17.5" width="2" height="7" rx="1"/>
+  </g>
+  <g id="accents">
+    <path d="M54 5.5Q54 10 58.5 10Q54 10 54 14.5Q54 10 49.5 10Q54 10 54 5.5Z" fill="#1E1E24" stroke="#1E1E24" stroke-width="1.2" stroke-linejoin="round"/>
+    <circle cx="6" cy="22" r="1.8" fill="#1E1E24"/>
+    <circle cx="58" cy="57" r="1.6" fill="#1E1E24"/>
+  </g>
+</svg>

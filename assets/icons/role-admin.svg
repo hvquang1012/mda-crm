@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" fill="none">
+  <!-- Vai trò Quản trị: khiên + ngôi sao -->
+  <defs>
+    <clipPath id="adm-shield"><path d="M32 6L52 13V30Q52 48 32 58Q12 48 12 30V13Z"/></clipPath>
+  </defs>
+  <g id="fills">
+    <path d="M32 6L52 13V30Q52 48 32 58Q12 48 12 30V13Z" fill="#EF476F"/>
+  </g>
+  <g id="shadows">
+    <rect x="0" y="46" width="64" height="14" fill="#C9345A" clip-path="url(#adm-shield)"/>
+    <rect x="32" y="0" width="32" height="64" fill="#C9345A" opacity=".45" clip-path="url(#adm-shield)"/>
+  </g>
+  <g id="details">
+    <path d="M32 19L35.5 26.2L43.4 27.3L37.7 32.8L39.1 40.7L32 37L24.9 40.7L26.3 32.8L20.6 27.3L28.5 26.2Z" fill="#FFD166"/>
+  </g>
+  <g id="strokes" stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 6L52 13V30Q52 48 32 58Q12 48 12 30V13Z"/>
+    <path d="M32 19L35.5 26.2L43.4 27.3L37.7 32.8L39.1 40.7L32 37L24.9 40.7L26.3 32.8L20.6 27.3L28.5 26.2Z" stroke-width="2.5"/>
+  </g>
+  <g id="highlights" fill="#FFFFFF">
+    <path d="M16.5 17V28" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"/>
+    <rect x="20" y="13.2" width="6" height="2" rx="1" transform="rotate(-19 23 14.2)"/>
+  </g>
+  <g id="accents">
+    <path d="M55 5.5Q55 10 59.5 10Q55 10 55 14.5Q55 10 50.5 10Q55 10 55 5.5Z" fill="#1E1E24" stroke="#1E1E24" stroke-width="1.2" stroke-linejoin="round"/>
+    <circle cx="6" cy="44" r="1.8" fill="#1E1E24"/>
+    <circle cx="57" cy="40" r="1.6" fill="#1E1E24"/>
+  </g>
+</svg>

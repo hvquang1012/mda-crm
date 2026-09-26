@@ -1,4 +1,4 @@
-const CACHE = 'mda-progress-v7';
+const CACHE = 'mda-progress-v8';
 const SHELL = [
   './', './index.html', './crew.html', './client.html', './manifest.json',
   './config.js', './css/app.css', './js/settings.js', './assets/logo-minh-duc.png', './icon-192.png', './icon-512.png',
@@ -6,7 +6,7 @@ const SHELL = [
   './vendor/fonts/plus-jakarta-sans-latin-wght-normal.woff2',
   './vendor/fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2',
   './vendor/fonts/plus-jakarta-sans-vietnamese-wght-normal.woff2',
-  ...['dashboard', 'approve', 'tasks', 'chat', 'alert', 'report', 'history'].map(n => `./assets/icons/${n}.svg`)
+  ...['dashboard', 'approve', 'tasks', 'chat', 'alert', 'report', 'history', 'role-kts', 'role-manager', 'role-admin'].map(n => `./assets/icons/${n}.svg`)
 ];
 
 self.addEventListener('install', (e) => {

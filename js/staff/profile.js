@@ -24,12 +24,20 @@ export function zaloLinkHtml(phone) {
   return `<a class="zalo-btn" href="${zaloUrl(escapeHtml(phone))}" target="_blank" rel="noopener" title="Nhắn Zalo ${escapeHtml(phone)}">Zalo</a>`;
 }
 
-const ROLE_VI = { kts: 'KTS', manager: 'Quản lý', admin: 'Quản trị' };
+export const ROLE_VI = { kts: 'KTS', staff: 'KTS', manager: 'Quản lý', admin: 'Quản trị' };
+const ROLE_ICON = { kts: 'kts', staff: 'kts', manager: 'manager', admin: 'admin' };
+
+// Icon vai trò (assets/icons/role-*.svg) — thay chữ "Quản trị" cho gọn đầu trang
+export function roleIconHtml(role) {
+  const k = ROLE_ICON[role];
+  return k ? `<img class="role-ic" src="assets/icons/role-${k}.svg" alt="${ROLE_VI[role]}" title="${ROLE_VI[role]}">` : '';
+}
 
 export function renderStaffName() {
+  const btn = document.getElementById('staffName');
   const roleVi = ROLE_VI[state.staffRole] || '';
-  document.getElementById('staffName').textContent =
-    (state.profile?.full_name || state.user.email) + (roleVi ? ' · ' + roleVi : '');
+  btn.innerHTML = roleIconHtml(state.staffRole) + `<span class="header-user-name">${escapeHtml(state.profile?.full_name || state.user.email)}</span>`;
+  btn.title = btn.ariaLabel = (roleVi ? roleVi + ' — ' : '') + 'Cài đặt tài khoản';
 }
 
 export function openProfileModal() {

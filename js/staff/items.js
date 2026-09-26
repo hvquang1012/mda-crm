@@ -7,7 +7,7 @@
 import { state, isManager } from './state.js';
 import { escapeHtml, showToast, displayDate, todayISO, db, rpcErrorText, shareLink, unitLabel as unitLabelFull } from '../ui.js';
 import { renderTimeline } from '../timeline.js';
-import { zaloLinkHtml } from './profile.js';
+import { zaloLinkHtml, roleIconHtml, ROLE_VI } from './profile.js';
 import { setProjectStatus } from './project-status.js';
 import { openProjectWizard, scheduleFromTemplate, crewLinkUrl, clientLinkUrl } from './wizard.js';
 
@@ -832,7 +832,7 @@ async function renderMembers() {
   if (e1 || e2) { wrap.innerHTML = '<div class="empty-hint compact">Không tải được danh sách nhân viên.</div>'; return; }
   const inProject = new Set((members || []).map(m => m.staff_id));
   const isAdmin = state.staffRole === 'admin';
-  const roleVi = { kts: 'KTS', staff: 'KTS', manager: 'Quản lý', admin: 'Quản trị' };
+  const roleVi = ROLE_VI;
   wrap.innerHTML = (staff || []).map(u => {
     const seesAll = u.role === 'manager' || u.role === 'admin';
     return `
@@ -845,7 +845,7 @@ async function renderMembers() {
       ${isAdmin && u.id !== state.user.id ? `
         <select data-role="${u.id}" aria-label="Vai trò">
           ${['kts', 'manager', 'admin'].map(r => `<option value="${r}" ${(u.role === 'staff' ? 'kts' : u.role) === r ? 'selected' : ''}>${roleVi[r]}</option>`).join('')}
-        </select>` : `<span class="member-role">${roleVi[u.role] || ''}</span>`}
+        </select>` : `<span class="member-role">${roleIconHtml(u.role)}${roleVi[u.role] || ''}</span>`}
     </div>`;
   }).join('');
 

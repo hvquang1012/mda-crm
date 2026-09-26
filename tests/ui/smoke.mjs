@@ -61,7 +61,8 @@ await p.fill('#profilePhone', '123'); await p.click('#btnProfileSave'); await p.
 if (!(await p.textContent('#profileError')) || (await p.evaluate(() => window.__calls)).some(c => c[0] === 'update' && c[1] === 'staff')) errors.push('profile: số sai vẫn lưu');
 await p.fill('#profilePhone', '0912 345 678'); await p.click('#btnProfileSave'); await p.waitForTimeout(300);
 if (!(await p.evaluate(() => window.__calls)).some(c => c[0] === 'update' && c[1] === 'staff' && c[2].phone === '0912345678' && c[2].full_name === 'Quang MD')) errors.push('profile: không lưu tên/số');
-if (!(await p.textContent('#staffName')).startsWith('Quang MD')) errors.push('profile: tên đầu trang chưa đổi');
+if ((await p.textContent('#staffName')).trim() !== 'Quang MD') errors.push('profile: tên đầu trang chưa đổi / còn chữ vai trò');
+if (!(await p.$('#staffName img.role-ic[src*="role-admin"]'))) errors.push('profile: thiếu icon vai trò');
 // Cài đặt nhanh: ☾ đổi Tối ngay; ⚙ → cỡ chữ Lớn, English; tải lại vẫn giữ
 await p.click('#btnProfileCancel').catch(() => {});
 await p.click('#quickSettings .qs-toggle'); await p.waitForTimeout(400);

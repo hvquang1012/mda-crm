@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" fill="none">
+  <!-- Vai trò Quản lý: cặp hồ sơ + huy hiệu dấu tích -->
+  <defs>
+    <clipPath id="mgr-case"><rect x="6" y="18" width="46" height="34" rx="6"/></clipPath>
+    <clipPath id="mgr-badge"><circle cx="48" cy="47" r="10"/></clipPath>
+  </defs>
+  <g id="fills">
+    <rect x="6" y="18" width="46" height="34" rx="6" fill="#4CC9F0"/>
+  </g>
+  <g id="shadows">
+    <rect x="0" y="46" width="64" height="8" fill="#2BA8CF" clip-path="url(#mgr-case)"/>
+  </g>
+  <g id="details">
+    <rect x="6" y="30" width="46" height="4" fill="#2BA8CF"/>
+    <rect x="24" y="27" width="10" height="9" rx="2" fill="#FFD166"/>
+  </g>
+  <g id="strokes" stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6" y="18" width="46" height="34" rx="6"/>
+    <path d="M21 18V13Q21 10 24 10H34Q37 10 37 13V18"/>
+    <path d="M6 32H24M34 32H52" stroke-width="2.5"/>
+    <rect x="24" y="27" width="10" height="9" rx="2" stroke-width="2.5"/>
+  </g>
+  <g id="highlights" fill="#FFFFFF">
+    <rect x="9" y="21.5" width="2.2" height="7" rx="1.1"/>
+    <rect x="14" y="21.5" width="6" height="2" rx="1"/>
+  </g>
+  <g id="badge">
+    <circle cx="48" cy="47" r="10" fill="#06D6A0"/>
+    <rect x="34" y="51" width="28" height="8" fill="#05B386" clip-path="url(#mgr-badge)"/>
+    <g stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="48" cy="47" r="10"/>
+      <path d="M43.5 47.3L46.8 50.5L52.6 44.2"/>
+    </g>
+  </g>
+  <g id="accents">
+    <path d="M55 5.5Q55 10 59.5 10Q55 10 55 14.5Q55 10 50.5 10Q55 10 55 5.5Z" fill="#1E1E24" stroke="#1E1E24" stroke-width="1.2" stroke-linejoin="round"/>
+    <circle cx="5" cy="9" r="1.8" fill="#1E1E24"/>
+  </g>
+</svg>
