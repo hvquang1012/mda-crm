@@ -13,6 +13,9 @@ import { renderChat, refreshChatBadge, onRealtimeMessage } from './chat.js';
 import { wireExportButton } from './export.js';
 import { setupPush, pushState } from '../push.js';
 import { renderStaffName, openProfileModal } from './profile.js';
+import { mountQuickSettings } from '../settings.js';
+
+mountQuickSettings(document.getElementById('quickSettings'));
 
 const { client: supabase, ready } = initSupabase();
 state.supabase = supabase;

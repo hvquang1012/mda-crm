@@ -1,7 +1,7 @@
-const CACHE = 'mda-progress-v6';
+const CACHE = 'mda-progress-v7';
 const SHELL = [
   './', './index.html', './crew.html', './client.html', './manifest.json',
-  './config.js', './css/app.css', './assets/logo-minh-duc.png', './icon-192.png', './icon-512.png',
+  './config.js', './css/app.css', './js/settings.js', './assets/logo-minh-duc.png', './icon-192.png', './icon-512.png',
   './apple-touch-icon.png', './vendor/supabase-js@2.45.4.min.js',
   './vendor/fonts/plus-jakarta-sans-latin-wght-normal.woff2',
   './vendor/fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2',

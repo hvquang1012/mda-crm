@@ -8,6 +8,7 @@
 <title>Báo tiến độ — Minh Đức</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>try{var s=localStorage,d=document.documentElement,t=s.getItem('mda-theme'),f=s.getItem('mda-font'),l=s.getItem('mda-lang');if(t==='light'||t==='dark')d.dataset.theme=t;if(f==='sm'||f==='lg')d.dataset.font=f;if(l==='en')d.lang='en'}catch(e){}</script>
 <link rel="stylesheet" href="css/app.css">
 <script src="vendor/supabase-js@2.45.4.min.js"></script>
 <script src="config.js"></script>
@@ -30,13 +31,13 @@
         <div><div class="header-title" id="crewProjectName">—</div>
           <div class="header-sub" id="crewSubName">—</div></div>
       </div>
-      <span class="online-dot" id="crewOnlineDot"></span>
+      <div class="header-right"><span id="quickSettings"></span><span class="online-dot" id="crewOnlineDot"></span></div>
     </div>
 
     <div class="crew-workspace">
       <div class="crew-tabs" role="tablist" aria-label="Điều hướng báo cáo">
-        <button class="active" data-tab="report" role="tab" aria-selected="true"><img class="tab-ic" src="assets/icons/report.svg" alt="">Báo tiến độ</button>
-        <button data-tab="history" role="tab" aria-selected="false"><img class="tab-ic" src="assets/icons/history.svg" alt="">Lịch sử</button>
+        <button class="active" data-tab="report" role="tab" aria-selected="true" data-i18n="crew.report"><img class="tab-ic" src="assets/icons/report.svg" alt="">Báo tiến độ</button>
+        <button data-tab="history" role="tab" aria-selected="false" data-i18n="crew.history"><img class="tab-ic" src="assets/icons/history.svg" alt="">Lịch sử</button>
       </div>
 
       <div class="list-wrap crew-content">

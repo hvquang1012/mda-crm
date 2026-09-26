@@ -820,8 +820,6 @@ button.dash-chip{cursor:pointer;}
   filter:saturate(.55) opacity(.85) drop-shadow(0 0 .6px rgba(226,232,240,.85)) drop-shadow(0 0 7px rgba(56,189,248,.28));}
 
 /* Nút chọn Sáng/Tối trong "Cài đặt tài khoản" */
-.theme-switch{display:flex;margin:0;}
-.theme-switch button{flex:1;}
 
 /* ---------- Tab Công việc: đầu việc = dòng gọn trong thẻ hạng mục ----------
    (đặt sau hệ bề mặt để bỏ viền/bóng thẻ lồng thẻ) */
@@ -912,3 +910,27 @@ button.dash-chip{cursor:pointer;}
 /* Thẻ đầu việc màn thợ: nút 💬 cạnh nhãn tiến độ */
 .crew-item-card .chat-btn{flex:none;font-size:18px;padding:6px 8px;}
 .chat-note{font-size:12px;line-height:1.45;color:var(--ink-soft);background:var(--bg-surface);border-radius:var(--radius-input);padding:7px 10px;}
+
+/* ---------- Cài đặt nhanh (js/settings.js): ☀/☾ + ⚙ trên thanh đầu trang ---------- */
+.header-right{display:flex;align-items:center;gap:10px;flex:none;}
+.qs-slot{display:inline-flex;gap:6px;flex:none;}
+.qs-btn{font-size:15px;line-height:1;padding:6px 9px;min-width:32px;}
+.qs-menu{position:fixed;left:12px;right:12px;z-index:1000;background:var(--paper);color:var(--ink);
+  border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm),0 18px 40px -16px rgba(0,0,0,.35);padding:14px 16px 6px;}
+@media (min-width:521px){.qs-menu{width:340px;}}
+.qs-title{font-weight:800;font-size:15px;margin-bottom:8px;}
+.qs-label{font-size:12px;font-weight:700;color:var(--ink-soft);}
+.qs-menu .seg-switch{display:flex;margin:6px 0 12px;}
+.qs-menu .seg-switch button{flex:1;padding:8px 6px;}
+/* Cỡ chữ: CSS viết bằng px nên phóng phần nội dung bằng zoom — giữ tỉ lệ bố cục.
+   Thanh đầu trang giữ nguyên để các nút không bị đẩy tràn trên điện thoại. */
+:root[data-font="sm"] :is(.staff-content,.bottom-nav,.crew-workspace,.client-scroll,.modal-sheet,.login-form){zoom:.92;}
+:root[data-font="lg"] :is(.staff-content,.bottom-nav,.crew-workspace,.client-scroll,.modal-sheet,.login-form){zoom:1.12;}
+@media (max-width:520px){
+  .app-header > div:last-child{gap:8px !important;}
+  .app-header .header-logo{width:76px;}
+  .app-header > div:last-child > .header-user{min-width:52px;}
+  .qs-btn{padding:6px 7px;min-width:30px;}
+}
+/* Trang thợ / chủ nhà: tên công trình dài co lại "…", không đẩy nút ⚙ ra ngoài */
+.app-header:has(> .header-right) .header-left{flex:1 1 auto;min-width:0;}

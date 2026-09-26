@@ -62,14 +62,29 @@ if (!(await p.textContent('#profileError')) || (await p.evaluate(() => window.__
 await p.fill('#profilePhone', '0912 345 678'); await p.click('#btnProfileSave'); await p.waitForTimeout(300);
 if (!(await p.evaluate(() => window.__calls)).some(c => c[0] === 'update' && c[1] === 'staff' && c[2].phone === '0912345678' && c[2].full_name === 'Quang MD')) errors.push('profile: không lưu tên/số');
 if (!(await p.textContent('#staffName')).startsWith('Quang MD')) errors.push('profile: tên đầu trang chưa đổi');
-// Sáng/Tối: ép Tối → nền #0B0F19; Tự động → bỏ data-theme
-await p.click('#staffName'); await p.waitForTimeout(150);
-await p.click('[data-theme-opt=dark]'); await p.waitForTimeout(400);
-if ((await p.evaluate(() => document.documentElement.dataset.theme)) !== 'dark' || (await p.evaluate(() => getComputedStyle(document.body).backgroundColor)) !== 'rgb(11, 15, 25)') errors.push('theme: không chuyển sang Tối');
-await shot(p, 'm-profile-dark');
-await p.click('[data-theme-opt=auto]'); await p.waitForTimeout(400);
+// Cài đặt nhanh: ☾ đổi Tối ngay; ⚙ → cỡ chữ Lớn, English; tải lại vẫn giữ
+await p.click('#btnProfileCancel').catch(() => {});
+await p.click('#quickSettings .qs-toggle'); await p.waitForTimeout(400);
+if ((await p.evaluate(() => document.documentElement.dataset.theme)) !== 'dark' || (await p.evaluate(() => getComputedStyle(document.body).backgroundColor)) !== 'rgb(11, 15, 25)') errors.push('theme: nút ☾ không chuyển sang Tối');
+await p.click('#quickSettings .qs-open'); await p.waitForTimeout(150);
+await p.click('.qs-menu [data-qs=font][data-val=lg]'); await p.click('.qs-menu [data-qs=lang][data-val=en]'); await p.waitForTimeout(200);
+await shot(p, 'm-quick-settings-dark');
+if ((await p.evaluate(() => document.documentElement.dataset.font)) !== 'lg') errors.push('settings: cỡ chữ Lớn không áp');
+if (!(await p.textContent('#nav-items')).includes('Tasks')) errors.push('settings: English không đổi tên tab');
+{ // mở trang mới trên cùng máy: giữ cài đặt ngay từ đầu (script trong <head>)
+  const p2 = await p.context().newPage();
+  await p2.route('**/vendor/supabase-js@2.45.4.min.js', r => r.fulfill({ contentType: 'text/javascript', body: mock }));
+  await p2.goto('http://localhost:8765/crew.html?t=abc'); await p2.waitForTimeout(800);
+  if ((await p2.evaluate(() => document.documentElement.dataset.font + document.documentElement.lang)) !== 'lgen' || !(await p2.textContent('[data-tab=history]')).includes('History')) errors.push('settings: trang mới không giữ cài đặt');
+  await shot(p2, 'm-crew-en-lg');
+  await p2.close();
+}
+await p.keyboard.press('Escape');
+await p.click('#quickSettings .qs-open'); await p.waitForTimeout(150);
+await p.click('.qs-menu [data-qs=lang][data-val=vi]'); await p.click('.qs-menu [data-qs=font][data-val=md]'); await p.click('.qs-menu [data-qs=theme][data-val=auto]'); await p.waitForTimeout(400);
+await p.keyboard.press('Escape');
+if (!(await p.textContent('#nav-items')).includes('Công việc') || (await p.textContent('#btnLogout')) !== 'Đăng xuất') errors.push('settings: không trả về Tiếng Việt');
 if ((await p.evaluate(() => document.documentElement.dataset.theme)) !== undefined) errors.push('theme: Tự động không bỏ data-theme');
-await p.click('#btnProfileCancel');
 // Trò chuyện: số chưa đọc trên menu; tab gom đầu việc có tin, chưa đọc lên đầu; mở luồng, gửi tin
 if ((await p.textContent('#chatNavCount')).trim() !== '2' || !(await p.isVisible('#chatNavCount'))) errors.push('chat: menu không hiện số tin chưa đọc');
 await p.click('#nav-chat'); await p.waitForTimeout(400); await shot(p, 'm-chat');
@@ -262,6 +277,7 @@ p = await page('index.html', 1440, 900, 'dark');
 await p.click('#nav-items'); await p.waitForTimeout(500); await shot(p, 'dk-d-items');
 p = await page('crew.html?t=abc', 390, 844, 'dark');
 await shot(p, 'dk-c-list');
+if (!(await p.$('#quickSettings .qs-open'))) errors.push('crew: thiếu nút cài đặt');
 await p.click('.crew-item-card [data-chat]'); await p.waitForTimeout(500); await shot(p, 'dk-c-chat');
 p = await page('index.html', 390, 844, 'dark');
 await p.click('#nav-chat'); await p.waitForTimeout(400); await shot(p, 'dk-chat');

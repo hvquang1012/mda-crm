@@ -9,6 +9,9 @@
 // ============================================================
 import { initSupabase } from './supabase.js';
 import { showToast, showScreen, escapeHtml, setOnlineDots, displayDate, unitLabel, rpcErrorText } from './ui.js';
+import { mountQuickSettings } from './settings.js';
+
+mountQuickSettings(document.getElementById('quickSettings'));
 
 const { client: supabase, ready } = initSupabase();
 const token = new URLSearchParams(location.search).get('t');
