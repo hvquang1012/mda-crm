@@ -153,3 +153,79 @@ set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
 select 'mở lại → thợ mở link được' t, crew_bootstrap('tok') is not null ok;
 select 'mở lại → chủ nhà mở link được' t, client_view('ctok') is not null ok;
 reset role;
+
+-- ============================================================
+-- Trò chuyện theo đầu việc
+-- ============================================================
+insert into subcontractors(id,name,trade) values ('22222222-2222-2222-2222-2222222222dd','Đội điện','dien');
+insert into work_packages(id,project_id,subcontractor_id,trade,name) values ('44444444-4444-4444-4444-4444444444dd','33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-2222222222dd','dien','Điện');
+insert into work_items(id,work_package_id,name) values ('55555555-5555-5555-5555-5555555555dd','44444444-4444-4444-4444-4444444444dd','Kéo dây');
+set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
+select 'anon đọc item_messages (phải lỗi permission denied)' t; select * from item_messages;
+select 'anon gửi thẳng vào item_messages (phải lỗi permission denied)' t;
+insert into item_messages(work_item_id,project_id,author_kind,crew_link_id,author_name,body) values ('55555555-5555-5555-5555-555555555555','33333333-3333-3333-3333-333333333333','crew','77777777-7777-7777-7777-777777777777','x','hack');
+select 'anon gọi chat_inbox (phải lỗi permission denied)' t; select * from chat_inbox();
+select 'thợ đá nhắn đầu việc của mình' t, crew_send_message('tok','55555555-5555-5555-5555-555555555555','Mai giao đá chưa anh?') is not null ok;
+select 'thợ nhắn kèm ảnh không chữ' t, crew_send_message('tok','55555555-5555-5555-5555-555555555555','','[{"path":"33333333-3333-3333-3333-333333333333/22222222-2222-2222-2222-222222222222/2026-09-26/a.jpg","thumb_path":"33333333-3333-3333-3333-333333333333/22222222-2222-2222-2222-222222222222/2026-09-26/a-thumb.jpg"}]') is not null ok;
+select 'gửi 2 lần cùng client_ref → cùng id' t,
+  crew_send_message('tok','55555555-5555-5555-5555-555555555555','offline 1','[]',null,'88888888-8888-8888-8888-888888888888')
+  = crew_send_message('tok','55555555-5555-5555-5555-555555555555','offline 1','[]',null,'88888888-8888-8888-8888-888888888888') as same_id;
+select 'token đội đá nhắn đầu việc đội điện (phải lỗi item_not_in_scope)' t; select crew_send_message('tok','55555555-5555-5555-5555-5555555555dd','xin chào');
+select 'token đội đá đọc luồng đội điện (phải lỗi item_not_in_scope)' t; select crew_messages('tok','55555555-5555-5555-5555-5555555555dd');
+select 'token thu hồi nhắn (phải lỗi invalid_or_expired_token)' t; select crew_send_message('tok_rv','55555555-5555-5555-5555-555555555555','xin chào');
+select 'token thu hồi đọc luồng (phải lỗi invalid_or_expired_token)' t; select crew_messages('tok_rv','55555555-5555-5555-5555-555555555555');
+select 'tin trống (phải lỗi message_empty)' t; select crew_send_message('tok','55555555-5555-5555-5555-555555555555','   ');
+select 'tin quá dài (phải lỗi message_too_long)' t; select crew_send_message('tok','55555555-5555-5555-5555-555555555555',repeat('a',2001));
+select 'ảnh của đội khác (phải lỗi photo_not_in_scope)' t; select crew_send_message('tok','55555555-5555-5555-5555-555555555555','x','[{"path":"33333333-3333-3333-3333-333333333333/22222222-2222-2222-2222-2222222222dd/b.jpg"}]');
+select 'thợ đọc luồng: 3 tin, đều là của mình' t, json_array_length(crew_messages('tok','55555555-5555-5555-5555-555555555555')) n,
+  (select bool_and((x->>'mine')::boolean) from json_array_elements(crew_messages('tok','55555555-5555-5555-5555-555555555555')) x) mine,
+  crew_messages('tok','55555555-5555-5555-5555-555555555555')::text like '%staff_id%' as leak_staff_id;
+select 'thợ đọc luồng từ tương lai → 0 tin' t, json_array_length(crew_messages('tok','55555555-5555-5555-5555-555555555555', now() + interval '1 hour')) n;
+select 'crew_bootstrap có last_message_at' t, (select count(*) from json_array_elements(crew_bootstrap('tok')->'work_items') x where x->>'last_message_at' is not null) n;
+select 'chủ nhà không thấy tin' t, client_view('ctok')::text not like '%Mai giao đá%' and client_view('ctok')::text not like '%offline 1%' as ok;
+reset role;
+select 'số bản ghi client_ref 8888 = 1' t, count(*) from item_messages where client_ref='88888888-8888-8888-8888-888888888888';
+
+-- K1 phụ trách P1
+set role authenticated; set request.jwt.claim.role='authenticated'; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'K1 đọc được 3 tin' t, count(*) from item_messages;
+select 'K1 hộp trò chuyện: 3 chưa đọc' t, item_name, project_name, sub_name, unread, total from chat_inbox();
+select 'K1 nhắn lại (staff)' t;
+insert into item_messages(work_item_id,project_id,author_kind,staff_id,author_name,body,client_ref) values ('55555555-5555-5555-5555-555555555555','33333333-3333-3333-3333-333333333333','staff',auth.uid(),'K1','Mai 8h giao nhé','99999999-0000-0000-0000-000000000001') returning author_kind;
+select 'K1 nhắn giả làm thợ (phải lỗi RLS)' t;
+insert into item_messages(work_item_id,project_id,author_kind,crew_link_id,author_name,body) values ('55555555-5555-5555-5555-555555555555','33333333-3333-3333-3333-333333333333','crew','77777777-7777-7777-7777-777777777777','Sơn','giả');
+select 'K1 nhắn sai project_id của đầu việc (phải lỗi RLS)' t;
+insert into item_messages(work_item_id,project_id,author_kind,staff_id,author_name,body) select '55555555-5555-5555-5555-555555555555', id,'staff',auth.uid(),'K1','x' from projects where name='P mới của K1';
+select 'K1 nhắn kèm ảnh công trình khác (phải lỗi RLS)' t;
+insert into item_messages(work_item_id,project_id,author_kind,staff_id,author_name,body,photos) values ('55555555-5555-5555-5555-555555555555','33333333-3333-3333-3333-333333333333','staff',auth.uid(),'K1','x','[{"path":"00000000-0000-0000-0000-000000000009/a.jpg"}]');
+select 'K1 sửa tin (phải lỗi permission denied)' t; update item_messages set body='sửa';
+select 'K1 xoá tin (phải lỗi permission denied)' t; delete from item_messages;
+select 'K1 tin của mình không tính chưa đọc: vẫn 3' t, unread, total from chat_inbox();
+select 'K1 đánh dấu đã đọc' t, chat_mark_read('55555555-5555-5555-5555-555555555555');
+select 'K1 sau khi đọc: 0 chưa đọc' t, unread from chat_inbox();
+select 'K1 đánh dấu đọc 2 lần vẫn ok' t, chat_mark_read('55555555-5555-5555-5555-555555555555');
+select 'K1 gọi messages_to_notify (phải lỗi permission)' t; select * from messages_to_notify();
+select 'K1 đọc item_message_notifications (phải lỗi permission)' t; select count(*) from item_message_notifications;
+
+-- K3 không phụ trách
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000004';
+select 'K3 (không phụ trách) đọc tin → 0' t, count(*) from item_messages;
+select 'K3 hộp trò chuyện → 0' t, count(*) from chat_inbox();
+select 'K3 nhắn vào P1 (phải lỗi RLS)' t;
+insert into item_messages(work_item_id,project_id,author_kind,staff_id,author_name,body) values ('55555555-5555-5555-5555-555555555555','33333333-3333-3333-3333-333333333333','staff',auth.uid(),'K3','x');
+select 'K3 đánh dấu đọc P1 (phải lỗi RLS)' t; select chat_mark_read('55555555-5555-5555-5555-555555555555');
+reset role;
+
+-- Thông báo đẩy: chỉ tin của thợ, gom theo đầu việc, chờ yên
+select 'thông báo tin: vừa nhắn → chờ (0 dòng)' t, count(*) from messages_to_notify();
+select 'bỏ chờ → 3 tin thợ (không tính tin staff)' t, count(*) from messages_to_notify(interval '0');
+select 'notify_due có tin' t, notify_due();
+select mark_messages_notified(array(select message_id from messages_to_notify(interval '0')));
+select 'đánh dấu xong → rỗng' t, count(*) from messages_to_notify(interval '0');
+
+-- Đóng công trình → thợ không nhắn được
+update projects set status='done' where id='33333333-3333-3333-3333-333333333333';
+set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
+select 'thợ nhắn công trình đã đóng (phải lỗi project_closed)' t; select crew_send_message('tok','55555555-5555-5555-5555-555555555555','x');
+reset role;
+update projects set status='active' where id='33333333-3333-3333-3333-333333333333';

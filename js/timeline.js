@@ -182,7 +182,8 @@ function renderRow(row, window, ticks, today) {
 }
 
 // groupActions(group) → HTML nút thao tác đặt bên phải tiêu đề đội (tuỳ chọn, chỉ trang staff dùng)
-export function renderTimeline(groups, { project, today = localTodayDay(), groupActions } = {}) {
+// rowAction(row) → HTML nút đặt cạnh dòng đầu việc (ngoài <button> dòng — không lồng nút trong nút)
+export function renderTimeline(groups, { project, today = localTodayDay(), groupActions, rowAction } = {}) {
   const allRows = (groups || []).flatMap(group => group.rows || []);
   const window = makeWindow(project, allRows);
   if (!window) return '<div class="timeline-error">Dự án chưa có khung ngày hợp lệ.</div>';
@@ -214,7 +215,9 @@ export function renderTimeline(groups, { project, today = localTodayDay(), group
           </div>
           ${groupActions ? groupActions(group) : ''}
         </div>
-        ${scheduledRows.map(row => renderRow(row, window, ticks, today)).join('')}
+        ${scheduledRows.map(row => rowAction
+          ? `<div class="timeline-row-wrap">${renderRow(row, window, ticks, today)}${rowAction(row)}</div>`
+          : renderRow(row, window, ticks, today)).join('')}
       </section>`;
   }).join('');
 

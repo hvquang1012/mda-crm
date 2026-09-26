@@ -102,6 +102,14 @@
       </div>
     </div>
 
+    <!-- ---- Tab: Trò chuyện theo đầu việc ---- -->
+    <div id="tabPanel-chat" class="staff-panel" hidden>
+      <div class="list-wrap" style="padding-top:14px;">
+        <div class="section-label">Trò chuyện theo đầu việc</div>
+        <div id="chatInboxList"></div>
+      </div>
+    </div>
+
     <!-- ---- Tab: Cần xử lý (vướng mắc + cảnh báo) ---- -->
     <div id="tabPanel-alerts" class="staff-panel" hidden>
       <div class="list-wrap" style="padding-top:14px;">
@@ -125,11 +133,33 @@
       <button id="nav-dashboard" class="active"><img class="ic" src="assets/icons/dashboard.svg" alt="">Tổng quan</button>
       <button id="nav-approvals"><img class="ic" src="assets/icons/approve.svg" alt="">Duyệt<span class="dot" id="approvalsNavDot" style="display:none;"></span></button>
       <button id="nav-items"><img class="ic" src="assets/icons/tasks.svg" alt="">Công việc</button>
+      <button id="nav-chat"><img class="ic" src="assets/icons/chat.svg" alt="">Trò chuyện<span class="nav-count" id="chatNavCount" hidden></span></button>
       <button id="nav-alerts"><img class="ic" src="assets/icons/alert.svg" alt="">Cần xử lý<span class="dot" id="alertsNavDot" style="display:none;"></span></button>
     </nav>
     </div>
   </div>
 
+</div>
+
+<!-- ===================== TRÒ CHUYỆN THEO ĐẦU VIỆC ===================== -->
+<div class="modal-backdrop" id="chatModal">
+  <div class="modal-sheet chat-sheet">
+    <div class="chat-head">
+      <div>
+        <div class="modal-title" id="chatModalTitle"></div>
+        <div class="chat-head-meta" id="chatModalMeta"></div>
+      </div>
+      <button type="button" class="icon-btn" id="btnChatClose" aria-label="Đóng">✕</button>
+    </div>
+    <div class="chat-thread" id="chatThread"></div>
+    <div class="crew-photo-preview" id="chatPreview"></div>
+    <div class="chat-compose">
+      <label class="icon-btn chat-photo-btn" for="chatPhotoInput" aria-label="Gửi ảnh">📷</label>
+      <input type="file" id="chatPhotoInput" accept="image/*,.heic,.heif,.dng" multiple style="display:none;">
+      <textarea id="chatInput" rows="1" maxlength="2000" placeholder="Nhắn đội thi công..."></textarea>
+      <button type="button" class="btn btn-primary" id="btnChatSend">Gửi</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===================== MODAL: TẠO CÔNG TRÌNH (3 BƯỚC) ===================== -->

@@ -40,8 +40,20 @@
     issues: [{ id: 'is1', project_id: P1, kind: 'material', description: 'Thiếu keo dán đá, cần gấp', photos: [{ path: 'p1/s1/x.jpg' }], is_blocking: true, status: 'open', raised_by_name: 'anh Sơn', created_at: new Date(Date.now() - 26 * 3600e3).toISOString(), projects: { name: 'Nhà anh Minh — Ocean Park' }, work_items: { name: 'Lắp đá mặt bếp' } }],
     alerts: [{ id: 'a1', project_id: P2, severity: 'critical', kind: 'forecast_delay', message: '"Ốp đá lavabo" đã quá hạn 2 ngày', created_at: new Date().toISOString(), projects: { name: 'Căn hộ chị Hoa' } }],
     crew_links: [{ id: 'cl1', token: 'abc', project_id: P1, subcontractor_id: 's1', person_name: 'anh Sơn', role: 'manager', created_at: '2026-09-10T00:00:00Z', last_used_at: new Date().toISOString() }],
-    client_links: [], dependencies: [], photo_archive: []
+    client_links: [], dependencies: [], photo_archive: [],
+    // Trò chuyện theo đầu việc
+    work_items: items.map(it => ({ ...it, work_packages: it.work_package_id === 'wp1'
+      ? { project_id: P1, subcontractor_id: 's1', name: 'Đá bếp', subcontractors: { name: 'Đội đá Sơn' }, projects: { name: 'Nhà anh Minh — Ocean Park' } }
+      : { project_id: P1, subcontractor_id: 's2', name: 'Điện', subcontractors: { name: 'Điện Hùng' }, projects: { name: 'Nhà anh Minh — Ocean Park' } } })),
+    item_messages: [
+      { id: 'm1', work_item_id: 'i1', project_id: P1, author_kind: 'staff', staff_id: 'u2', author_name: 'KTS Lan', body: 'Mai đá về chưa anh?', photos: [], created_at: new Date(Date.now() - 5 * 3600e3).toISOString() },
+      { id: 'm2', work_item_id: 'i1', project_id: P1, author_kind: 'crew', staff_id: null, author_name: 'anh Sơn', body: 'Chiều nay về anh ơi, <b>khu đảo</b> thiếu 1 tấm', photos: [], created_at: new Date(Date.now() - 2 * 3600e3).toISOString() },
+      { id: 'm3', work_item_id: 'i1', project_id: P1, author_kind: 'crew', staff_id: null, author_name: 'anh Sơn', body: '', photos: [{ path: 'p1/s1/chat1.jpg', thumb_path: 'p1/s1/chat1-thumb.jpg' }], created_at: new Date(Date.now() - 1 * 3600e3).toISOString() }]
   };
+  // Tin của thợ trên máy chủ giả — crew_send_message ghi thêm vào đây
+  const crewMsgs = [
+    { id: 'cm1', author_kind: 'staff', author_name: 'KTS Lan', body: 'Mai đá về chưa anh?', photos: [], created_at: new Date(Date.now() - 5 * 3600e3).toISOString(), mine: false },
+    { id: 'cm2', author_kind: 'crew', author_name: 'anh Sơn', body: 'Chiều nay về', photos: [{ path: 'p1/s1/chat1.jpg', thumb_path: 'p1/s1/chat1-thumb.jpg' }], created_at: new Date(Date.now() - 2 * 3600e3).toISOString(), mine: true }];
   const act = Array.from({ length: 14 }, (_, i) => ({ d: d(i - 13), submitted: [2, 3, 0, 5, 4, 6, 1, 0, 3, 4, 7, 5, 2, 3][i], approved: [2, 2, 0, 4, 4, 5, 1, 0, 3, 3, 6, 4, 1, 0][i] }));
   const rpcs = {
     dashboard_summary: { today, projects: [
@@ -52,9 +64,20 @@
       { id: 'p3', name: 'Nhà xong hết', client_name: 'Anh Tú', end_date: d(-11), days_left: -11, is_mine: false, actual_pct: 100, planned_pct: 100, gap: 0, item_count: 14, done_items: 14, delayed_items: 0, pending_reports: 0, open_issues: 0, blocking_issues: 0, critical_alerts: 2, warning_alerts: 0, last_report_date: d(-51),
         packages: [{ id: 'wp9', name: 'Đá', trade: 'da', sub_name: 'Đội đá X', status: 'done', actual_pct: 100, planned_pct: 100, delayed_items: 0, top_alert: 'forecast_delay' }] }],
       subcontractors: [{ id: 's1', name: 'Đội đá Sơn', trade: 'da', projects: 2, delayed_items: 2, idle_items: 1, reports_30d: 14, rejected_30d: 2 }], activity: act },
-    crew_bootstrap: { crew_link_id: 'cl1', project: { id: P1, name: 'Nhà anh Minh — Ocean Park' }, subcontractor: { id: 's1', name: 'Đội đá Sơn', trade: 'da' }, person_name: 'anh Sơn', role: 'manager', work_items: items.map(i => ({ ...i })) },
+    crew_bootstrap: { crew_link_id: 'cl1', project: { id: P1, name: 'Nhà anh Minh — Ocean Park' }, subcontractor: { id: 's1', name: 'Đội đá Sơn', trade: 'da' }, person_name: 'anh Sơn', role: 'manager', work_items: items.map(i => ({ ...i, last_message_at: i.id === 'i1' ? new Date(Date.now() - 3600e3).toISOString() : null })) },
     crew_my_reports: [{ id: 'r9', work_item_id: 'i1', work_item_name: 'Lắp đá mặt bếp', report_date: d(-1), qty_delta: 2, crew_size: 3, note: 'lắp mặt bếp', photos: [], status: 'rejected', reject_reason: 'Ảnh không rõ', created_at: new Date().toISOString() }],
-    approve_report_group: 3.5, compute_alerts: 0, crew_submit: 'new-report-id'
+    approve_report_group: 3.5, compute_alerts: 0, crew_submit: 'new-report-id',
+    chat_inbox: [
+      { work_item_id: 'i1', item_name: 'Lắp đá mặt bếp', project_id: P1, project_name: 'Nhà anh Minh — Ocean Park', subcontractor_id: 's1', sub_name: 'Đội đá Sơn', last_body: '', last_author: 'anh Sơn', last_author_kind: 'crew', last_has_photos: true, last_at: new Date(Date.now() - 3600e3).toISOString(), unread: 2, total: 3 },
+      { work_item_id: 'i3', item_name: 'Kéo dây, đấu hộp', project_id: P1, project_name: 'Nhà anh Minh — Ocean Park', subcontractor_id: 's2', sub_name: 'Điện Hùng', last_body: 'Ok anh <script>', last_author: 'KTS Lan', last_author_kind: 'staff', last_has_photos: false, last_at: new Date(Date.now() - 26 * 3600e3).toISOString(), unread: 0, total: 4 }],
+    chat_mark_read: null,
+    crew_messages: (a) => crewMsgs.filter(m => !a.p_since || m.created_at > a.p_since),
+    crew_send_message: (a) => {
+      const old = crewMsgs.find(m => m.client_ref && m.client_ref === a.p_client_ref);
+      if (old) return old.id;
+      const m = { id: 'cm' + (crewMsgs.length + 1), author_kind: 'crew', author_name: 'anh Sơn', body: a.p_body, photos: a.p_photos || [], created_at: new Date().toISOString(), client_ref: a.p_client_ref, mine: true };
+      crewMsgs.push(m); return m.id;
+    }
   };
   window.__calls = [];
   function builder(table) {
@@ -64,7 +87,11 @@
       eq(col, v) { if (!col.includes('.')) rows = rows.filter(r => !(col in r) || r[col] === v); return b; },
       is(col, v) { rows = rows.filter(r => (r[col] ?? null) === v); return b; },
       in(col, vs) { rows = rows.filter(r => !(col in r) || vs.includes(r[col])); return b; },
-      gte() { return b; }, lte() { return b; }, order() { return b; }, limit() { return b; },
+      gte() { return b; }, lte() { return b; }, limit() { return b; },
+      order(col, o) {
+        if (table === 'item_messages') rows.sort((x, y) => (x[col] < y[col] ? -1 : x[col] > y[col] ? 1 : 0) * (o?.ascending === false ? -1 : 1));
+        return b;
+      },
       maybeSingle() { single = true; return b; }, single() { single = true; return b; },
       insert(p) { op = 'insert'; payload = p; window.__calls.push(['insert', table, p]); return b; },
       update(p) { op = 'update'; payload = p; window.__calls.push(['update', table, p]); return b; },
@@ -73,6 +100,7 @@
       then(res, rej) {
         let data = rows;
         if (op === 'insert') data = (Array.isArray(payload) ? payload : [payload]).map(p => ({ id: 'new-' + Math.random().toString(36).slice(2, 7), token: 'tok' + Math.random().toString(36).slice(2, 8), created_at: new Date().toISOString(), ...p }));
+        if (op === 'insert' && table === 'item_messages') tables.item_messages.push(...data);
         if (single) data = data[0] || null;
         return Promise.resolve({ data: head ? null : data, error: null, count: rows.length }).then(res, rej);
       }
@@ -86,7 +114,8 @@
       window.__calls.push(['rpc', name, args]);
       // Link thợ của công trình đã đóng (crew.html?t=closed)
       if (args?.p_token === 'closed') return { data: null, error: { message: 'project_closed' } };
-      return { data: rpcs[name] ?? null, error: null };
+      const r = rpcs[name];
+      return { data: (typeof r === 'function' ? r(args || {}) : r) ?? null, error: null };
     },
     channel() { const c = { on() { return c; }, subscribe(cb) { cb && cb('SUBSCRIBED'); return c; } }; return c; },
     storage: { from() { return {
@@ -96,6 +125,9 @@
         return { data: { signedUrl: 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="hsl(${hue} 35% 62%)"/><text x="200" y="170" font-size="64" text-anchor="middle" fill="#fff" font-family="sans-serif">${n}</text></svg>`) }, error: null };
       },
       uploadToSignedUrl: async () => ({ error: null }), upload: async () => ({ error: null }) }; } },
-    functions: { invoke: async (n) => ({ data: { paths: ['p1/s1/x.jpg', 'p1/s1/x-thumb.jpg'], tokens: ['a', 'b'] }, error: null }) }
+    functions: { invoke: async (n, opts) => {
+      if (n === 'get-photo-url') return { data: { urls: (opts?.body?.paths || []).map(() => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="hsl(200 35% 62%)"/></svg>')) }, error: null };
+      return { data: { paths: ['p1/s1/x.jpg', 'p1/s1/x-thumb.jpg'], tokens: ['a', 'b'] }, error: null };
+    } }
   }; } };
 })();

@@ -22,7 +22,8 @@ let state = {
   photoFiles: [],      // File[] đang chờ gửi
   issueFiles: [],      // File[] ảnh kèm vướng mắc
   tab: 'report',
-  outbox: null         // module js/outbox.js (import lười), null nếu máy không hỗ trợ
+  outbox: null,        // module js/outbox.js (import lười), null nếu máy không hỗ trợ
+  chat: null           // module js/crew-chat.js — chỉ tải khi thợ bấm 💬
 };
 
 // Ngày theo giờ máy thợ (VN), không phải UTC — báo lúc 6h sáng vẫn là hôm nay
@@ -64,6 +65,8 @@ async function boot() {
   // Tải sẵn bộ nén ảnh để service worker cất vào cache — lần đầu bấm gửi
   // lúc mất sóng vẫn nén được (trước đây chỉ tải lúc bấm gửi).
   if (navigator.onLine) import('./photos.js').catch(() => {});
+  // Trò chuyện cũng tải sẵn cho service worker cất — mở chat lúc mất sóng vẫn được
+  if (navigator.onLine) setTimeout(() => import('./crew-chat.js').catch(() => {}), 3000);
   flushOutbox();
 }
 
@@ -135,16 +138,40 @@ function itemCard(it) {
   const remaining = remainingOf(it);
   const doneTxt = it.qty_plan ? `${it.qty_done}/${it.qty_plan} ${unitLabel(it.unit)}` : `${it.percent}%`;
   const hasDraft = !!loadDraft(it.id)?.note;
+  const newMsg = it.last_message_at && it.last_message_at > (chatSeen(it.id) || '');
   card.innerHTML = `
     <div class="task-top">
       <div class="task-name">${escapeHtml(it.name)}</div>
       <span class="badge ${it.status === 'done' ? 'ahead' : it.status}">${doneTxt}</span>
+      <button type="button" class="icon-btn chat-btn" data-chat aria-label="Trò chuyện về đầu việc này">💬${newMsg ? '<span class="chat-count dot">•</span>' : ''}</button>
     </div>
     <div class="progress-track"><div class="progress-fill ${it.status === 'done' ? 'ahead' : it.status}" style="width:${it.percent}%"></div></div>
     <div class="task-meta">${it.planned_start ? displayDate(it.planned_start) + ' → ' + displayDate(it.planned_end) : 'Chưa có lịch'}${remaining !== null && it.status !== 'done' ? ` · còn ${remaining} ${unitLabel(it.unit)}` : ''}${hasDraft ? ' · ✏️ có nháp' : ''}</div>
   `;
   card.onclick = () => selectItem(it.id);
+  card.querySelector('[data-chat]').onclick = (e) => { e.stopPropagation(); openChat(it); };
   return card;
+}
+
+// ---- Trò chuyện theo đầu việc (js/crew-chat.js, tải lười) ----
+function chatSeenKey(itemId) { return `mda-chat-seen:${token}:${itemId}`; }
+function chatSeen(itemId) { try { return localStorage.getItem(chatSeenKey(itemId)); } catch (e) { return null; } }
+function markChatSeen(itemId, iso) {
+  try { if (iso > (chatSeen(itemId) || '')) localStorage.setItem(chatSeenKey(itemId), iso); } catch (e) { /* bỏ qua */ }
+}
+
+async function openChat(it) {
+  try {
+    state.chat = state.chat || await import('./crew-chat.js');
+  } catch (e) {
+    showToast(navigator.onLine ? 'Không mở được trò chuyện — tải lại trang' : 'Cần có mạng lần đầu mở trò chuyện', true);
+    return;
+  }
+  state.chat.openCrewChat({
+    supabase, token, item: it, outbox: state.outbox,
+    markSeen: markChatSeen,
+    onClose: () => { renderItemPicker(); renderOutboxBanner(); }
+  });
 }
 
 // Xác nhận đã gửi phải NHÌN THẤY được — toast 2 giây dễ lỡ, nhất là
@@ -408,9 +435,11 @@ async function flushOutbox(onProgress, fromSubmit = false, itemName = '') {
       else showSentNotice('📤 Sóng yếu — báo cáo đã lưu trong máy, sẽ tự gửi lại khi có mạng.', 'queued');
     }
   } else if (navigator.onLine && state.outbox) {
-    // Không còn báo cáo chờ nhưng có thể còn ảnh gốc chờ lên Dropbox
-    state.outbox.processOutbox(supabase, token);
+    // Không còn báo cáo chờ nhưng có thể còn tin nhắn chờ gửi / ảnh gốc chờ lên Dropbox
+    const { sentMessages } = await state.outbox.processOutbox(supabase, token);
+    if (sentMessages) refreshBoot();
   }
+  state.chat?.refreshCrewChat();
   renderOutboxBanner();
 }
 
@@ -420,11 +449,13 @@ async function renderOutboxBanner() {
   const el = document.getElementById('crewOutboxBanner');
   if (!el || !state.outbox) return;
   const jobs = await state.outbox.pendingReports(token);
-  if (!jobs.length) { el.hidden = true; return; }
+  const msgs = (await state.outbox.pendingMessages(token)).filter(j => !j.dead);
+  if (!jobs.length && !msgs.length) { el.hidden = true; return; }
   const dead = jobs.filter(j => j.dead);
+  const what = [jobs.length ? `<b>${jobs.length} báo cáo</b>` : '', msgs.length ? `<b>${msgs.length} tin nhắn</b>` : ''].filter(Boolean).join(' và ');
   el.hidden = false;
   el.innerHTML = `
-    <div>📤 <b>${jobs.length} báo cáo</b> đang nằm trong máy, chưa gửi được${dead.length ? ` (${dead.length} bị từ chối: ${escapeHtml(errText(dead[0]))})` : ' — sẽ tự gửi khi có sóng'}.</div>
+    <div>📤 ${what} đang nằm trong máy, chưa gửi được${dead.length ? ` (${dead.length} báo cáo bị từ chối: ${escapeHtml(errText(dead[0]))})` : ' — sẽ tự gửi khi có sóng'}.</div>
     <div class="outbox-actions">
       <button class="btn btn-primary" id="btnOutboxRetry">Gửi ngay</button>
       ${dead.length ? '<button class="btn btn-ghost" id="btnOutboxDiscard">Bỏ báo cáo lỗi</button>' : ''}

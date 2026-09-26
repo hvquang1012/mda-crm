@@ -134,6 +134,28 @@
   </div>
 </div>
 
+<!-- ===================== TRÒ CHUYỆN THEO ĐẦU VIỆC ===================== -->
+<div class="modal-backdrop" id="crewChatModal">
+  <div class="modal-sheet chat-sheet">
+    <div class="chat-head">
+      <div>
+        <div class="modal-title">💬 Trò chuyện</div>
+        <div class="crew-form-item" id="crewChatTitle"></div>
+      </div>
+      <button type="button" class="icon-btn" id="crewChatClose" aria-label="Đóng">✕</button>
+    </div>
+    <div class="crew-outbox-banner" id="crewChatBanner" role="status" hidden></div>
+    <div class="chat-thread" id="crewChatList"></div>
+    <div class="crew-photo-preview" id="crewChatPreview"></div>
+    <div class="chat-compose">
+      <label class="icon-btn chat-photo-btn" for="crewChatPhotoInput" aria-label="Gửi ảnh">📷</label>
+      <input type="file" id="crewChatPhotoInput" accept="image/*,.heic,.heif,.dng" multiple style="display:none;">
+      <textarea id="crewChatInput" rows="1" maxlength="2000" placeholder="Nhắn giám sát..."></textarea>
+      <button type="button" class="btn btn-primary" id="crewChatSend">Gửi</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module" src="js/crew.js"></script>

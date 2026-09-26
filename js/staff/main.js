@@ -9,6 +9,7 @@ import { renderDashboard } from './dashboard.js';
 import { renderApprovals } from './approvals.js';
 import { renderAlerts, wireCheckNowButton, refreshIssuesBadge } from './alerts.js';
 import { initItemsTab, renderProjectSelect, renderPackages } from './items.js';
+import { renderChat, refreshChatBadge, onRealtimeMessage } from './chat.js';
 import { wireExportButton } from './export.js';
 import { setupPush, pushState } from '../push.js';
 import { renderStaffName, openProfileModal } from './profile.js';
@@ -96,7 +97,7 @@ function initPushButton() {
 }
 
 // ---------- Điều hướng tab ----------
-const TABS = ['dashboard', 'approvals', 'items', 'alerts'];
+const TABS = ['dashboard', 'approvals', 'items', 'chat', 'alerts'];
 async function switchTab(tab) {
   state.activeTab = tab;
   TABS.forEach(t => {
@@ -109,6 +110,7 @@ async function switchTab(tab) {
   if (tab === 'dashboard') await renderDashboard();
   else if (tab === 'approvals') await renderApprovals();
   else if (tab === 'items') await renderProjectSelect();   // tải lại danh sách: công trình có thể vừa đóng ở Tổng quan
+  else if (tab === 'chat') await renderChat();
   else if (tab === 'alerts') await renderAlerts();
 }
 TABS.forEach(t => { document.getElementById('nav-' + t).onclick = () => switchTab(t); });
@@ -138,11 +140,13 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'work_items' }, () => refreshActive(['dashboard', 'items']))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' }, () => { refreshActive(['dashboard', 'alerts']); refreshIssuesBadge(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts' }, () => refreshActive(['dashboard', 'alerts']))
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'item_messages' }, (p) => onRealtimeMessage(p.new))
     .subscribe(status => setOnlineDots(status === 'SUBSCRIBED', ['staffOnlineDot']));
 
   // Luôn cập nhật số đếm "chờ duyệt" / "vướng mắc" ở menu dù đang xem tab nào
   refreshApprovalsBadgeOnly();
   refreshIssuesBadge();
+  refreshChatBadge();
 }
 
 // Đang mở app thì báo ngay trên màn hình (gom các báo cáo đến liền nhau)

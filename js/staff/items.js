@@ -108,7 +108,8 @@ function renderCurrentPackages() {
     wrap.innerHTML = renderTimeline(groups, {
       project: currentProject(),
       groupActions: g => g.rows.some(r => r.status !== 'done')
-        ? `<button class="icon-btn" data-action="done-package" data-package-id="${g.id}">✓ Xong cả hạng mục</button>` : ''
+        ? `<button class="icon-btn" data-action="done-package" data-package-id="${g.id}">✓ Xong cả hạng mục</button>` : '',
+      rowAction: row => chatButtonHtml(row.id)
     });
     wireTimelineRows(wrap);
   } else {
@@ -160,6 +161,15 @@ function wireTimelineRows(wrap) {
   wrap.querySelectorAll('[data-action=done-package]').forEach(b => {
     b.onclick = (e) => { e.stopPropagation(); markPackageDone(b.dataset.packageId); };
   });
+  wrap.querySelectorAll('[data-action=chat]').forEach(b => {
+    b.onclick = (e) => { e.stopPropagation(); state.openChat(b.dataset.itemId); };
+  });
+}
+
+// Nút 💬 trò chuyện của đầu việc + số tin chưa đọc (chat.js cập nhật số qua data-chat-count)
+function chatButtonHtml(itemId) {
+  const n = state.chatUnread[itemId] || 0;
+  return `<button type="button" class="icon-btn chat-btn" data-action="chat" data-item-id="${itemId}" aria-label="Trò chuyện về đầu việc">💬<span class="chat-count" data-chat-count="${itemId}"${n ? '' : ' hidden'}>${n}</span></button>`;
 }
 
 function renderPackageCard(pkg) {
@@ -171,6 +181,7 @@ function renderPackageCard(pkg) {
         <div class="task-meta">${displayDate(it.planned_start)} → ${displayDate(it.planned_end)} · ${itemQtyLabel(it)}</div>
       </div>
       <span class="badge ${it.status === 'done' ? 'ahead' : it.status}">${it.status === 'done' ? '✓ Xong' : it.percent + '%'}</span>
+      ${chatButtonHtml(it.id)}
       <button class="icon-btn wi-more" data-action="menu" aria-expanded="false" aria-label="Thao tác đầu việc">⋯</button>
       <div class="progress-track thin"><div class="progress-fill ${it.status === 'done' ? 'ahead' : it.status}" style="width:${it.status === 'done' ? 100 : it.percent}%"></div></div>
       <div class="wi-menu" hidden>
@@ -246,6 +257,7 @@ function wirePackageCards(wrap) {
   on('report-for', b => openStaffReportModal(b.dataset.itemId, b.dataset.itemName));
   on('paste-items', b => openPasteModal(b.dataset.packageId));
   on('shift', b => shiftPackage(b.dataset.packageId));
+  on('chat', b => state.openChat(b.dataset.itemId));
   on('save-template', b => savePackageAsTemplate(b.dataset.packageId));
   on('toggle-edit', b => wrap.querySelector(`[data-item-card="${b.dataset.itemId}"]`)?.classList.toggle('open'));
   on('menu', b => {

@@ -13,6 +13,10 @@
 //      Edge Function dropbox-link cấp — chạy sau cùng, hỏng cũng không
 //      sao vì dropbox-sync sẽ sao chép bản nén thay thế.
 //
+// Tin nhắn trò chuyện theo đầu việc (js/crew-chat.js) đi cùng hàng đợi
+// này: job kind='message', gửi qua crew_send_message kèm client_ref — gặp
+// lại client_ref cũ máy chủ trả tin cũ, không tạo bản trùng.
+//
 // Import lười từ crew.js — máy không mất mạng lần nào thì vẫn tải file này
 // nhưng không tốn gì thêm. Trình duyệt không có IndexedDB → available()
 // trả false, crew.js gửi thẳng như trước.
@@ -25,7 +29,8 @@ const MAX_ORIGINAL_ATTEMPTS = 5;
 const MAX_ORIGINAL_BYTES = 40 * 1024 * 1024;
 
 // Lỗi không bao giờ tự hết khi gửi lại — dừng thử, để thợ thấy và xoá
-const PERMANENT = ['invalid_or_expired_token', 'project_closed', 'item_not_in_scope', 'invalid_report_date', 'note_required', 'photo_required'];
+const PERMANENT = ['invalid_or_expired_token', 'project_closed', 'item_not_in_scope', 'invalid_report_date', 'note_required', 'photo_required',
+  'message_empty', 'message_too_long', 'photo_not_in_scope'];
 
 let dbPromise = null;
 function openDb() {
@@ -85,10 +90,35 @@ export async function queueReport(job) {
   return record.clientRef;
 }
 
+// job: { token, itemId, itemName, body, prepared: [{mainBlob, thumbBlob, takenAt}] }
+export async function queueMessage(job) {
+  const record = {
+    kind: 'message',
+    clientRef: newClientRef(),
+    token: job.token,
+    itemId: job.itemId, itemName: job.itemName,
+    body: job.body || '',
+    photos: (job.prepared || []).map(p => ({ ...p, uploaded: null })),
+    messageId: null,
+    createdAt: new Date().toISOString(),
+    attempts: 0, lastError: null, dead: false
+  };
+  await putJob(record);
+  return record;
+}
+
+// Tin nhắn chưa gửi xong của link này (itemId: chỉ 1 đầu việc)
+export async function pendingMessages(token, itemId) {
+  try {
+    return (await allJobs()).filter(j => j.kind === 'message' && j.token === token && (!itemId || j.itemId === itemId))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  } catch (e) { return []; }
+}
+
 // Báo cáo chưa gửi xong của đúng link này (để hiện "đang chờ gửi")
 export async function pendingReports(token) {
   try {
-    return (await allJobs()).filter(j => j.token === token && !j.reportId)
+    return (await allJobs()).filter(j => j.kind !== 'message' && j.token === token && !j.reportId)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   } catch (e) { return []; }
 }
@@ -106,11 +136,18 @@ export function processOutbox(supabase, token, onProgress) {
 }
 
 async function run(supabase, token, onProgress) {
-  let sent = 0;
+  let sent = 0, sentMessages = 0;
   let jobs;
-  try { jobs = (await allJobs()).filter(j => j.token === token); } catch (e) { return { sent: 0 }; }
+  try { jobs = (await allJobs()).filter(j => j.token === token); } catch (e) { return { sent: 0, sentMessages: 0 }; }
   for (const job of jobs.sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
     if (!navigator.onLine) break;
+    if (job.kind === 'message') {
+      if (job.dead) continue;
+      const ok = await sendMessage(supabase, job);
+      if (ok) sentMessages++;
+      else if (!job.dead) break;   // lỗi mạng — giữ thứ tự, chờ lần sau
+      continue;
+    }
     if (!job.reportId && !job.dead) {
       const ok = await sendReport(supabase, job, onProgress);
       if (ok) sent++;
@@ -118,7 +155,36 @@ async function run(supabase, token, onProgress) {
     }
     if (job.reportId) await sendOriginals(supabase, job);
   }
-  return { sent };
+  return { sent, sentMessages };
+}
+
+async function sendMessage(supabase, job) {
+  try {
+    for (const p of job.photos) {
+      if (p.uploaded) continue;
+      p.uploaded = await uploadPreparedCrewPhoto(supabase, job.token, p);
+      await putJob(job);   // ảnh đã lên thì ghi lại, rớt mạng giữa chừng không gửi lại
+    }
+    const { data, error } = await supabase.rpc('crew_send_message', {
+      p_token: job.token,
+      p_item_id: job.itemId,
+      p_body: job.body,
+      p_photos: job.photos.map(p => p.uploaded),
+      p_client_ref: job.clientRef
+    });
+    if (error) throw error;
+    job.messageId = data;
+    await deleteJob(job.clientRef);
+    return true;
+  } catch (e) {
+    job.attempts++;
+    const msg = String(e?.code || e?.message || e || '');
+    job.lastError = msg;
+    job.lastErrorText = e?.name === 'PhotoError' ? e.message : null;
+    job.dead = PERMANENT.some(code => msg.includes(code));
+    await putJob(job).catch(() => {});
+    return false;
+  }
 }
 
 async function sendReport(supabase, job, onProgress) {

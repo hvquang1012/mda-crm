@@ -70,6 +70,32 @@ await shot(p, 'm-profile-dark');
 await p.click('[data-theme-opt=auto]'); await p.waitForTimeout(400);
 if ((await p.evaluate(() => document.documentElement.dataset.theme)) !== undefined) errors.push('theme: Tự động không bỏ data-theme');
 await p.click('#btnProfileCancel');
+// Trò chuyện: số chưa đọc trên menu; tab gom đầu việc có tin, chưa đọc lên đầu; mở luồng, gửi tin
+if ((await p.textContent('#chatNavCount')).trim() !== '2' || !(await p.isVisible('#chatNavCount'))) errors.push('chat: menu không hiện số tin chưa đọc');
+await p.click('#nav-chat'); await p.waitForTimeout(400); await shot(p, 'm-chat');
+{
+  const cards = await p.$$('.chat-inbox-card');
+  if (cards.length !== 2 || !(await cards[0].evaluate(el => el.classList.contains('unread')))) errors.push('chat: hộp trò chuyện sai thứ tự / thiếu chưa đọc');
+  const txt = await p.textContent('#chatInboxList');
+  if (!txt.includes('Nhà anh Minh — Ocean Park · Đội đá Sơn') || !txt.includes('📷 Ảnh')) errors.push('chat: thẻ thiếu công trình · đội / tin cuối');
+  if (await p.$('#chatInboxList script')) errors.push('chat: nội dung tin không được escape');
+}
+await p.click('.chat-inbox-card.unread'); await p.waitForTimeout(400);
+if (!(await p.isVisible('#chatModal.show'))) errors.push('chat: bấm thẻ không mở luồng');
+if ((await p.$$('#chatThread .chat-msg')).length !== 3) errors.push('chat: luồng không đủ 3 tin');
+if (await p.$('#chatThread b')) errors.push('chat: tin nhắn không được escape');
+if (!(await p.evaluate(() => window.__calls)).some(c => c[0] === 'rpc' && c[1] === 'chat_mark_read' && c[2].p_item_id === 'i1')) errors.push('chat: mở luồng không đánh dấu đã đọc');
+await shot(p, 'm-chat-thread');
+await p.fill('#chatInput', 'Mai 8h giao đá nhé');
+await p.click('#btnChatSend'); await p.waitForTimeout(400);
+{
+  const ins = (await p.evaluate(() => window.__calls)).filter(c => c[0] === 'insert' && c[1] === 'item_messages');
+  if (ins.length !== 1 || ins[0][2].body !== 'Mai 8h giao đá nhé' || ins[0][2].author_kind !== 'staff' || !ins[0][2].client_ref || ins[0][2].project_id !== 'p1') errors.push('chat: gửi tin không insert đúng');
+  if (!(await p.textContent('#chatThread')).includes('Mai 8h giao đá nhé') || !(await p.$('#chatThread .chat-msg.mine'))) errors.push('chat: gửi xong không vẽ lại luồng');
+  if (await p.inputValue('#chatInput')) errors.push('chat: gửi xong ô nhập chưa xoá');
+}
+await shot(p, 'm-chat-sent');
+await p.click('#btnChatClose');
 await p.click('#nav-approvals'); await p.waitForTimeout(400); await shot(p, 'm-approvals');
 // Khung ảnh: 3 ảnh + 6 ảnh → slide, 4 ảnh → lưới 2×2; vuốt slide cập nhật nhãn đếm
 for (const [sel, want] of [['.pg-slider[data-n="3"]', 1], ['.pg-grid4', 1], ['.pg-slider[data-n="6"]', 1]])
@@ -82,7 +108,7 @@ if ((await p.textContent('.lightbox .lb-counter')) !== '2 / 3') errors.push('gal
 await p.click('.lightbox .lb-close');
 await p.click('[data-action=reject]'); await p.waitForTimeout(200); await shot(p, 'm-reject'); await p.click('#btnRejectCancel');
 await p.click('[data-action=approve]'); await p.waitForTimeout(300);
-console.log('calls', JSON.stringify((await p.evaluate(() => window.__calls)).filter(c => c[0] === 'rpc' && c[1] !== 'dashboard_summary')));
+console.log('calls', JSON.stringify((await p.evaluate(() => window.__calls)).filter(c => c[0] === 'rpc' && !['dashboard_summary', 'chat_inbox', 'chat_mark_read'].includes(c[1]))));
 await p.click('#nav-alerts'); await p.waitForTimeout(400); await shot(p, 'm-alerts');
 await p.click('#nav-items'); await p.waitForTimeout(400); await shot(p, 'm-items');
 // Đóng công trình: công trình đã đóng gom vào nhóm riêng; nút 🏁 Đóng ↔ ↺ Mở lại
@@ -106,6 +132,13 @@ await shot(p, 'm-items-closed');
 await p.selectOption('#projectSelect', 'p1'); await p.waitForTimeout(300);
 // Đầu việc = dòng gọn; menu ⋯; trọn gói không hiện mã thô "tron_goi"
 if (!(await p.$$('.package-card .wi-row')).length) errors.push('items: thiếu dòng đầu việc gọn');
+// Nút 💬 mỗi đầu việc, kèm số chưa đọc; bấm mở đúng luồng
+if ((await p.$$('.wi-row [data-action=chat]')).length !== 4) errors.push('items: thiếu nút 💬 ở đầu việc');
+if ((await p.textContent('[data-item-card=i1] [data-chat-count=i1]')).trim() !== '2') errors.push('items: nút 💬 không hiện số chưa đọc');
+await p.click('[data-item-card=i1] [data-action=chat]'); await p.waitForTimeout(400);
+if (!(await p.isVisible('#chatModal.show')) || (await p.textContent('#chatModalTitle')) !== 'Lắp đá mặt bếp') errors.push('items: 💬 không mở đúng luồng');
+if (await p.isVisible('[data-item-card=i1] .wi-menu')) errors.push('items: bấm 💬 lại mở menu');
+await p.click('#btnChatClose');
 if ((await p.textContent('#packagesList')).includes('tron_goi')) errors.push('items: còn hiện chữ tron_goi');
 await p.click('.wi-row .wi-more'); await p.waitForTimeout(150);
 if (!(await p.isVisible('.wi-row .wi-menu'))) errors.push('items: menu ⋯ không mở');
@@ -138,6 +171,16 @@ await p.click('.pg-slider[data-n="6"] .pg-nav.next'); await p.waitForTimeout(500
 if (!/^2\//.test(await p.textContent('.pg-slider[data-n="6"] .pg-count'))) errors.push('gallery: nút › không chuyển ảnh');
 await p.click('#nav-dashboard'); await p.waitForTimeout(300);
 await p.click('[data-open-project]'); await p.waitForTimeout(500); await shot(p, 'd-timeline');
+// Timeline: nút 💬 nằm cạnh dòng (không lồng trong nút dòng), bấm mở luồng chứ không mở hộp sửa
+{
+  if (await p.$('.timeline-row [data-action=chat]')) errors.push('timeline: nút 💬 lồng trong nút dòng');
+  const btn = await p.$('.timeline-row-wrap [data-action=chat][data-item-id=i1]');
+  if (!btn) errors.push('timeline: thiếu nút 💬');
+  await btn?.click(); await p.waitForTimeout(400);
+  if (!(await p.isVisible('#chatModal.show')) || await p.isVisible('#itemModal.show')) errors.push('timeline: 💬 không mở luồng / lại mở hộp sửa');
+  await shot(p, 'd-chat-thread');
+  await p.click('#btnChatClose');
+}
 // Timeline: nút "Xong cả hạng mục" ở đầu đội còn việc dở, không mở hộp sửa đầu việc
 {
   const n0 = (await p.evaluate(() => window.__calls)).filter(c => c[0] === 'update' && c[1] === 'work_items').length;
@@ -172,6 +215,44 @@ await shot(p, 'c-form');
 await p.click('[data-tab=history]'); await p.waitForTimeout(400); await shot(p, 'c-history');
 await p.click('.resend-btn'); await p.waitForTimeout(300); await shot(p, 'c-resend');
 await p.click('#btnRaiseIssue'); await p.waitForTimeout(200); await shot(p, 'c-issue');
+await p.click('#btnIssueCancel');
+
+// Thợ: 💬 trên thẻ đầu việc (chấm tin mới), gửi tin lúc mất sóng → vào hàng đợi, có mạng lại tự gửi đúng 1 lần
+{
+  const q = await page('crew.html?t=abc', 390, 844);
+  if (!(await q.$('.crew-item-card [data-chat] .chat-count.dot'))) errors.push('crew chat: thiếu chấm tin mới');
+  const chatBtns = await q.$$('.crew-item-card [data-chat]');
+  if (chatBtns.length !== 4) errors.push('crew chat: số nút 💬 sai (' + chatBtns.length + ')');
+  // đầu việc i1 "Lắp đá mặt bếp" — tìm đúng thẻ
+  const i1 = await q.evaluateHandle(() => [...document.querySelectorAll('.crew-item-card')].find(c => c.textContent.includes('Lắp đá mặt bếp')).querySelector('[data-chat]'));
+  await i1.click(); await q.waitForTimeout(500);
+  if (!(await q.isVisible('#crewChatModal.show'))) errors.push('crew chat: không mở khung trò chuyện');
+  if (await q.isVisible('#crewForm')) errors.push('crew chat: bấm 💬 lại mở form báo cáo');
+  if ((await q.$$('#crewChatList .chat-msg')).length !== 2) errors.push('crew chat: không hiện tin cũ');
+  await shot(q, 'c-chat');
+  const sendCalls = async () => (await q.evaluate(() => window.__calls)).filter(c => c[0] === 'rpc' && c[1] === 'crew_send_message');
+  await q.context().setOffline(true);
+  await q.fill('#crewChatInput', 'Thiếu 1 tấm đá đảo bếp');
+  await q.click('#crewChatSend'); await q.waitForTimeout(500);
+  if ((await sendCalls()).length !== 0) errors.push('crew chat: mất sóng vẫn gọi crew_send_message');
+  if (!(await q.isVisible('#crewChatBanner')) || !(await q.$('#crewChatList .chat-msg.queued'))) errors.push('crew chat: mất sóng không hiện thanh cam / tin chờ gửi');
+  await shot(q, 'c-chat-offline');
+  await q.click('#crewChatClose'); await q.waitForTimeout(200);
+  if (!(await q.isVisible('#crewOutboxBanner')) || !(await q.textContent('#crewOutboxBanner')).includes('1 tin nhắn')) errors.push('crew chat: đóng khung chat không còn thanh cam tin chờ gửi');
+  await q.evaluate(() => [...document.querySelectorAll('.crew-item-card')].find(c => c.textContent.includes('Lắp đá mặt bếp')).querySelector('[data-chat]').click());
+  await q.waitForTimeout(300);
+  await q.context().setOffline(false);
+  await q.waitForTimeout(1500);
+  const calls = await sendCalls();
+  if (calls.length !== 1 || !calls[0][2].p_client_ref || calls[0][2].p_body !== 'Thiếu 1 tấm đá đảo bếp') errors.push('crew chat: có mạng lại gửi ' + calls.length + ' lần (phải đúng 1, kèm client_ref)');
+  if (await q.isVisible('#crewChatBanner') || await q.$('#crewChatList .chat-msg.queued')) errors.push('crew chat: gửi xong vẫn còn thanh cam');
+  if (await q.isVisible('#crewOutboxBanner')) errors.push('crew chat: gửi xong thanh cam màn chính chưa tắt');
+  if (!(await q.textContent('#crewChatList')).includes('Thiếu 1 tấm đá đảo bếp')) errors.push('crew chat: gửi xong không hiện tin');
+  await shot(q, 'c-chat-sent');
+  await q.click('#crewChatClose'); await q.waitForTimeout(200);
+  if (await q.$('.crew-item-card [data-chat] .chat-count.dot')) errors.push('crew chat: đọc rồi vẫn còn chấm tin mới');
+  await q.context().close();
+}
 
 // Chế độ tối theo máy: dashboard, duyệt, màn thợ
 p = await page('index.html', 390, 844, 'dark');
@@ -181,6 +262,10 @@ p = await page('index.html', 1440, 900, 'dark');
 await p.click('#nav-items'); await p.waitForTimeout(500); await shot(p, 'dk-d-items');
 p = await page('crew.html?t=abc', 390, 844, 'dark');
 await shot(p, 'dk-c-list');
+await p.click('.crew-item-card [data-chat]'); await p.waitForTimeout(500); await shot(p, 'dk-c-chat');
+p = await page('index.html', 390, 844, 'dark');
+await p.click('#nav-chat'); await p.waitForTimeout(400); await shot(p, 'dk-chat');
+await p.click('.chat-inbox-card'); await p.waitForTimeout(400); await shot(p, 'dk-chat-thread');
 
 console.log('ERRORS:\n' + errors.join('\n'));
 process.exitCode = errors.length ? 1 : 0;
