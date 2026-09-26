@@ -74,6 +74,7 @@
         <button class="icon-btn" id="btnClientLink" title="Lấy link cho chủ nhà">🔗 Khách</button>
         <button class="icon-btn" id="btnDependencies" title="Phụ thuộc giữa các đầu việc">⛓</button>
         <button class="icon-btn" id="btnMembers" title="KTS phụ trách công trình" hidden>👥</button>
+        <button class="icon-btn" id="btnCloseProject" title="Đóng công trình đã bàn giao xong" hidden>🏁<span class="btn-label"> Đóng</span></button>
         <button class="icon-btn new-project-btn" id="btnNewProject" title="Tạo dự án mới">＋ Dự án</button>
       </div>
       <div class="items-view-switch" aria-label="Chế độ xem công việc">
@@ -81,6 +82,7 @@
         <button type="button" id="btnItemsTimelineView" aria-pressed="false">▥ Timeline</button>
       </div>
       <div class="list-wrap" style="flex:1;overflow-y:auto;">
+        <div class="project-closed-note" id="projectClosedNote" hidden>✅ Công trình đã đóng — không hiện ở Tổng quan, không còn cảnh báo. Bấm nút <b>↺</b> cạnh ô chọn công trình để mở lại.</div>
         <div class="section-label">
           Hạng mục
           <button class="icon-btn" id="btnNewPackage" style="color:var(--primary-strong);font-weight:700;">＋ Thêm đội</button>

@@ -8,6 +8,7 @@ import { state, isManager } from './state.js';
 import { escapeHtml, showToast, displayDate, todayISO, db, rpcErrorText, shareLink, unitLabel as unitLabelFull } from '../ui.js';
 import { renderTimeline } from '../timeline.js';
 import { zaloLinkHtml } from './profile.js';
+import { setProjectStatus } from './project-status.js';
 import { openProjectWizard, scheduleFromTemplate, crewLinkUrl, clientLinkUrl } from './wizard.js';
 
 let currentPackages = [];  // work_packages của currentProjectId, kèm work_items lồng bên trong
@@ -47,8 +48,13 @@ export async function renderProjectSelect() {
   if (!sel) return;
   const { data } = await state.supabase.from('projects').select('*').order('created_at', { ascending: false });
   state.projects = data || [];
-  if (!state.currentProjectId && state.projects.length) state.currentProjectId = state.projects[0].id;
-  sel.innerHTML = state.projects.map(p => `<option value="${p.id}" ${p.id === state.currentProjectId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
+  // Đang chạy lên trước; đã đóng gom xuống nhóm riêng cuối danh sách
+  const running = state.projects.filter(p => p.status !== 'done');
+  const closed = state.projects.filter(p => p.status === 'done');
+  if (!state.projects.some(p => p.id === state.currentProjectId)) state.currentProjectId = (running[0] || closed[0])?.id || null;
+  const opt = p => `<option value="${p.id}" ${p.id === state.currentProjectId ? 'selected' : ''}>${p.status === 'done' ? '✅ ' : ''}${escapeHtml(p.name)}</option>`;
+  sel.innerHTML = running.map(opt).join('')
+    + (closed.length ? `<optgroup label="Đã đóng (${closed.length})">${closed.map(opt).join('')}</optgroup>` : '');
   await renderPackages();
 }
 
@@ -67,6 +73,7 @@ export async function renderPackages() {
   if (error) { wrap.innerHTML = '<div class="empty-hint">Không tải được hạng mục.</div>'; return; }
   currentPackages = data || [];
   flatItems = currentPackages.flatMap(p => (p.work_items || []).map(it => ({ ...it, packageName: p.name, subName: p.subcontractors?.name })));
+  syncProjectClosed();
 
   renderCurrentPackages();
 }
@@ -108,6 +115,29 @@ function renderCurrentPackages() {
     wrap.innerHTML = currentPackages.map(pkg => renderPackageCard(pkg)).join('');
     wirePackageCards(wrap);
   }
+}
+
+// Nút 🏁 Đóng / ↺ Mở lại + dòng nhắc theo trạng thái công trình đang xem
+function syncProjectClosed() {
+  const p = currentProject();
+  const closed = p?.status === 'done';
+  const btn = document.getElementById('btnCloseProject');
+  if (btn) {
+    btn.hidden = !p;
+    btn.innerHTML = closed ? '↺<span class="btn-label"> Mở lại</span>' : '🏁<span class="btn-label"> Đóng</span>';
+    btn.title = closed ? 'Mở lại công trình' : 'Đóng công trình đã bàn giao xong';
+  }
+  const note = document.getElementById('projectClosedNote');
+  if (note) note.hidden = !closed;
+}
+
+async function toggleProjectClosed() {
+  const p = currentProject();
+  if (!p) return;
+  const close = p.status !== 'done';
+  const openItems = flatItems.filter(i => i.status !== 'done').length;
+  if (!(await setProjectStatus(p, close, openItems))) return;
+  await renderProjectSelect();
 }
 
 function syncItemsView() {
@@ -341,6 +371,7 @@ function wireStaticButtons() {
   document.getElementById('btnMembersClose').onclick = () => closeModal('membersModal');
 
   document.getElementById('btnClientLink').onclick = generateClientLink;
+  document.getElementById('btnCloseProject').onclick = toggleProjectClosed;
 
   document.getElementById('btnStaffReportCancel').onclick = () => closeModal('staffReportModal');
   document.getElementById('btnStaffReportSave').onclick = saveStaffReport;

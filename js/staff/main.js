@@ -108,7 +108,7 @@ async function switchTab(tab) {
   });
   if (tab === 'dashboard') await renderDashboard();
   else if (tab === 'approvals') await renderApprovals();
-  else if (tab === 'items') await renderPackages();
+  else if (tab === 'items') await renderProjectSelect();   // tải lại danh sách: công trình có thể vừa đóng ở Tổng quan
   else if (tab === 'alerts') await renderAlerts();
 }
 TABS.forEach(t => { document.getElementById('nav-' + t).onclick = () => switchTab(t); });

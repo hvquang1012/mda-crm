@@ -744,6 +744,24 @@ create trigger trg_work_items_status after update of status on work_items
   for each row when (new.status is distinct from old.status)
   execute function _on_item_status_change();
 
+-- Đóng / tạm dừng công trình → đóng mọi cảnh báo đang mở của nó (tab Cần
+-- xử lý hết hiện). compute_alerts() bỏ qua công trình không 'active'.
+create or replace function _on_project_status_change() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.status <> 'active' then
+    update alerts set acknowledged_at = now(), acknowledged_by = auth.uid()
+    where project_id = new.id and acknowledged_at is null;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_projects_status on projects;
+create trigger trg_projects_status after update of status on projects
+  for each row when (new.status is distinct from old.status)
+  execute function _on_project_status_change();
+
 -- Dọn cảnh báo treo của đầu việc đã xong từ trước khi có trigger trên
 update alerts a set acknowledged_at = now()
 from work_items wi
@@ -881,11 +899,15 @@ declare
   v_count int := 0;
   r record;
 begin
+  -- Chỉ công trình đang chạy (status = 'active'): công trình đã đóng /
+  -- tạm dừng không sinh cảnh báo, không tự đổi trạng thái đầu việc.
+
   -- 1. Không ra quân
   for r in
     select wi.id as item_id, wp.project_id, wi.name
     from work_items wi
     join work_packages wp on wp.id = wi.work_package_id
+    join projects pj on pj.id = wp.project_id and pj.status = 'active'
     where wi.status in ('onTrack','delayed','notStarted')
       and wi.planned_start is not null and wi.planned_start <= current_date
       and not exists (
@@ -911,6 +933,7 @@ begin
       ) as done_7d
     from work_items wi
     join work_packages wp on wp.id = wi.work_package_id
+    join projects pj on pj.id = wp.project_id and pj.status = 'active'
     where wi.qty_plan is not null and wi.qty_plan > 0
       and wi.status <> 'done'
       and wi.planned_end is not null
@@ -956,6 +979,7 @@ begin
     join work_items wi_p on wi_p.id = d.predecessor_item_id
     join work_items wi_s on wi_s.id = d.successor_item_id
     join work_packages wp_s on wp_s.id = wi_s.work_package_id
+    join projects pj on pj.id = wp_s.project_id and pj.status = 'active'
     where wi_p.status <> 'done'
       and wi_s.planned_start is not null
       -- lag_days: đầu việc trước phải xong sớm hơn N ngày (VD chờ vữa
@@ -976,6 +1000,7 @@ begin
   for r in
     select i.project_id, i.work_item_id, i.description
     from issues i
+    join projects pj on pj.id = i.project_id and pj.status = 'active'
     where i.is_blocking and i.status = 'open' and i.created_at <= now() - interval '24 hours'
       and not exists (
         select 1 from alerts a where a.work_item_id is not distinct from i.work_item_id
@@ -994,6 +1019,7 @@ begin
       wi.planned_start, wi.planned_end
     from work_items wi
     join work_packages wp on wp.id = wi.work_package_id
+    join projects pj on pj.id = wp.project_id and pj.status = 'active'
     where wi.qty_plan is not null and wi.qty_plan > 0
       and wi.planned_start is not null and wi.planned_end is not null
       and wi.status <> 'done'
@@ -1052,6 +1078,8 @@ begin
         else wi.status
       end as new_status
     from work_items wi
+    join work_packages wp on wp.id = wi.work_package_id
+    join projects pj on pj.id = wp.project_id and pj.status = 'active'
     where wi.status <> 'done'
   )
   update work_items wi set status = c.new_status

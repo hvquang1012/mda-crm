@@ -15,7 +15,8 @@
     project_members: [{ project_id: P1, staff_id: 'u2' }],
     projects: [
       { id: P1, name: 'Nhà anh Minh — Ocean Park', client_name: 'Anh Minh', start_date: d(-20), end_date: d(25), status: 'active', created_at: '2026-09-01' },
-      { id: P2, name: 'Căn hộ chị Hoa', client_name: 'Chị Hoa', start_date: d(-40), end_date: d(-2), status: 'active', created_at: '2026-08-01' }],
+      { id: P2, name: 'Căn hộ chị Hoa', client_name: 'Chị Hoa', start_date: d(-40), end_date: d(-2), status: 'active', created_at: '2026-08-01' },
+      { id: 'p4', name: 'Nhà cũ đã bàn giao', client_name: 'Anh Bình', start_date: d(-90), end_date: d(-30), status: 'done', created_at: '2026-06-01' }],
     subcontractors: [{ id: 's1', name: 'Đội đá Sơn', trade: 'da', active: true }, { id: 's2', name: 'Điện Hùng', trade: 'dien', active: true }],
     work_package_templates: [{ id: 't1', trade: 'da', name: 'Thi công đá — mẫu chuẩn' }],
     work_package_template_items: [
