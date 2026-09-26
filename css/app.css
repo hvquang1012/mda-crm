@@ -104,10 +104,10 @@ button,input,select,textarea{font-family:var(--font-sans);word-spacing:inherit;}
 #loginScreen::before{content:"";position:absolute;inset:0 0 auto;height:46%;z-index:-1;
   background:radial-gradient(circle at 88% 8%,transparent 0 70px,rgba(255,255,255,.1) 71px 98px,transparent 99px 150px,rgba(255,255,255,.07) 151px 178px,transparent 179px),var(--grad);
   border-radius:0 0 40px 40px;}
-#loginScreen .login-logo{filter:brightness(0) invert(1);}
 #loginScreen .login-sub{color:var(--on-grad-soft);}
 .login-logo{display:block;width:min(290px,86vw);height:auto;margin:0 auto 26px;object-fit:contain;}
 .login-logo.compact{width:min(220px,72vw);margin-bottom:24px;}
+.logo-on-dark{display:none;}
 .login-title{font-size:24px;font-weight:800;margin:0 0 4px;letter-spacing:-.02em;}
 .login-sub{font-size:13px;color:var(--ink-soft);margin-bottom:28px;}
 .login-form{width:100%;display:flex;flex-direction:column;gap:12px;background:var(--paper);
@@ -147,7 +147,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0
   border-radius:0 0 28px 28px;box-shadow:0 10px 26px -12px rgba(67,56,202,.55);
 }
 .header-left{display:flex;align-items:center;gap:10px;min-width:0;}
-.header-logo{display:block;width:92px;height:auto;max-height:40px;object-fit:contain;flex:none;filter:brightness(0) invert(1);}
+.header-logo{display:block;height:34px;width:auto;object-fit:contain;flex:none;}
+.header-logo.logo-mark{display:none;height:40px;}
 .header-left > div{min-width:0;}
 .header-title{font-weight:800;font-size:17px;letter-spacing:-.015em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .header-sub{font-size:11px;color:var(--on-grad-soft);}
@@ -641,7 +642,7 @@ button.dash-chip{cursor:pointer;}
   .staff-app #loginScreen .login-form{max-width:460px;}
   .staff-app #loginScreen .login-share-link{max-width:540px;}
   .app-header{padding:calc(18px + var(--safe-top)) 28px 20px;}
-  .header-logo{width:108px;max-height:44px;}
+  .header-logo.logo-wide{height:40px;}
   .header-user{max-width:280px;font-size:12px;}
 
   /* Staff: rail gọn trên iPad dọc. */
@@ -803,16 +804,18 @@ button.dash-chip{cursor:pointer;}
   .modal-sheet{border-bottom:2px solid var(--border-card);box-shadow:var(--shadow-hard);}
 }
 
-/* ---------- Tối: logo chữ navy → trắng; icon viền đen có vầng sáng mảnh
+/* ---------- Tối: logo navy → bản trắng (logo-full-white.png); icon viền đen có vầng sáng mảnh
    ôm viền + ánh cyan mờ phía sau để không chìm vào nền ---------- */
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .login-logo{filter:brightness(0) invert(1);}
+  :root:not([data-theme="light"]) .logo-on-light{display:none;}
+  :root:not([data-theme="light"]) .logo-on-dark{display:block;}
   :root:not([data-theme="light"]) .bottom-nav .ic,:root:not([data-theme="light"]) .tab-ic{
     filter:drop-shadow(0 0 .6px rgba(226,232,240,.85)) drop-shadow(0 0 7px rgba(56,189,248,.28));}
   :root:not([data-theme="light"]) .bottom-nav button:not(.active) .ic,:root:not([data-theme="light"]) .crew-tabs button:not(.active) .tab-ic{
     filter:saturate(.55) opacity(.85) drop-shadow(0 0 .6px rgba(226,232,240,.85)) drop-shadow(0 0 7px rgba(56,189,248,.28));}
 }
-:root[data-theme="dark"] .login-logo{filter:brightness(0) invert(1);}
+:root[data-theme="dark"] .logo-on-light{display:none;}
+:root[data-theme="dark"] .logo-on-dark{display:block;}
 :root[data-theme="dark"] .bottom-nav .ic,:root[data-theme="dark"] .tab-ic{
   filter:drop-shadow(0 0 .6px rgba(226,232,240,.85)) drop-shadow(0 0 7px rgba(56,189,248,.28));}
 :root[data-theme="dark"] .bottom-nav button:not(.active) .ic,:root[data-theme="dark"] .crew-tabs button:not(.active) .tab-ic{
@@ -927,7 +930,8 @@ button.dash-chip{cursor:pointer;}
 :root[data-font="lg"] :is(.staff-content,.bottom-nav,.crew-workspace,.client-scroll,.modal-sheet,.login-form){zoom:1.12;}
 @media (max-width:520px){
   .app-header > div:last-child{gap:8px !important;}
-  .app-header .header-logo{width:76px;}
+  .app-header .header-logo.logo-wide{display:none;}
+  .app-header .header-logo.logo-mark{display:block;}
   .app-header > div:last-child > .header-user{min-width:52px;}
   .qs-btn{padding:6px 7px;min-width:30px;}
 }
@@ -954,3 +958,5 @@ button.dash-chip{cursor:pointer;}
 }
 :root[data-theme="dark"] :is(.btn-ic,.chip-ic){filter:drop-shadow(0 0 .6px rgba(226,232,240,.85));}
 @media (max-width:520px){ .project-bar .btn-ic{width:20px;height:20px;} .project-bar .icon-btn{gap:3px;} }
+/* Biểu tượng navy trên nền tím: viền trắng mảnh cho nổi */
+.header-logo.logo-mark{background:#fff;border-radius:50%;padding:2px;box-shadow:0 2px 8px -2px rgba(0,0,0,.3);}
