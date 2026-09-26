@@ -295,6 +295,11 @@ create table if not exists work_package_template_items (
   unit text not null check (unit in ('m2','diem','md','tron_goi')),
   default_duration_days int not null default 3
 );
+-- Mẫu từng bị seed 2 lần → mỗi bước 2 dòng → công trình tạo theo mẫu bị lặp
+-- đầu việc. Khoá duy nhất chặn tái diễn (dọn dữ liệu cũ: migrations/003_don_trung.sql).
+delete from work_package_template_items a using work_package_template_items b
+  where a.template_id = b.template_id and a.seq = b.seq and a.name = b.name and a.ctid > b.ctid;
+create unique index if not exists uq_template_item on work_package_template_items(template_id, seq, name);
 
 -- ============================================================
 -- TRIGGERS
@@ -1591,8 +1596,7 @@ insert into work_package_templates (id, trade, name) values
   ('00000000-0000-0000-0000-000000000002', 'dien', 'Thi công điện — mẫu chuẩn')
 on conflict (id) do nothing;
 
--- Bảng này không có khoá duy nhất nên "on conflict do nothing" không
--- chặn được trùng — chỉ seed khi mẫu chưa có đầu việc nào.
+-- Chỉ seed khi mẫu chưa có đầu việc nào; khoá uq_template_item chặn trùng thêm một lớp.
 insert into work_package_template_items (template_id, name, seq, unit, default_duration_days)
 select v.template_id::uuid, v.name, v.seq, v.unit, v.days from (values
   ('00000000-0000-0000-0000-000000000001', 'Khảo sát đo thực tế', 1, 'm2', 1),
@@ -1611,7 +1615,8 @@ select v.template_id::uuid, v.name, v.seq, v.unit, v.days from (values
   ('00000000-0000-0000-0000-000000000002', 'Tủ điện, aptomat', 6, 'tron_goi', 1),
   ('00000000-0000-0000-0000-000000000002', 'Test toàn hệ, bàn giao', 7, 'tron_goi', 1)
 ) as v(template_id, name, seq, unit, days)
-where not exists (select 1 from work_package_template_items t where t.template_id = v.template_id::uuid);
+where not exists (select 1 from work_package_template_items t where t.template_id = v.template_id::uuid)
+on conflict (template_id, seq, name) do nothing;
 
 -- ============================================================
 -- GHI CHÚ: 4 cặp phụ thuộc nên tạo thủ công trong app cho mỗi công

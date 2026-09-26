@@ -817,3 +817,26 @@ button.dash-chip{cursor:pointer;}
 /* Nút chọn Sáng/Tối trong "Cài đặt tài khoản" */
 .theme-switch{display:flex;margin:0;}
 .theme-switch button{flex:1;}
+
+/* ---------- Tab Công việc: đầu việc = dòng gọn trong thẻ hạng mục ----------
+   (đặt sau hệ bề mặt để bỏ viền/bóng thẻ lồng thẻ) */
+.package-card .wi-list{margin-top:6px;}
+.package-card .wi-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;column-gap:6px;
+  border:0;border-top:1px solid var(--line);border-radius:0;box-shadow:none;background:transparent;
+  padding:10px 2px 12px;margin:0;}
+.package-card .wi-row > .task-top{display:block;min-width:0;}
+.package-card .wi-row .task-name{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.package-card .wi-row .task-meta{margin-top:2px;}
+.package-card .wi-row > .progress-track,.package-card .wi-row > .wi-menu,.package-card .wi-row > .task-edit{grid-column:1/-1;}
+.progress-track.thin{height:6px;margin-top:8px;}
+.package-card .wi-row.open{background:var(--bg-surface);border-radius:12px;padding-left:10px;padding-right:10px;border-top-color:transparent;}
+.wi-more{font-size:18px;line-height:1;padding:4px 10px;color:var(--ink-soft);letter-spacing:.05em;}
+.wi-more[aria-expanded=true]{background:var(--primary-soft);color:var(--primary-strong);}
+.wi-menu{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;margin-top:8px;padding:4px;
+  background:var(--bg-surface);border:1.5px solid var(--border-card);border-radius:14px;box-shadow:var(--shadow-hard-sm);}
+.wi-menu[hidden]{display:none;}
+.wi-menu .icon-btn{color:var(--ink);}
+.wi-menu .icon-btn.danger{color:var(--danger);}
+/* Menu ⋯ của hạng mục nằm cuối hàng nút → xuống dòng riêng, full width */
+.task-actions.wrap > .wi-menu{flex-basis:100%;}

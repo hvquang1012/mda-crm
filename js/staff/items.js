@@ -29,7 +29,16 @@ async function loadTemplates() {
   const { data: tpl } = await state.supabase.from('work_package_templates').select('*');
   const { data: items } = await state.supabase.from('work_package_template_items').select('*').order('seq');
   // Để trong state — wizard.js (tạo công trình) dùng chung danh sách mẫu
-  state.templates = (tpl || []).map(t => ({ ...t, items: (items || []).filter(i => i.template_id === t.id) }));
+  // Lọc trùng (seq, tên): mẫu từng bị seed 2 lần trên DB → công trình tạo
+  // theo mẫu bị lặp đầu việc (dọn DB: supabase/migrations/003_don_trung.sql)
+  state.templates = (tpl || []).map(t => {
+    const seen = new Set();
+    return { ...t, items: (items || []).filter(i => {
+      const k = i.template_id === t.id && `${i.seq}|${i.name}`;
+      if (!k || seen.has(k)) return false;
+      seen.add(k); return true;
+    }) };
+  });
 }
 
 // ---------- Project switcher ----------
@@ -119,15 +128,19 @@ function wireTimelineRows(wrap) {
 function renderPackageCard(pkg) {
   const items = (pkg.work_items || []).sort((a, b) => a.seq - b.seq);
   const itemsHtml = items.map(it => `
-    <div class="task-card" data-item-card="${it.id}">
+    <div class="task-card wi-row" data-item-card="${it.id}">
       <div class="task-top" data-action="toggle-edit" data-item-id="${it.id}" title="Bấm để sửa nhanh khối lượng / ngày">
-        <div>
-          <div class="task-name">${escapeHtml(it.name)}</div>
-          <div class="task-meta">${displayDate(it.planned_start)} → ${displayDate(it.planned_end)} · ${it.qty_done}${it.qty_plan ? '/' + it.qty_plan : ''} ${unitLabel(it.unit)}</div>
-        </div>
-        <span class="badge ${it.status === 'done' ? 'ahead' : it.status}">${it.percent}%</span>
+        <div class="task-name">${escapeHtml(it.name)}</div>
+        <div class="task-meta">${displayDate(it.planned_start)} → ${displayDate(it.planned_end)} · ${itemQtyLabel(it)}</div>
       </div>
-      <div class="progress-track"><div class="progress-fill ${it.status === 'done' ? 'ahead' : it.status}" style="width:${it.percent}%"></div></div>
+      <span class="badge ${it.status === 'done' ? 'ahead' : it.status}">${it.percent}%</span>
+      <button class="icon-btn wi-more" data-action="menu" aria-expanded="false" aria-label="Thao tác đầu việc">⋯</button>
+      <div class="progress-track thin"><div class="progress-fill ${it.status === 'done' ? 'ahead' : it.status}" style="width:${it.percent}%"></div></div>
+      <div class="wi-menu" hidden>
+        <button class="icon-btn" data-action="report-for" data-item-id="${it.id}" data-item-name="${escapeHtml(it.name)}">＋ Nhập thay</button>
+        <button class="icon-btn" data-action="edit-item" data-item-id="${it.id}">✎ Sửa</button>
+        <button class="icon-btn danger" data-action="delete-item" data-item-id="${it.id}">🗑 Xoá</button>
+      </div>
       <div class="task-edit">
         <div class="row-inline">
           <div><span class="field-label">KL kế hoạch (${escapeHtml(unitLabelFull(it.unit))})</span><input type="number" inputmode="decimal" step="0.1" min="0" data-quick="qty_plan" value="${it.qty_plan ?? ''}"></div>
@@ -140,11 +153,6 @@ function renderPackageCard(pkg) {
           <button class="icon-btn" data-action="toggle-edit" data-item-id="${it.id}">Đóng</button>
           <button class="btn btn-primary quick-save" data-action="quick-save" data-item-id="${it.id}">Lưu</button>
         </div>
-      </div>
-      <div class="task-actions">
-        <button class="icon-btn" data-action="report-for" data-item-id="${it.id}" data-item-name="${escapeHtml(it.name)}">＋ Nhập thay</button>
-        <button class="icon-btn" data-action="edit-item" data-item-id="${it.id}">✎ Sửa</button>
-        <button class="icon-btn danger" data-action="delete-item" data-item-id="${it.id}" aria-label="Xoá đầu việc">🗑</button>
       </div>
     </div>
   `).join('') || '<div class="empty-hint" style="padding:16px 0;">Chưa có đầu việc — bấm ＋ Đầu việc hoặc 📋 Dán từ Excel</div>';
@@ -163,20 +171,29 @@ function renderPackageCard(pkg) {
         <button class="icon-btn" data-action="add-item" data-package-id="${pkg.id}">＋ Đầu việc</button>
         <button class="icon-btn" data-action="paste-items" data-package-id="${pkg.id}">📋 Dán từ Excel</button>
         <button class="icon-btn" data-action="shift" data-package-id="${pkg.id}">⇆ Dời lịch</button>
-        <button class="icon-btn" data-action="save-template" data-package-id="${pkg.id}">💾 Lưu làm mẫu</button>
-        <button class="icon-btn danger" data-action="delete-package" data-package-id="${pkg.id}">🗑 Xoá</button>
+        <button class="icon-btn wi-more" data-action="menu" aria-expanded="false" aria-label="Thao tác khác của hạng mục">⋯</button>
+        <div class="wi-menu" hidden>
+          <button class="icon-btn" data-action="save-template" data-package-id="${pkg.id}">💾 Lưu làm mẫu</button>
+          <button class="icon-btn danger" data-action="delete-package" data-package-id="${pkg.id}">🗑 Xoá hạng mục</button>
+        </div>
       </div>
-      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">${itemsHtml}</div>
+      <div class="wi-list">${itemsHtml}</div>
     </div>
   `;
 }
 
+// "5/12 m²" · "0 điểm" · trọn gói không có KL → "trọn gói"
+function itemQtyLabel(it) {
+  if (it.unit === 'tron_goi' && !it.qty_plan) return 'trọn gói';
+  return `${it.qty_done}${it.qty_plan ? '/' + it.qty_plan : ''} ${unitLabel(it.unit)}`;
+}
+
 const STATUS_VI = { notStarted: 'Chưa bắt đầu', onTrack: 'Đúng tiến độ', delayed: 'Trễ', ahead: 'Vượt', done: 'Xong' };
 function tradeEmoji(t) { return t === 'da' ? '🪨' : t === 'dien' ? '⚡' : '🔧'; }
-function unitLabel(u) { return { m2: 'm²', diem: 'điểm', md: 'md', tron_goi: '' }[u] || u; }
+function unitLabel(u) { return { m2: 'm²', diem: 'điểm', md: 'md', tron_goi: 'trọn gói' }[u] ?? u ?? ''; }
 
 function wirePackageCards(wrap) {
-  const on = (action, fn) => wrap.querySelectorAll(`[data-action=${action}]`).forEach(b => { b.onclick = (e) => { e.stopPropagation(); fn(b); }; });
+  const on = (action, fn) => wrap.querySelectorAll(`[data-action=${action}]`).forEach(b => { b.onclick = (e) => { e.stopPropagation(); if (b.closest('.wi-menu')) closeMenus(wrap); fn(b); }; });
   on('add-item', b => openItemModal(b.dataset.packageId));
   on('edit-item', b => openItemModal(null, b.dataset.itemId));
   on('delete-item', b => deleteItem(b.dataset.itemId));
@@ -187,7 +204,24 @@ function wirePackageCards(wrap) {
   on('shift', b => shiftPackage(b.dataset.packageId));
   on('save-template', b => savePackageAsTemplate(b.dataset.packageId));
   on('toggle-edit', b => wrap.querySelector(`[data-item-card="${b.dataset.itemId}"]`)?.classList.toggle('open'));
+  on('menu', b => {
+    const menu = b.parentElement.querySelector(':scope > .wi-menu');
+    const willOpen = menu.hidden;
+    closeMenus(wrap);
+    menu.hidden = !willOpen;
+    b.setAttribute('aria-expanded', String(willOpen));
+  });
+  if (!menusWired) {
+    menusWired = true;
+    document.addEventListener('click', e => { if (!e.target.closest('.wi-menu')) closeMenus(document); });
+  }
   on('quick-save', b => quickSaveItem(b.dataset.itemId, wrap.querySelector(`[data-item-card="${b.dataset.itemId}"]`), b));
+}
+
+let menusWired = false;
+function closeMenus(root) {
+  root.querySelectorAll('.wi-menu:not([hidden])').forEach(m => { m.hidden = true; });
+  root.querySelectorAll('.wi-more[aria-expanded=true]').forEach(b => b.setAttribute('aria-expanded', 'false'));
 }
 
 // ---------- Sửa nhanh tại chỗ: KL kế hoạch + ngày ----------

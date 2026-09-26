@@ -68,12 +68,22 @@ await p.click('[data-action=approve]'); await p.waitForTimeout(300);
 console.log('calls', JSON.stringify((await p.evaluate(() => window.__calls)).filter(c => c[0] === 'rpc' && c[1] !== 'dashboard_summary')));
 await p.click('#nav-alerts'); await p.waitForTimeout(400); await shot(p, 'm-alerts');
 await p.click('#nav-items'); await p.waitForTimeout(400); await shot(p, 'm-items');
+// Đầu việc = dòng gọn; menu ⋯; trọn gói không hiện mã thô "tron_goi"
+if (!(await p.$$('.package-card .wi-row')).length) errors.push('items: thiếu dòng đầu việc gọn');
+if ((await p.textContent('#packagesList')).includes('tron_goi')) errors.push('items: còn hiện chữ tron_goi');
+await p.click('.wi-row .wi-more'); await p.waitForTimeout(150);
+if (!(await p.isVisible('.wi-row .wi-menu'))) errors.push('items: menu ⋯ không mở');
+await shot(p, 'm-items-menu');
+await p.click('body', { position: { x: 5, y: 300 } }); await p.waitForTimeout(100);
+if (await p.isVisible('.wi-row .wi-menu')) errors.push('items: bấm ra ngoài không đóng menu');
 await p.click('[data-action=toggle-edit]'); await p.waitForTimeout(200); await shot(p, 'm-items-edit');
 await p.click('[data-action=paste-items]'); await p.fill('#pasteInput', 'Tên\tĐơn vị\tKL\nLắp lavabo\tđiểm\t3\t5/10/2026\t6/10/2026\nỐp tường\tm2\tabc\t1/1/2026\nCắt đá\tm²\t4,5\t2026-10-01'); await p.waitForTimeout(200); await shot(p, 'm-paste'); await p.click('#btnPasteCancel');
 await p.click('[data-action=crew-link]'); await p.waitForTimeout(300); await shot(p, 'm-links'); await p.click('#btnCrewLinkCancel');
 await p.click('#btnNewProject'); await p.fill('#wzName', 'Nhà test'); await p.click('#btnWizardNext');
 await p.click('[data-add=da]'); await p.waitForTimeout(100); await p.selectOption('.wz-sub', 's1'); await shot(p, 'm-wizard2');
 await p.click('#btnWizardNext'); await p.waitForTimeout(100); await shot(p, 'm-wizard3');
+{ const rows = await p.$$eval('.wz-rows li', ls => ls.map(l => l.firstChild.textContent.trim()));
+  if (rows.length !== new Set(rows).size) errors.push('wizard: mẫu vẫn lặp đầu việc ' + rows.join(', ')); }
 await p.click('#btnWizardNext'); await p.waitForTimeout(500); await shot(p, 'm-wizard-done');
 
 p = await page('index.html', 1440, 900);
