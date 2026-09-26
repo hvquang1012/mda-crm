@@ -641,7 +641,10 @@ async function renderCrewLinkList() {
     .order('created_at', { ascending: false });
   if (error) { list.innerHTML = '<div class="empty-hint compact">Không tải được danh sách link.</div>'; return; }
   const active = (data || []).filter(l => !l.revoked_at);
-  const revoked = (data || []).length - active.length;
+  const locked = (data || []).filter(l => l.closed_with_project).length;
+  const revoked = (data || []).length - active.length - locked;
+  const closed = currentProject()?.status === 'done';
+  document.getElementById('btnCrewLinkGenerate').disabled = closed;
   list.innerHTML = active.map(l => `
     <div class="link-row">
       <div class="link-row-info">
@@ -652,6 +655,7 @@ async function renderCrewLinkList() {
       <button class="icon-btn danger" data-revoke-link="${l.id}">Thu hồi</button>
     </div>`).join('') || '<div class="empty-hint compact">Chưa có link nào đang dùng</div>';
   if (revoked) list.insertAdjacentHTML('beforeend', `<div class="task-meta">${revoked} link đã thu hồi</div>`);
+  if (closed) list.insertAdjacentHTML('afterbegin', `<div class="project-closed-note">🔒 Công trình đã đóng — link của đội đang khoá${locked ? ` (${locked} link)` : ''}. Mở lại công trình thì link cũ dùng lại được.</div>`);
 
   list.querySelectorAll('[data-share-link]').forEach(b => b.onclick = () => {
     const l = data.find(x => x.id === b.dataset.shareLink);
@@ -667,6 +671,7 @@ async function renderCrewLinkList() {
 }
 
 async function generateCrewLink() {
+  if (currentProject()?.status === 'done') { showToast('Công trình đã đóng — mở lại công trình trước khi tạo link cho đội', true); return; }
   const personName = document.getElementById('crewLinkPersonName').value.trim();
   const role = document.getElementById('crewLinkRole').value;
   const btn = document.getElementById('btnCrewLinkGenerate');

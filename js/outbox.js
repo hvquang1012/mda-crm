@@ -25,7 +25,7 @@ const MAX_ORIGINAL_ATTEMPTS = 5;
 const MAX_ORIGINAL_BYTES = 40 * 1024 * 1024;
 
 // Lỗi không bao giờ tự hết khi gửi lại — dừng thử, để thợ thấy và xoá
-const PERMANENT = ['invalid_or_expired_token', 'item_not_in_scope', 'invalid_report_date', 'note_required', 'photo_required'];
+const PERMANENT = ['invalid_or_expired_token', 'project_closed', 'item_not_in_scope', 'invalid_report_date', 'note_required', 'photo_required'];
 
 let dbPromise = null;
 function openDb() {

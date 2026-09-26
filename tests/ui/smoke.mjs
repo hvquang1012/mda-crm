@@ -154,6 +154,13 @@ if ((await p.getAttribute('#membersList .zalo-btn', 'href')) !== 'https://zalo.m
 
 p = await page('crew.html?t=abc', 390, 844);
 await shot(p, 'c-list');
+// Link thợ của công trình đã đóng → màn hình báo khoá, không phải "hết hạn"
+{
+  const q = await page('crew.html?t=closed', 390, 844);
+  if (!(await q.textContent('#crewErrorMsg')).includes('đã khoá')) errors.push('crew: link công trình đã đóng không báo khoá');
+  await shot(q, 'c-closed');
+  await q.context().close();
+}
 await p.click('.crew-item-card'); await p.waitForTimeout(400);
 await p.click('#crewQtyChips .chip[data-set]'); await p.click('#crewNoteChips .chip');
 await shot(p, 'c-form');

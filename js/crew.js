@@ -44,9 +44,11 @@ async function boot() {
   }
   if (error || !data) {
     showScreen('crewError');
-    setErr(navigator.onLine
-      ? 'Link không hợp lệ hoặc đã hết hạn. Liên hệ giám sát để lấy link mới.'
-      : 'Không có mạng — mở lại khi có sóng. Báo cáo đã bấm gửi trước đó vẫn nằm an toàn trong máy.');
+    setErr(!navigator.onLine
+      ? 'Không có mạng — mở lại khi có sóng. Báo cáo đã bấm gửi trước đó vẫn nằm an toàn trong máy.'
+      : /project_closed/.test(error?.message || '')
+        ? 'Công trình đã bàn giao xong — link này đã khoá. Cần báo thêm thì liên hệ giám sát.'
+        : 'Link không hợp lệ hoặc đã hết hạn. Liên hệ giám sát để lấy link mới.');
     return;
   }
   state.boot = data;

@@ -118,12 +118,24 @@ reset role;
 -- Đóng công trình → đóng cảnh báo đang mở, compute_alerts bỏ qua, ẩn khỏi dashboard
 insert into alerts(project_id, work_item_id, kind, severity, message) values
  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555','no_crew','warning','test đóng');
+insert into crew_links(token,project_id,subcontractor_id,revoked_at) values ('tok_rv','33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-222222222222', now());
 set role authenticated; set request.jwt.claim.role='authenticated'; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000004';
 select 'K3 (không phụ trách) đóng P1 (0 dòng)' t; update projects set status='done' where id='33333333-3333-3333-3333-333333333333' returning id;
 set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
 update projects set status='done' where id='33333333-3333-3333-3333-333333333333';
 select 'đóng → cảnh báo mở của P1 = 0' t, count(*) from alerts where project_id='33333333-3333-3333-3333-333333333333' and acknowledged_at is null;
 reset role;
+select 'đóng → link thợ bị khoá' t, count(*) filter (where revoked_at is not null and closed_with_project) locked, count(*) filter (where revoked_at is null) open from crew_links where project_id='33333333-3333-3333-3333-333333333333';
+set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
+select 'thợ mở link P1 đã đóng (phải lỗi project_closed)' t; select crew_bootstrap('tok');
+select 'thợ gửi báo cáo P1 đã đóng (phải lỗi project_closed)' t; select crew_submit('tok','55555555-5555-5555-5555-555555555555',1,1,'x','[{"path":"33333333-3333-3333-3333-333333333333/x/z.jpg"}]');
+select 'link thu hồi tay (phải lỗi invalid_or_expired_token)' t; select crew_bootstrap('tok_rv');
+reset role;
+insert into crew_links(token,project_id,subcontractor_id) values ('tok_new','33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-222222222222');
+set role anon; set request.jwt.claim.role='anon';
+select 'link tạo sau khi đóng (phải lỗi project_closed)' t; select crew_bootstrap('tok_new');
+reset role;
+delete from crew_links where token='tok_new';
 update work_items set planned_end = current_date - 5, status = 'onTrack' where id='55555555-5555-5555-5555-555555555555';
 select 'compute_alerts trên P1 đã đóng' t, compute_alerts();
 select 'P1 đã đóng: không sinh cảnh báo mới' t, count(*) from alerts where project_id='33333333-3333-3333-3333-333333333333' and acknowledged_at is null;
@@ -134,3 +146,7 @@ update projects set status='active' where id='33333333-3333-3333-3333-3333333333
 reset role;
 select 'mở lại → compute_alerts' t, compute_alerts();
 select 'mở lại → đầu việc quá hạn thành delayed' t, status from work_items where id='55555555-5555-5555-5555-555555555555';
+select 'mở lại → link khoá được mở, link thu hồi tay giữ nguyên' t, token, revoked_at is null as open, closed_with_project from crew_links where project_id='33333333-3333-3333-3333-333333333333' order by token;
+set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
+select 'mở lại → thợ mở link được' t, crew_bootstrap('tok') is not null ok;
+reset role;
