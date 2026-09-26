@@ -35,6 +35,13 @@ const shot = (p, n) => p.screenshot({ path: path.join(OUT, n + '.png'), fullPage
 
 let p = await page('index.html', 390, 844);
 await shot(p, 'm-dashboard');
+// Công trình xong hết: không tính "Cần xử lý", không cảnh báo im lặng / dự báo trễ
+{
+  const card = await p.$('[data-open-project=p3]');
+  const txt = card ? await card.textContent() : '';
+  if (!txt.includes('Đã xong') || txt.includes('Cần xử lý') || txt.includes('chưa có báo cáo') || txt.includes('dự báo trễ') || txt.includes('trễ 11')) errors.push('dashboard: công trình xong hết vẫn báo cần xử lý');
+  if ((await p.textContent('.kpi.critical .kpi-value').catch(() => '0')) !== '2') errors.push('dashboard: KPI Cần xử lý đếm cả công trình đã xong');
+}
 // Cài đặt tài khoản: bấm tên → sửa tên + số; số sai không gửi, số +84 đổi về 0…
 await p.click('#staffName'); await p.waitForTimeout(200);
 await p.fill('#profileName', 'Quang MD'); await p.fill('#profilePhone', '+84 912 345 678');
@@ -76,6 +83,15 @@ if (!(await p.isVisible('.wi-row .wi-menu'))) errors.push('items: menu ⋯ khôn
 await shot(p, 'm-items-menu');
 await p.click('body', { position: { x: 5, y: 300 } }); await p.waitForTimeout(100);
 if (await p.isVisible('.wi-row .wi-menu')) errors.push('items: bấm ra ngoài không đóng menu');
+// Chốt xong nhanh: 1 đầu việc qua menu ⋯, cả hạng mục qua menu ⋯ của hạng mục (chỉ đổi status)
+await p.click('.wi-row .wi-more'); await p.click('.wi-row [data-action=done-item]'); await p.waitForTimeout(200);
+p.once('dialog', dlg => dlg.accept());
+await p.click('.package-card > .task-actions .wi-more'); await p.click('[data-action=done-package]'); await p.waitForTimeout(300);
+{
+  const ups = (await p.evaluate(() => window.__calls)).filter(c => c[0] === 'update' && c[1] === 'work_items');
+  if (ups.length < 2 || ups.some(c => Object.keys(c[2]).join() !== 'status' || c[2].status !== 'done')) errors.push('items: chốt xong không gửi đúng status=done');
+}
+if ((await p.$$('.wi-row .badge.ahead')).length === 0 || !(await p.textContent('#packagesList')).includes('✓ Xong')) errors.push('items: đầu việc xong không hiện nhãn Xong');
 await p.click('[data-action=toggle-edit]'); await p.waitForTimeout(200); await shot(p, 'm-items-edit');
 await p.click('[data-action=paste-items]'); await p.fill('#pasteInput', 'Tên\tĐơn vị\tKL\nLắp lavabo\tđiểm\t3\t5/10/2026\t6/10/2026\nỐp tường\tm2\tabc\t1/1/2026\nCắt đá\tm²\t4,5\t2026-10-01'); await p.waitForTimeout(200); await shot(p, 'm-paste'); await p.click('#btnPasteCancel');
 await p.click('[data-action=crew-link]'); await p.waitForTimeout(300); await shot(p, 'm-links'); await p.click('#btnCrewLinkCancel');

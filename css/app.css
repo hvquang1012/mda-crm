@@ -286,7 +286,7 @@ button.kpi:active{transform:scale(.97);}
 .project-summary-card.risk-warning{border-left-color:var(--warning);}
 .project-summary-card.risk-critical{border-left-color:var(--danger);}
 .risk-badge{flex:none;font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:var(--pill);white-space:nowrap;}
-.risk-badge.good{background:var(--success-soft);color:var(--success);}
+.risk-badge.good,.risk-badge.done{background:var(--success-soft);color:var(--success);}
 .risk-badge.warning{background:var(--warning-soft);color:var(--warning);}
 .risk-badge.critical{background:var(--danger-soft);color:var(--danger);}
 .project-summary-client .neg{color:var(--danger);}

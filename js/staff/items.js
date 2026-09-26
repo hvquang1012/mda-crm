@@ -133,10 +133,13 @@ function renderPackageCard(pkg) {
         <div class="task-name">${escapeHtml(it.name)}</div>
         <div class="task-meta">${displayDate(it.planned_start)} → ${displayDate(it.planned_end)} · ${itemQtyLabel(it)}</div>
       </div>
-      <span class="badge ${it.status === 'done' ? 'ahead' : it.status}">${it.percent}%</span>
+      <span class="badge ${it.status === 'done' ? 'ahead' : it.status}">${it.status === 'done' ? '✓ Xong' : it.percent + '%'}</span>
       <button class="icon-btn wi-more" data-action="menu" aria-expanded="false" aria-label="Thao tác đầu việc">⋯</button>
-      <div class="progress-track thin"><div class="progress-fill ${it.status === 'done' ? 'ahead' : it.status}" style="width:${it.percent}%"></div></div>
+      <div class="progress-track thin"><div class="progress-fill ${it.status === 'done' ? 'ahead' : it.status}" style="width:${it.status === 'done' ? 100 : it.percent}%"></div></div>
       <div class="wi-menu" hidden>
+        ${it.status === 'done'
+          ? `<button class="icon-btn" data-action="undone-item" data-item-id="${it.id}">↺ Chưa xong</button>`
+          : `<button class="icon-btn" data-action="done-item" data-item-id="${it.id}">✓ Đánh dấu xong</button>`}
         <button class="icon-btn" data-action="report-for" data-item-id="${it.id}" data-item-name="${escapeHtml(it.name)}">＋ Nhập thay</button>
         <button class="icon-btn" data-action="edit-item" data-item-id="${it.id}">✎ Sửa</button>
         <button class="icon-btn danger" data-action="delete-item" data-item-id="${it.id}">🗑 Xoá</button>
@@ -173,6 +176,7 @@ function renderPackageCard(pkg) {
         <button class="icon-btn" data-action="shift" data-package-id="${pkg.id}">⇆ Dời lịch</button>
         <button class="icon-btn wi-more" data-action="menu" aria-expanded="false" aria-label="Thao tác khác của hạng mục">⋯</button>
         <div class="wi-menu" hidden>
+          ${items.some(it => it.status !== 'done') ? `<button class="icon-btn" data-action="done-package" data-package-id="${pkg.id}">✓ Xong cả hạng mục</button>` : ''}
           <button class="icon-btn" data-action="save-template" data-package-id="${pkg.id}">💾 Lưu làm mẫu</button>
           <button class="icon-btn danger" data-action="delete-package" data-package-id="${pkg.id}">🗑 Xoá hạng mục</button>
         </div>
@@ -197,6 +201,9 @@ function wirePackageCards(wrap) {
   on('add-item', b => openItemModal(b.dataset.packageId));
   on('edit-item', b => openItemModal(null, b.dataset.itemId));
   on('delete-item', b => deleteItem(b.dataset.itemId));
+  on('done-item', b => setItemsDone([b.dataset.itemId], true));
+  on('undone-item', b => setItemsDone([b.dataset.itemId], false));
+  on('done-package', b => markPackageDone(b.dataset.packageId));
   on('delete-package', b => deletePackage(b.dataset.packageId));
   on('crew-link', b => openCrewLinkModal(b.dataset.packageId));
   on('report-for', b => openStaffReportModal(b.dataset.itemId, b.dataset.itemName));
@@ -447,6 +454,35 @@ async function saveItem() {
   if (result.error) return;
   closeModal('itemModal');
   renderPackages();
+}
+
+// Chốt hoàn thành bằng tay — chỉ đổi status, KHÔNG đụng qty_done/percent
+// (khối lượng chỉ cộng qua duyệt báo cáo). Trigger ở DB tự cập nhật hạng
+// mục và đóng cảnh báo cũ của đầu việc vừa xong.
+async function setItemsDone(ids, done) {
+  if (!ids.length) return;
+  let error;
+  if (done) {
+    ({ error } = await db(state.supabase.from('work_items').update({ status: 'done' }).in('id', ids),
+      { successMsg: ids.length > 1 ? `Đã chốt xong ${ids.length} đầu việc` : 'Đã chốt xong' }));
+  } else {
+    // Mở lại: tạm "Đúng tiến độ" (hoặc "Chưa bắt đầu" nếu chưa có khối lượng) — lần kiểm tra tự động sau sẽ tính lại theo lịch
+    const it = flatItems.find(i => i.id === ids[0]);
+    ({ error } = await db(state.supabase.from('work_items').update({ status: it && Number(it.qty_done) > 0 ? 'onTrack' : 'notStarted' }).in('id', ids),
+      { successMsg: 'Đã mở lại đầu việc' }));
+  }
+  if (!error) renderPackages();
+}
+
+async function markPackageDone(packageId) {
+  const pkg = currentPackages.find(p => p.id === packageId);
+  const open = (pkg?.work_items || []).filter(i => i.status !== 'done');
+  if (!open.length) return;
+  const partial = open.filter(i => Number(i.percent) < 100).length;
+  const msg = `Chốt xong ${open.length} đầu việc còn lại của "${pkg.subcontractors?.name || pkg.name}"?`
+    + (partial ? `\n\n${partial} đầu việc chưa đủ khối lượng đã duyệt — số khối lượng giữ nguyên, chỉ đổi trạng thái sang Xong.` : '');
+  if (!confirm(msg)) return;
+  await setItemsDone(open.map(i => i.id), true);
 }
 
 async function deleteItem(id) {

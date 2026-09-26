@@ -723,6 +723,32 @@ language sql security definer set search_path = public as $$
   where id = p_package_id;
 $$;
 
+-- Đầu việc đổi trạng thái (giám sát bấm "Xong", hoặc compute_alerts tự
+-- đổi) → cập nhật ngay trạng thái hạng mục. Đầu việc thành 'done' thì
+-- đóng luôn cảnh báo cũ của nó: trước đây cảnh báo "dự báo trễ" sinh lúc
+-- đang làm dở vẫn treo mãi sau khi xong, công trình xong hết vẫn "Cần xử lý".
+create or replace function _on_item_status_change() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'done' then
+    update alerts set acknowledged_at = now(), acknowledged_by = auth.uid()
+    where work_item_id = new.id and acknowledged_at is null;
+  end if;
+  perform _refresh_package_status(new.work_package_id);
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_work_items_status on work_items;
+create trigger trg_work_items_status after update of status on work_items
+  for each row when (new.status is distinct from old.status)
+  execute function _on_item_status_change();
+
+-- Dọn cảnh báo treo của đầu việc đã xong từ trước khi có trigger trên
+update alerts a set acknowledged_at = now()
+from work_items wi
+where wi.id = a.work_item_id and wi.status = 'done' and a.acknowledged_at is null;
+
 create or replace function approve_report_group(p_report_ids uuid[], p_total numeric default null)
 returns numeric
 language plpgsql security definer set search_path = public as $$

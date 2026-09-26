@@ -98,3 +98,19 @@ set role authenticated; set request.jwt.claim.role='authenticated'; set request.
 select 'nhân viên gọi reports_to_notify (phải lỗi permission)' t; select * from reports_to_notify();
 select 'nhân viên đọc report_notifications (phải lỗi permission)' t; select count(*) from report_notifications;
 reset role;
+
+-- Chốt "Xong" bằng tay → đóng cảnh báo cũ của đầu việc + hạng mục thành done ngay
+insert into alerts(project_id, work_item_id, kind, severity, message) values
+ ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555','forecast_delay','critical','test');
+set role authenticated; set request.jwt.claim.role='authenticated'; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000004';
+select 'K3 (không phụ trách) chốt xong đầu việc P1 (0 dòng)' t; update work_items set status='done' where id='55555555-5555-5555-5555-555555555555' returning id;
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+update work_items set status='done' where id='55555555-5555-5555-5555-555555555555';
+select 'chốt xong → cảnh báo mở = 0' t, count(*) from alerts where work_item_id='55555555-5555-5555-5555-555555555555' and acknowledged_at is null;
+select 'chốt xong → người đóng là K1' t, bool_and(acknowledged_by = auth.uid()) ok from alerts where work_item_id='55555555-5555-5555-5555-555555555555';
+select 'hạng mục = done' t, status from work_packages where id='44444444-4444-4444-4444-444444444444';
+select 'qty_done giữ nguyên' t, qty_done, percent from work_items where id='55555555-5555-5555-5555-555555555555';
+select 'dashboard: xong hết' t, (dashboard_summary()->'projects'->0->>'done_items') = (dashboard_summary()->'projects'->0->>'item_count') ok, dashboard_summary()->'projects'->0->>'critical_alerts' critical;
+update work_items set status='onTrack' where id='55555555-5555-5555-5555-555555555555';
+select 'mở lại → hạng mục hết done' t, status from work_packages where id='44444444-4444-4444-4444-444444444444';
+reset role;

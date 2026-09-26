@@ -17,13 +17,15 @@ const ALERT_LABEL = {
 };
 
 // Ngưỡng giống compute_alerts(): lệch >10% cần chú ý, >20% nghiêm trọng
+// Đầu việc xong hết thì không còn gì để xử lý — kể cả khi đã quá ngày bàn giao
 function riskOf(p) {
+  if (p.item_count > 0 && p.done_items === p.item_count) return 'done';
   if (p.days_left < 0 || p.gap > 20 || p.critical_alerts > 0 || p.blocking_issues > 0) return 'critical';
   if (p.gap > 10 || p.warning_alerts > 0 || p.open_issues > 0 || p.delayed_items > 0) return 'warning';
   return 'good';
 }
-const RISK_LABEL = { critical: '🔴 Cần xử lý', warning: '🟡 Cần chú ý', good: '🟢 Đúng tiến độ' };
-const RISK_RANK = { critical: 0, warning: 1, good: 2 };
+const RISK_LABEL = { critical: '🔴 Cần xử lý', warning: '🟡 Cần chú ý', good: '🟢 Đúng tiến độ', done: '✅ Đã xong' };
+const RISK_RANK = { critical: 0, warning: 1, good: 2, done: 3 };
 
 let lastData = null;
 
@@ -134,7 +136,8 @@ function gapLabel(gap) {
 }
 
 function projectCard(p) {
-  const days = p.days_left < 0 ? `<b class="neg">trễ ${-p.days_left} ngày</b>` : `còn ${p.days_left} ngày`;
+  const done = p.risk === 'done';
+  const days = done ? 'đã xong hết đầu việc' : p.days_left < 0 ? `<b class="neg">trễ ${-p.days_left} ngày</b>` : `còn ${p.days_left} ngày`;
   const chips = [
     p.pending_reports ? `<button type="button" class="dash-chip" data-goto-approvals="${p.id}">✅ ${p.pending_reports} chờ duyệt</button>` : '',
     p.blocking_issues ? `<span class="dash-chip critical">⛔ ${p.blocking_issues} vướng chặn</span>` : p.open_issues ? `<span class="dash-chip warning">❗ ${p.open_issues} vướng mắc</span>` : '',
@@ -149,7 +152,7 @@ function projectCard(p) {
         ${dualBar(k.actual_pct, k.planned_pct, riskOf({ ...k, gap: k.planned_pct - k.actual_pct, days_left: 0 }))}
       </div>
       <div class="wp-pct">${k.actual_pct}%</div>
-      ${k.top_alert ? `<span class="wp-warn">${ALERT_LABEL[k.top_alert] || ''}</span>` : ''}
+      ${k.top_alert && k.status !== 'done' ? `<span class="wp-warn">${ALERT_LABEL[k.top_alert] || ''}</span>` : ''}
     </div>`).join('') || '<div class="empty-hint compact">Chưa có hạng mục nào</div>';
 
   return `
@@ -169,7 +172,7 @@ function projectCard(p) {
         </div>
       </div>
       ${chips ? `<div class="dash-chips">${chips}</div>` : ''}
-      ${quiet !== null && quiet >= 3 ? `<div class="proj-quiet">⚠ ${quiet} ngày chưa có báo cáo nào</div>` : ''}
+      ${!done && quiet !== null && quiet >= 3 ? `<div class="proj-quiet">⚠ ${quiet} ngày chưa có báo cáo nào</div>` : ''}
       <div class="proj-packages">${pkgRows}</div>
     </div>`;
 }
