@@ -144,30 +144,29 @@ footer a{color:var(--brass-deep);}
   <div class="eyebrow">MDA Tiến độ — hướng dẫn kỹ thuật</div>
   <h1>Gắn tên miền riêng cho hệ thống</h1>
   <p class="lede">
-    Đưa app đang chạy ở <code class="inline-code">zippy-douhua-7a4098.netlify.app</code>
-    về địa chỉ riêng <code class="inline-code">tiendo.noithatminhduc.com</code> — dễ nhớ, dễ gửi qua Zalo,
+    App chạy trên <strong>Cloudflare Pages</strong> (miễn phí, tự cập nhật mỗi khi merge vào <code class="inline-code">main</code>)
+    tại địa chỉ riêng <code class="inline-code">tiendo.noithatminhduc.com</code> — dễ nhớ, dễ gửi qua Zalo,
     và không đụng tới website chính của công ty.
   </p>
 
-  <h2>Tóm tắt nhanh</h2>
-  <p class="step-sub">Nếu đã quen Cloudflare, chỉ cần 4 dòng này — bỏ qua phần hướng dẫn từng bước bên dưới.</p>
-  <div class="quickref">
-    <div class="qr-row"><div class="qr-k">Loại bản ghi</div><div class="qr-v">CNAME</div></div>
-    <div class="qr-row"><div class="qr-k">Tên (Name)</div><div class="qr-v">tiendo</div></div>
-    <div class="qr-row"><div class="qr-k">Đích (Target)</div><div class="qr-v">zippy-douhua-7a4098.netlify.app</div></div>
-    <div class="qr-row"><div class="qr-k">Proxy status</div><div class="qr-v">DNS only <span class="off">tắt mây cam</span></div></div>
-  </div>
-
-  <div class="callout ok">
-    <div class="callout-icon">◆</div>
+  <div class="callout warn">
+    <div class="callout-icon">▲</div>
     <div>
-      <h3>Vì sao dùng subdomain, không dùng thẳng noithatminhduc.com</h3>
+      <h3>Vì sao chuyển khỏi Netlify (9/2026)</h3>
       <p>
-        Domain gốc <code class="inline-code">noithatminhduc.com</code> đang trỏ tới website chính của công ty.
-        Gắn thêm app tiến độ vào một nhánh phụ (<code class="inline-code">tiendo.</code>) để hai hệ thống
-        chạy song song, không tranh chấp bản ghi DNS và không ảnh hưởng website chính.
+        Gói miễn phí Netlify hết lượt trong tháng thì <strong>dừng cập nhật</strong> trang chính:
+        web vẫn chạy nhưng kẹt ở bản cũ. Cloudflare Pages không giới hạn băng thông,
+        500 lần cập nhật/tháng, và domain đã nằm sẵn ở Cloudflare.
       </p>
     </div>
+  </div>
+
+  <h2>Tóm tắt nhanh</h2>
+  <div class="quickref">
+    <div class="qr-row"><div class="qr-k">Repo</div><div class="qr-v">hvquang1012/mda-crm · nhánh main</div></div>
+    <div class="qr-row"><div class="qr-k">Framework / Build</div><div class="qr-v">None · để trống build command</div></div>
+    <div class="qr-row"><div class="qr-k">Output directory</div><div class="qr-v">/</div></div>
+    <div class="qr-row"><div class="qr-k">Custom domain</div><div class="qr-v">tiendo.noithatminhduc.com</div></div>
   </div>
 
   <hr class="divider">
@@ -178,11 +177,11 @@ footer a{color:var(--brass-deep);}
     <div class="step">
       <div class="step-num">1</div>
       <div class="step-body">
-        <p><strong>Khai báo domain trong Netlify.</strong></p>
+        <p><strong>Tạo project Pages nối với GitHub.</strong></p>
         <p>
-          Vào project <code class="inline-code">mda-crm</code> trên Netlify →
-          <strong>Domain management</strong> → <strong>Add a domain</strong> →
-          gõ <code class="inline-code">tiendo.noithatminhduc.com</code>.
+          <code class="inline-code">dash.cloudflare.com</code> → <strong>Workers &amp; Pages</strong> →
+          <strong>Create</strong> → tab <strong>Pages</strong> → <strong>Connect to Git</strong> →
+          cấp quyền GitHub → chọn repo <code class="inline-code">mda-crm</code>.
         </p>
       </div>
     </div>
@@ -190,31 +189,30 @@ footer a{color:var(--brass-deep);}
     <div class="step">
       <div class="step-num">2</div>
       <div class="step-body">
-        <p><strong>Thêm bản ghi DNS trong Cloudflare.</strong></p>
-        <p>
-          Vào <code class="inline-code">dash.cloudflare.com</code> → chọn zone
-          <code class="inline-code">noithatminhduc.com</code> → <strong>DNS → Records → Add record</strong>,
-          điền đúng 4 giá trị ở bảng tóm tắt phía trên.
-        </p>
+        <p><strong>Cấu hình build.</strong></p>
         <table class="mini-table">
           <thead><tr><th>Trường</th><th>Giá trị</th></tr></thead>
           <tbody>
-            <tr><td>Type</td><td>CNAME</td></tr>
-            <tr><td>Name</td><td>tiendo</td></tr>
-            <tr><td>Target</td><td>zippy-douhua-7a4098.netlify.app</td></tr>
-            <tr><td>Proxy status</td><td>DNS only</td></tr>
+            <tr><td>Production branch</td><td>main</td></tr>
+            <tr><td>Framework preset</td><td>None</td></tr>
+            <tr><td>Build command</td><td>(để trống)</td></tr>
+            <tr><td>Build output directory</td><td>/</td></tr>
           </tbody>
         </table>
+        <p>Bấm <strong>Save and Deploy</strong>. Khoảng 1 phút sau có địa chỉ dạng
+          <code class="inline-code">mda-crm.pages.dev</code> — mở thử, đăng nhập được là xong.</p>
       </div>
     </div>
 
     <div class="step">
       <div class="step-num">3</div>
       <div class="step-body">
-        <p><strong>Đợi DNS trỏ.</strong></p>
+        <p><strong>Chuyển tên miền sang Pages.</strong></p>
         <p>
-          Thường vài phút, đôi khi tới vài giờ. Quay lại Netlify
-          <strong>Domain management</strong> — thấy dấu ✓ xanh nghĩa là đã nhận đúng bản ghi.
+          <strong>DNS → Records</strong>: xoá bản ghi <code class="inline-code">tiendo</code> cũ (CNAME trỏ Netlify).
+          Rồi vào project Pages → <strong>Custom domains</strong> → <strong>Set up a custom domain</strong> →
+          gõ <code class="inline-code">tiendo.noithatminhduc.com</code> → <strong>Activate domain</strong>.
+          Cloudflare tự tạo lại bản ghi và tự bật HTTPS.
         </p>
       </div>
     </div>
@@ -222,27 +220,13 @@ footer a{color:var(--brass-deep);}
     <div class="step">
       <div class="step-num">4</div>
       <div class="step-body">
-        <p><strong>HTTPS tự bật, không cần làm gì thêm.</strong></p>
+        <p><strong>Kiểm tra.</strong></p>
         <p>
-          Netlify tự xin chứng chỉ SSL miễn phí (Let's Encrypt) ngay sau khi DNS xác nhận.
-          App sẽ chạy tại <code class="inline-code">https://tiendo.noithatminhduc.com</code>.
+          Đợi vài phút, mở <code class="inline-code">https://tiendo.noithatminhduc.com</code> bằng tab ẩn danh.
+          Từ nay mỗi lần merge PR vào <code class="inline-code">main</code>, Cloudflare tự cập nhật trong ~1 phút
+          (xem ở tab <strong>Deployments</strong> của project Pages).
         </p>
       </div>
-    </div>
-  </div>
-
-  <div class="callout warn">
-    <div class="callout-icon">▲</div>
-    <div>
-      <h3>Điểm dễ sai nhất: đừng để mây cam (Proxied)</h3>
-      <p>
-        Cloudflare mặc định gợi ý bật <strong>Proxied</strong> (mây cam) cho bản ghi mới.
-        Với subdomain trỏ sang Netlify, việc này khiến hai lớp SSL (Cloudflare và Netlify)
-        chồng lên nhau — subdomain dễ báo lỗi chứng chỉ hoặc lặp redirect liên tục.
-      </p>
-      <p>
-        Luôn chọn <strong>DNS only</strong> (mây xám) cho bản ghi <code class="inline-code">tiendo</code>.
-      </p>
     </div>
   </div>
 
@@ -254,7 +238,7 @@ footer a{color:var(--brass-deep);}
     <p style="margin:0 0 10px; font-size:14.5px;">
       Link Zalo cho thợ, đội trưởng, chủ nhà đổi từ:
     </p>
-    <p style="margin:0 0 4px;"><code class="inline-code">zippy-douhua-7a4098.netlify.app/crew.html?t=...</code></p>
+    <p style="margin:0 0 4px;"><code class="inline-code">zippy-douhua-7a4098.netlify.app/crew.html?t=... (Netlify cũ — kẹt bản cũ)</code></p>
     <p style="margin:0 0 10px; font-size:14.5px;">sang:</p>
     <p style="margin:0;"><code class="inline-code">tiendo.noithatminhduc.com/crew.html?t=...</code></p>
     <p style="margin:14px 0 0; font-size:13.5px; color:var(--ink-soft);">
