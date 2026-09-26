@@ -118,6 +118,7 @@ reset role;
 -- Đóng công trình → đóng cảnh báo đang mở, compute_alerts bỏ qua, ẩn khỏi dashboard
 insert into alerts(project_id, work_item_id, kind, severity, message) values
  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555','no_crew','warning','test đóng');
+insert into client_links(token,project_id) values ('ctok','33333333-3333-3333-3333-333333333333');
 insert into crew_links(token,project_id,subcontractor_id,revoked_at) values ('tok_rv','33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-222222222222', now());
 set role authenticated; set request.jwt.claim.role='authenticated'; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000004';
 select 'K3 (không phụ trách) đóng P1 (0 dòng)' t; update projects set status='done' where id='33333333-3333-3333-3333-333333333333' returning id;
@@ -130,6 +131,7 @@ set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
 select 'thợ mở link P1 đã đóng (phải lỗi project_closed)' t; select crew_bootstrap('tok');
 select 'thợ gửi báo cáo P1 đã đóng (phải lỗi project_closed)' t; select crew_submit('tok','55555555-5555-5555-5555-555555555555',1,1,'x','[{"path":"33333333-3333-3333-3333-333333333333/x/z.jpg"}]');
 select 'link thu hồi tay (phải lỗi invalid_or_expired_token)' t; select crew_bootstrap('tok_rv');
+select 'chủ nhà mở link P1 đã đóng (phải lỗi project_closed)' t; select client_view('ctok');
 reset role;
 insert into crew_links(token,project_id,subcontractor_id) values ('tok_new','33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-222222222222');
 set role anon; set request.jwt.claim.role='anon';
@@ -149,4 +151,5 @@ select 'mở lại → đầu việc quá hạn thành delayed' t, status from w
 select 'mở lại → link khoá được mở, link thu hồi tay giữ nguyên' t, token, revoked_at is null as open, closed_with_project from crew_links where project_id='33333333-3333-3333-3333-333333333333' order by token;
 set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
 select 'mở lại → thợ mở link được' t, crew_bootstrap('tok') is not null ok;
+select 'mở lại → chủ nhà mở link được' t, client_view('ctok') is not null ok;
 reset role;

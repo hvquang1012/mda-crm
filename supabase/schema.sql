@@ -113,6 +113,7 @@ create table if not exists client_links (
   last_used_at timestamptz,
   created_at timestamptz default now()
 );
+alter table client_links add column if not exists closed_with_project boolean not null default false;  -- khoá do đóng công trình
 create index if not exists idx_client_links_token on client_links(token);
 
 -- NHẬT KÝ TIẾN ĐỘ — chỉ ghi thêm, không sửa/xoá. Đây là nguồn sự thật;
@@ -654,12 +655,16 @@ declare
   v_link client_links;
   v_result json;
 begin
-  select * into v_link from client_links
-    where token = p_token
-      and revoked_at is null
-      and (expires_at is null or expires_at > now());
-  if v_link.id is null then
+  select * into v_link from client_links where token = p_token;
+  if v_link.id is null
+     or (v_link.revoked_at is not null and not v_link.closed_with_project)
+     or (v_link.expires_at is not null and v_link.expires_at <= now()) then
     raise exception 'invalid_or_expired_token';
+  end if;
+  -- Công trình đã đóng: link chủ nhà khoá (kể cả link tạo sau khi đóng)
+  if v_link.revoked_at is not null
+     or not exists (select 1 from projects p where p.id = v_link.project_id and p.status = 'active') then
+    raise exception 'project_closed';
   end if;
   update client_links set last_used_at = now() where id = v_link.id;
 
@@ -752,20 +757,24 @@ create trigger trg_work_items_status after update of status on work_items
   execute function _on_item_status_change();
 
 -- Đóng / tạm dừng công trình → đóng mọi cảnh báo đang mở của nó (tab Cần
--- xử lý hết hiện) và khoá link thợ. compute_alerts() bỏ qua công trình
--- không 'active'. Link chủ nhà vẫn xem được.
+-- xử lý hết hiện), khoá link thợ và link chủ nhà. compute_alerts() bỏ qua
+-- công trình không 'active'.
 create or replace function _on_project_status_change() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   if new.status <> 'active' then
     update alerts set acknowledged_at = now(), acknowledged_by = auth.uid()
     where project_id = new.id and acknowledged_at is null;
-    -- Khoá link thợ (revoked_at → Edge Function crew-upload/dropbox-link cũng chặn)
+    -- Khoá link thợ + chủ nhà (revoked_at → Edge Function crew-upload/dropbox-link cũng chặn)
     update crew_links set revoked_at = now(), closed_with_project = true
+    where project_id = new.id and revoked_at is null;
+    update client_links set revoked_at = now(), closed_with_project = true
     where project_id = new.id and revoked_at is null;
   else
     -- Mở lại: chỉ mở khoá link bị khoá do đóng, link thu hồi tay giữ nguyên
     update crew_links set revoked_at = null, closed_with_project = false
+    where project_id = new.id and closed_with_project;
+    update client_links set revoked_at = null, closed_with_project = false
     where project_id = new.id and closed_with_project;
   end if;
   return null;
@@ -779,6 +788,9 @@ create trigger trg_projects_status after update of status on projects
 
 -- Công trình đã đóng từ trước khi có khoá link
 update crew_links l set revoked_at = now(), closed_with_project = true
+from projects p
+where p.id = l.project_id and p.status <> 'active' and l.revoked_at is null;
+update client_links l set revoked_at = now(), closed_with_project = true
 from projects p
 where p.id = l.project_id and p.status <> 'active' and l.revoked_at is null;
 

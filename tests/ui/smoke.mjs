@@ -161,6 +161,11 @@ await shot(p, 'c-list');
   await shot(q, 'c-closed');
   await q.context().close();
 }
+{
+  const q = await page('client.html?t=closed', 390, 844);
+  if (!(await q.textContent('#clientErrorMsg')).includes('đã đóng')) errors.push('client: link công trình đã đóng không báo khoá');
+  await q.context().close();
+}
 await p.click('.crew-item-card'); await p.waitForTimeout(400);
 await p.click('#crewQtyChips .chip[data-set]'); await p.click('#crewNoteChips .chip');
 await shot(p, 'c-form');

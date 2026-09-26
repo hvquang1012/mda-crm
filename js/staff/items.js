@@ -690,6 +690,7 @@ async function generateCrewLink() {
 // ---------- Link cho chủ nhà ----------
 async function generateClientLink() {
   if (!state.currentProjectId) return;
+  if (currentProject()?.status === 'done') { showToast('Công trình đã đóng — link chủ nhà đang khoá. Mở lại công trình nếu cần gửi', true); return; }
   const { data: existing } = await state.supabase.from('client_links').select('*')
     .eq('project_id', state.currentProjectId).is('revoked_at', null).limit(1).maybeSingle();
 
