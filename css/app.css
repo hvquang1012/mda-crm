@@ -911,3 +911,4 @@ button.dash-chip{cursor:pointer;}
 .timeline-row-wrap > .chat-btn{position:absolute;top:5px;right:0;}
 /* Thẻ đầu việc màn thợ: nút 💬 cạnh nhãn tiến độ */
 .crew-item-card .chat-btn{flex:none;font-size:18px;padding:6px 8px;}
+.chat-note{font-size:12px;line-height:1.45;color:var(--ink-soft);background:var(--bg-surface);border-radius:var(--radius-input);padding:7px 10px;}
