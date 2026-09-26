@@ -7,7 +7,7 @@
 import { state, isManager } from './state.js';
 import { escapeHtml, showToast, displayDate, todayISO, db, rpcErrorText, shareLink, unitLabel as unitLabelFull } from '../ui.js';
 import { renderTimeline } from '../timeline.js';
-import { zaloLinkHtml } from './profile.js';
+import { zaloLinkHtml, roleIconHtml, ROLE_VI } from './profile.js';
 import { setProjectStatus } from './project-status.js';
 import { openProjectWizard, scheduleFromTemplate, crewLinkUrl, clientLinkUrl } from './wizard.js';
 
@@ -118,14 +118,16 @@ function renderCurrentPackages() {
   }
 }
 
-// Nút 🏁 Đóng / ↺ Mở lại + dòng nhắc theo trạng thái công trình đang xem
+// Nút Đóng / Mở lại (icon close-project / reopen-project) + dòng nhắc theo trạng thái công trình đang xem
 function syncProjectClosed() {
   const p = currentProject();
   const closed = p?.status === 'done';
   const btn = document.getElementById('btnCloseProject');
   if (btn) {
     btn.hidden = !p;
-    btn.innerHTML = closed ? '↺<span class="btn-label"> Mở lại</span>' : '🏁<span class="btn-label"> Đóng</span>';
+    btn.innerHTML = closed
+      ? '<img class="btn-ic" src="assets/icons/reopen-project.svg" alt=""><span class="btn-label">Mở lại</span>'
+      : '<img class="btn-ic" src="assets/icons/close-project.svg" alt=""><span class="btn-label">Đóng</span>';
     btn.title = closed ? 'Mở lại công trình' : 'Đóng công trình đã bàn giao xong';
   }
   const note = document.getElementById('projectClosedNote');
@@ -832,7 +834,7 @@ async function renderMembers() {
   if (e1 || e2) { wrap.innerHTML = '<div class="empty-hint compact">Không tải được danh sách nhân viên.</div>'; return; }
   const inProject = new Set((members || []).map(m => m.staff_id));
   const isAdmin = state.staffRole === 'admin';
-  const roleVi = { kts: 'KTS', staff: 'KTS', manager: 'Quản lý', admin: 'Quản trị' };
+  const roleVi = ROLE_VI;
   wrap.innerHTML = (staff || []).map(u => {
     const seesAll = u.role === 'manager' || u.role === 'admin';
     return `
@@ -845,7 +847,7 @@ async function renderMembers() {
       ${isAdmin && u.id !== state.user.id ? `
         <select data-role="${u.id}" aria-label="Vai trò">
           ${['kts', 'manager', 'admin'].map(r => `<option value="${r}" ${(u.role === 'staff' ? 'kts' : u.role) === r ? 'selected' : ''}>${roleVi[r]}</option>`).join('')}
-        </select>` : `<span class="member-role">${roleVi[u.role] || ''}</span>`}
+        </select>` : `<span class="member-role">${roleIconHtml(u.role)}${roleVi[u.role] || ''}</span>`}
     </div>`;
   }).join('');
 

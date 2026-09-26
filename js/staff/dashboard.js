@@ -148,7 +148,7 @@ function projectCard(p) {
     p.pending_reports ? `<button type="button" class="dash-chip" data-goto-approvals="${p.id}">✅ ${p.pending_reports} chờ duyệt</button>` : '',
     p.blocking_issues ? `<span class="dash-chip critical">⛔ ${p.blocking_issues} vướng chặn</span>` : p.open_issues ? `<span class="dash-chip warning">❗ ${p.open_issues} vướng mắc</span>` : '',
     p.delayed_items ? `<span class="dash-chip warning">⏱ ${p.delayed_items} đầu việc trễ</span>` : '',
-    p.risk === 'done' ? `<button type="button" class="dash-chip" data-close-project="${p.id}">🏁 Đóng công trình</button>` : ''
+    p.risk === 'done' ? `<button type="button" class="dash-chip" data-close-project="${p.id}"><img class="chip-ic" src="assets/icons/close-project.svg" alt="">Đóng công trình</button>` : ''
   ].join('');
   const quiet = p.last_report_date ? Math.round((Date.parse(state_today()) - Date.parse(p.last_report_date)) / 86400000) : null;
   const pkgRows = (p.packages || []).map(k => `

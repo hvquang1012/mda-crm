@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" fill="none">
+  <!-- Link chủ nhà: ngôi nhà + mắt xích -->
+  <defs>
+    <clipPath id="cl-house"><path d="M8 28L28 11L48 28V52Q48 55 45 55H11Q8 55 8 52Z"/></clipPath>
+  </defs>
+  <g id="fills">
+    <path d="M8 28L28 11L48 28V52Q48 55 45 55H11Q8 55 8 52Z" fill="#FFD166"/>
+  </g>
+  <g id="shadows">
+    <rect x="0" y="48" width="64" height="8" fill="#E9B443" clip-path="url(#cl-house)"/>
+  </g>
+  <g id="details">
+    <rect x="21" y="36" width="14" height="19" rx="2" fill="#EF476F"/>
+    <path d="M4 30L28 9L52 30" stroke="#EF476F" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="strokes" stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 28V52Q8 55 11 55H45Q48 55 48 52V28"/>
+    <path d="M4 30L28 9L52 30"/>
+    <path d="M21 55V38Q21 36 23 36H33Q35 36 35 38V55" stroke-width="2.5"/>
+  </g>
+  <g id="highlights" fill="#FFFFFF">
+    <rect x="11" y="32" width="2.2" height="9" rx="1.1"/>
+  </g>
+  <g id="badge">
+    <rect x="37" y="37" width="23" height="11" rx="5.5" fill="#4CC9F0" transform="rotate(-35 48.5 42.5)"/>
+    <g stroke="#1E1E24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-35 48.5 42.5)">
+      <path d="M46 37H42.5Q37 37 37 42.5Q37 48 42.5 48H46"/>
+      <path d="M51 37H54.5Q60 37 60 42.5Q60 48 54.5 48H51"/>
+      <path d="M44 42.5H53"/>
+    </g>
+  </g>
+  <g id="accents">
+    <path d="M55 5.5Q55 10 59.5 10Q55 10 55 14.5Q55 10 50.5 10Q55 10 55 5.5Z" fill="#1E1E24" stroke="#1E1E24" stroke-width="1.2" stroke-linejoin="round"/>
+  </g>
+</svg>
