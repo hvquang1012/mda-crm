@@ -35,6 +35,20 @@ const shot = (p, n) => p.screenshot({ path: path.join(OUT, n + '.png'), fullPage
 
 let p = await page('index.html', 390, 844);
 await shot(p, 'm-dashboard');
+// Logo: điện thoại chỉ hiện biểu tượng; máy tính hiện logo ngang trắng
+if (!(await p.isVisible('#mainScreen .logo-mark')) || (await p.isVisible('#mainScreen .logo-wide'))) errors.push('logo: điện thoại phải chỉ hiện biểu tượng');
+{
+  const pd = await page('index.html', 1440, 900);
+  if (!(await pd.isVisible('#mainScreen .logo-wide')) || (await pd.isVisible('#mainScreen .logo-mark'))) errors.push('logo: máy tính phải hiện logo ngang');
+  await pd.context().close();
+  for (const scheme of ['light', 'dark']) {
+    const pe = await page('crew.html', 390, 844, scheme);   // thiếu token → màn lỗi có logo
+    const on = await pe.isVisible('.logo-on-' + scheme), off = await pe.isVisible('.logo-on-' + (scheme === 'light' ? 'dark' : 'light'));
+    if (!on || off) errors.push('logo: màn lỗi thợ sai bản logo ở chế độ ' + scheme);
+    await shot(pe, 'logo-crew-error-' + scheme);
+    await pe.context().close();
+  }
+}
 // Công trình xong hết: không tính "Cần xử lý", không cảnh báo im lặng / dự báo trễ
 {
   const card = await p.$('[data-open-project=p3]');
