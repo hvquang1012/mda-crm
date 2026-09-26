@@ -98,7 +98,11 @@ function renderCurrentPackages() {
         meta: it.qty_plan ? `${it.qty_done}/${it.qty_plan} ${unitLabel(it.unit)}` : `${it.percent}%`
       }))
     }));
-    wrap.innerHTML = renderTimeline(groups, { project: currentProject() });
+    wrap.innerHTML = renderTimeline(groups, {
+      project: currentProject(),
+      groupActions: g => g.rows.some(r => r.status !== 'done')
+        ? `<button class="icon-btn" data-action="done-package" data-package-id="${g.id}">✓ Xong cả hạng mục</button>` : ''
+    });
     wireTimelineRows(wrap);
   } else {
     wrap.innerHTML = currentPackages.map(pkg => renderPackageCard(pkg)).join('');
@@ -122,6 +126,9 @@ function syncItemsView() {
 function wireTimelineRows(wrap) {
   wrap.querySelectorAll('[data-item-id]').forEach(row => {
     row.onclick = () => openItemModal(null, row.dataset.itemId);
+  });
+  wrap.querySelectorAll('[data-action=done-package]').forEach(b => {
+    b.onclick = (e) => { e.stopPropagation(); markPackageDone(b.dataset.packageId); };
   });
 }
 
