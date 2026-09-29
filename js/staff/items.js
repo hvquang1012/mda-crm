@@ -833,21 +833,19 @@ async function renderMembers() {
   ]);
   if (e1 || e2) { wrap.innerHTML = '<div class="empty-hint compact">Không tải được danh sách nhân viên.</div>'; return; }
   const inProject = new Set((members || []).map(m => m.staff_id));
-  const isAdmin = state.staffRole === 'admin';
-  const roleVi = ROLE_VI;
-  wrap.innerHTML = (staff || []).map(u => {
-    const seesAll = u.role === 'manager' || u.role === 'admin';
+  // Người đã khoá (màn Nhân viên) chỉ hiện nếu vẫn còn tick — để gỡ ra được.
+  // Đổi vai trò nằm ở màn Nhân viên (bấm tên đầu trang), không ở đây.
+  const list = (staff || []).filter(u => u.active !== false || inProject.has(u.id));
+  wrap.innerHTML = list.map(u => {
+    const seesAll = (u.role === 'manager' || u.role === 'admin') && u.active !== false;
     return `
     <div class="member-row">
       <label class="member-check">
         <input type="checkbox" data-member="${u.id}" ${inProject.has(u.id) || seesAll ? 'checked' : ''} ${seesAll ? 'disabled' : ''}>
-        <span>${escapeHtml(u.full_name || u.id.slice(0, 8))}${u.id === state.user.id ? ' (bạn)' : ''}</span>
+        <span>${escapeHtml(u.full_name || u.id.slice(0, 8))}${u.id === state.user.id ? ' (bạn)' : ''}${u.active === false ? ' — đã khoá' : ''}</span>
       </label>
-      ${zaloLinkHtml(u.phone)}
-      ${isAdmin && u.id !== state.user.id ? `
-        <select data-role="${u.id}" aria-label="Vai trò">
-          ${['kts', 'manager', 'admin'].map(r => `<option value="${r}" ${(u.role === 'staff' ? 'kts' : u.role) === r ? 'selected' : ''}>${roleVi[r]}</option>`).join('')}
-        </select>` : `<span class="member-role">${roleIconHtml(u.role)}${roleVi[u.role] || ''}</span>`}
+      ${u.active !== false ? zaloLinkHtml(u.phone) : ''}
+      <span class="member-role">${roleIconHtml(u.role)}${ROLE_VI[u.role] || ''}</span>
     </div>`;
   }).join('');
 
@@ -858,12 +856,6 @@ async function renderMembers() {
     const { error } = await q;
     if (error) { cb.checked = !cb.checked; showToast(rpcErrorText(error), true); return; }
     showToast(cb.checked ? 'Đã giao công trình' : 'Đã bỏ khỏi công trình');
-  });
-  wrap.querySelectorAll('[data-role]').forEach(sel => sel.onchange = async () => {
-    const { error } = await state.supabase.rpc('set_staff_role', { p_staff_id: sel.dataset.role, p_role: sel.value });
-    if (error) { showToast(rpcErrorText(error), true); renderMembers(); return; }
-    showToast('Đã đổi vai trò');
-    renderMembers();
   });
 }
 

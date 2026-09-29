@@ -41,6 +41,10 @@
     alerts: [{ id: 'a1', project_id: P2, severity: 'critical', kind: 'forecast_delay', message: '"Ốp đá lavabo" đã quá hạn 2 ngày', created_at: new Date().toISOString(), projects: { name: 'Căn hộ chị Hoa' } }],
     crew_links: [{ id: 'cl1', token: 'abc', project_id: P1, subcontractor_id: 's1', person_name: 'anh Sơn', role: 'manager', created_at: '2026-09-10T00:00:00Z', last_used_at: new Date().toISOString() }],
     client_links: [], dependencies: [], photo_archive: [],
+    audit_log: [
+      { id: 3, actor_id: 'u1', action: 'staff_deactivated', target_id: 'u3', detail: { name: 'KTS Cũ <b>' }, created_at: new Date(Date.now() - 3600e3).toISOString() },
+      { id: 2, actor_id: 'u1', action: 'member_added', project_id: P1, target_id: 'u2', detail: { name: 'KTS Lan', project: 'Nhà anh Minh — Ocean Park' }, created_at: new Date(Date.now() - 2 * 86400e3).toISOString() },
+      { id: 1, actor_id: null, action: 'crew_link_created', project_id: P1, detail: { name: 'anh Sơn', team: 'Đội đá Sơn', project: 'Nhà anh Minh — Ocean Park' }, created_at: new Date(Date.now() - 3 * 86400e3).toISOString() }],
     // Trò chuyện theo đầu việc
     work_items: items.map(it => ({ ...it, work_packages: it.work_package_id === 'wp1'
       ? { project_id: P1, subcontractor_id: 's1', name: 'Đá bếp', subcontractors: { name: 'Đội đá Sơn' }, projects: { name: 'Nhà anh Minh — Ocean Park' } }
@@ -67,6 +71,11 @@
     crew_bootstrap: { crew_link_id: 'cl1', project: { id: P1, name: 'Nhà anh Minh — Ocean Park' }, subcontractor: { id: 's1', name: 'Đội đá Sơn', trade: 'da' }, person_name: 'anh Sơn', role: 'manager', work_items: items.map(i => ({ ...i, last_message_at: i.id === 'i1' ? new Date(Date.now() - 3600e3).toISOString() : null })) },
     crew_my_reports: [{ id: 'r9', work_item_id: 'i1', work_item_name: 'Lắp đá mặt bếp', report_date: d(-1), qty_delta: 2, crew_size: 3, note: 'lắp mặt bếp', photos: [], status: 'rejected', reject_reason: 'Ảnh không rõ', created_at: new Date().toISOString() }],
     approve_report_group: 3.5, compute_alerts: 0, crew_submit: 'new-report-id',
+    staff_overview: [
+      { id: 'u1', full_name: 'Quang (Quản trị)', email: 'quang@x.vn', role: 'admin', active: true, projects: 3, pending_reports: 0, reviewed_30d: 12, last_sign_in_at: new Date().toISOString() },
+      { id: 'u2', full_name: 'KTS Lan', email: 'lan@x.vn', phone: '0912345678', role: 'kts', active: true, projects: 1, pending_reports: 4, oldest_pending_at: new Date(Date.now() - 30 * 3600e3).toISOString(), reviewed_30d: 20, last_sign_in_at: new Date(Date.now() - 86400e3).toISOString() },
+      { id: 'u3', full_name: 'KTS Cũ <b>', email: 'cu@x.vn', role: 'kts', active: false, deactivated_at: new Date(Date.now() - 3600e3).toISOString(), projects: 0, pending_reports: 0, reviewed_30d: 0 }],
+    set_staff_active: null, set_staff_role: null,
     chat_inbox: [
       { work_item_id: 'i1', item_name: 'Lắp đá mặt bếp', project_id: P1, project_name: 'Nhà anh Minh — Ocean Park', subcontractor_id: 's1', sub_name: 'Đội đá Sơn', last_body: '', last_author: 'anh Sơn', last_author_kind: 'crew', last_has_photos: true, last_at: new Date(Date.now() - 3600e3).toISOString(), unread: 2, total: 3 },
       { work_item_id: 'i3', item_name: 'Kéo dây, đấu hộp', project_id: P1, project_name: 'Nhà anh Minh — Ocean Park', subcontractor_id: 's2', sub_name: 'Điện Hùng', last_body: 'Ok anh <script>', last_author: 'KTS Lan', last_author_kind: 'staff', last_has_photos: false, last_at: new Date(Date.now() - 26 * 3600e3).toISOString(), unread: 0, total: 4 }],
@@ -108,7 +117,8 @@
     return b;
   }
   window.supabase = { createClient() { return {
-    auth: { getSession: async () => ({ data: { session: { user: { id: 'u1', email: 'quang@x.vn' } } } }), signOut: async () => ({}) },
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'u1', email: 'quang@x.vn' } } } }), signOut: async () => ({}),
+      updateUser: async (a) => { window.__calls.push(['auth.updateUser', a]); return { data: {}, error: null }; } },
     from: builder,
     rpc: async (name, args) => {
       window.__calls.push(['rpc', name, args]);
@@ -126,6 +136,13 @@
       },
       uploadToSignedUrl: async () => ({ error: null }), upload: async () => ({ error: null }) }; } },
     functions: { invoke: async (n, opts) => {
+      if (n === 'admin-users') {
+        window.__calls.push(['fn', n, opts?.body]);
+        const b = opts?.body || {};
+        if (b.action === 'create' && b.email === 'lan@x.vn') return { data: null, error: { message: 'Edge Function returned a non-2xx status code', context: new Response(JSON.stringify({ error: 'email_exists' }), { status: 409 }) } };
+        if (b.action === 'create' || b.action === 'reset_password') return { data: { id: 'u9', email: b.email || 'lan@x.vn', password: 'Md-abcde-fghjk' }, error: null };
+        return { data: { id: b.staff_id, banned: true }, error: null };
+      }
       if (n === 'get-photo-url') return { data: { urls: (opts?.body?.paths || []).map(() => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="hsl(200 35% 62%)"/></svg>')) }, error: null };
       return { data: { paths: ['p1/s1/x.jpg', 'p1/s1/x-thumb.jpg'], tokens: ['a', 'b'] }, error: null };
     } }

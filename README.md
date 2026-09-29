@@ -42,7 +42,7 @@ Cả bốn mục tiêu của hệ thống đều rơi ra từ đúng một bản
 |---|---|---|
 | **Công nhân / đội trưởng thầu phụ** | Link Zalo, **không đăng nhập** (`crew.html?t=<token>`) | Chọn đầu việc → nhập khối lượng + số thợ + ghi chú + ảnh → gửi. Nút "Báo vướng". |
 | **KTS / giám sát** (vai `kts`) | Email + mật khẩu | Chỉ công trình được giao: tạo công trình 3 bước, dán đầu việc từ Excel, hộp duyệt, vướng mắc, nhập thay |
-| **Quản lý / ban giám đốc** (vai `manager`/`admin`) | Email + mật khẩu | Mọi công trình: dashboard rủi ro, giao công trình cho KTS, xuất CSV nghiệm thu |
+| **Quản lý / ban giám đốc** (vai `manager`/`admin`) | Email + mật khẩu | Mọi công trình: dashboard rủi ro, giao công trình cho KTS, xuất CSV nghiệm thu, màn Nhân viên (khối việc từng KTS, nhật ký thao tác). Quản trị thêm được: tạo / khoá tài khoản, đổi vai trò, cấp lại mật khẩu |
 | **Chủ nhà** | Link riêng, không đăng nhập (`client.html?t=<token>`) | Tiến độ theo giai đoạn + album ảnh đã duyệt |
 
 Thiết kế cố ý cho phép **cả ba vai nội bộ đều nhập được** — hệ thống không chết khi một đội từ chối dùng app.
@@ -68,7 +68,7 @@ client.html  ─ ?t=token ──────────→  RPC client_view() s
 
 **Bảo mật:** role `anon` **không có quyền gì** trên mọi bảng (`revoke all ... from anon`). Mọi thao tác không đăng nhập bắt buộc đi qua hàm `security definer` tự kiểm tra token bên trong. Đây là khác biệt cốt lõi so với bản v1 từng dùng `using (true)` khiến ai cũng đọc được dữ liệu mọi công trình.
 
-### Bảng dữ liệu (14 bảng)
+### Bảng dữ liệu chính
 
 ```
 subcontractors    Đội thầu phụ (trade: da | dien | khac)
@@ -81,7 +81,8 @@ issues            Vướng mắc, có cờ is_blocking
 alerts            Cảnh báo sinh bởi compute_alerts()
 crew_links        Token link Zalo cho từng người
 client_links      Token link chủ nhà
-staff             Hồ sơ nhân viên (auto-tạo bằng trigger từ auth.users)
+staff             Hồ sơ nhân viên (auto-tạo bằng trigger từ auth.users; active = false là đã khoá)
+audit_log         Nhật ký thao tác (chỉ ghi thêm, quản lý đọc)
 push_subscriptions
 work_package_templates + work_package_template_items
 ```
@@ -128,6 +129,8 @@ js/
     wizard.js       Tạo công trình 3 bước (module phụ của items.js)
     alerts.js       Tab Cần xử lý — vướng mắc + cảnh báo
     export.js       Xuất CSV nghiệm thu theo kỳ
+    profile.js      Cài đặt tài khoản: tên, số Zalo, đổi mật khẩu
+    team.js         Màn Nhân viên: thêm / khoá / đổi vai trò / cấp lại mật khẩu, nhật ký thao tác
 
 supabase/
   schema.sql              Toàn bộ schema + RLS + RPC + cảnh báo (~870 dòng)
@@ -135,7 +138,8 @@ supabase/
   functions/
     crew-upload/          Cấp signed upload URL cho người không đăng nhập
     get-photo-url/        Cấp signed download URL cho chủ nhà
-    send-alerts/          Đẩy Web Push (lọc theo quyền công trình)
+    send-alerts/          Đẩy Web Push (lọc theo quyền công trình, bỏ người đã khoá)
+    admin-users/          Tạo tài khoản, chặn đăng nhập, cấp lại mật khẩu (chỉ quản trị)
     dropbox-link/         Cấp link tạm cho máy thợ gửi ảnh gốc lên Dropbox
     dropbox-sync/         Cron 10 phút: xếp ảnh Dropbox theo kết quả duyệt
     _shared/dropbox.ts    Gọi Dropbox API

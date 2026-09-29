@@ -94,7 +94,7 @@ Git Bash là chính, PowerShell cũng có. `curl`, `python3`, `openssl`, `git` �
 | Hosting | Cloudflare Pages, project `mda-crm` (auto-deploy từ `main`, không build step, output `/`) |
 | GitHub | `git@github.com:hvquang1012/mda-crm.git` |
 | Storage bucket | `site-photos` (private) |
-| Edge Functions | `crew-upload`, `get-photo-url`, `send-alerts` |
+| Edge Functions | `crew-upload`, `get-photo-url`, `send-alerts`, `dropbox-link`, `dropbox-sync`, `admin-users` |
 | Cron | `compute_alerts()` 7h & 15h giờ VN (lịch ghi theo UTC: `0 0`, `0 8`); `mda-notify` mỗi phút; `mda-dropbox-sync` 10 phút |
 
 Domain: `tiendo.noithatminhduc.com` → Custom domain của Cloudflare Pages (bản ghi DNS do Pages tự tạo). Xem [huong-dan-domain.html](huong-dan-domain.html).

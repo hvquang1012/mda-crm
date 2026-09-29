@@ -3,9 +3,11 @@
 // và số điện thoại. DB chỉ cho authenticated update(full_name, phone)
 // trên dòng của chính mình — role vẫn chỉ đổi qua set_staff_role().
 // Số lưu dạng 0xxxxxxxxx (ràng buộc staff_phone_check) để dựng link
-// Zalo ở danh sách nhân viên.
+// Zalo ở danh sách nhân viên. Đổi mật khẩu qua supabase.auth — nhân
+// viên mới nhận mật khẩu tạm (màn Nhân viên) tự đổi ở đây.
+// Quản lý / quản trị có thêm nút mở màn "Nhân viên" (main.js nối).
 // ============================================================
-import { state } from './state.js';
+import { state, isManager } from './state.js';
 import { escapeHtml, showToast, rpcErrorText } from '../ui.js';
 
 // '' = xoá số; '0xxxxxxxxx' = hợp lệ; null = sai định dạng
@@ -46,9 +48,12 @@ export function openProfileModal() {
   const phone = document.getElementById('profilePhone');
   const err = document.getElementById('profileError');
   const zalo = document.getElementById('profileZalo');
+  const pass = document.getElementById('profileNewPassword');
   name.value = state.profile?.full_name || '';
   phone.value = state.profile?.phone || '';
+  pass.value = '';
   err.textContent = '';
+  document.getElementById('btnOpenTeam').hidden = !isManager();
 
   const preview = () => {
     const p = normalizePhone(phone.value);
@@ -65,8 +70,21 @@ export function openProfileModal() {
     const p = normalizePhone(phone.value);
     if (!full_name) { err.textContent = 'Nhập tên hiển thị.'; name.focus(); return; }
     if (p === null) { err.textContent = 'Số điện thoại gồm 10 số, bắt đầu bằng 0 (VD: 0912 345 678).'; phone.focus(); return; }
+    const newPass = pass.value;
+    if (newPass && newPass.length < 8) { err.textContent = 'Mật khẩu mới cần ít nhất 8 ký tự.'; pass.focus(); return; }
     const btn = document.getElementById('btnProfileSave');
     btn.disabled = true;
+    if (newPass) {
+      const { error: passErr } = await state.supabase.auth.updateUser({ password: newPass });
+      if (passErr) {
+        btn.disabled = false;
+        err.textContent = /different|same/i.test(passErr.message || '') ? 'Mật khẩu mới phải khác mật khẩu cũ.'
+          : /weak|short|characters/i.test(passErr.message || '') ? 'Mật khẩu quá yếu — thêm chữ số hoặc dài hơn.'
+          : 'Chưa đổi được mật khẩu — đăng xuất, đăng nhập lại rồi thử.';
+        return;
+      }
+      pass.value = '';
+    }
     const { error } = await state.supabase.from('staff')
       .update({ full_name, phone: p || null }).eq('id', state.user.id);
     btn.disabled = false;
@@ -79,7 +97,7 @@ export function openProfileModal() {
     state.profile = { ...state.profile, full_name, phone: p || null };
     renderStaffName();
     close();
-    showToast('Đã lưu');
+    showToast(newPass ? 'Đã lưu — mật khẩu mới dùng từ lần đăng nhập sau' : 'Đã lưu');
   };
 
   modal.classList.add('show');

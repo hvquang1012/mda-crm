@@ -77,6 +77,51 @@ await p.fill('#profilePhone', '0912 345 678'); await p.click('#btnProfileSave');
 if (!(await p.evaluate(() => window.__calls)).some(c => c[0] === 'update' && c[1] === 'staff' && c[2].phone === '0912345678' && c[2].full_name === 'Quang MD')) errors.push('profile: không lưu tên/số');
 if ((await p.textContent('#staffName')).trim() !== 'Quang MD') errors.push('profile: tên đầu trang chưa đổi / còn chữ vai trò');
 if (!(await p.$('#staffName img.role-ic[src*="role-admin"]'))) errors.push('profile: thiếu icon vai trò');
+// Mật khẩu mới quá ngắn không gửi; đủ dài thì gọi auth.updateUser
+await p.click('#staffName'); await p.waitForTimeout(200);
+await p.fill('#profileNewPassword', '123'); await p.click('#btnProfileSave'); await p.waitForTimeout(200);
+if ((await p.evaluate(() => window.__calls)).some(c => c[0] === 'auth.updateUser')) errors.push('profile: mật khẩu ngắn vẫn gửi');
+await p.fill('#profileNewPassword', 'matkhaumoi2026'); await p.click('#btnProfileSave'); await p.waitForTimeout(300);
+if (!(await p.evaluate(() => window.__calls)).some(c => c[0] === 'auth.updateUser' && c[1].password === 'matkhaumoi2026')) errors.push('profile: không đổi được mật khẩu');
+// Màn Nhân viên (quản trị): mở từ Cài đặt tài khoản
+await p.click('#staffName'); await p.waitForTimeout(200);
+if (!(await p.isVisible('#btnOpenTeam'))) errors.push('team: quản trị không thấy nút Quản lý nhân viên');
+await p.click('#btnOpenTeam'); await p.waitForTimeout(400);
+if (await p.isVisible('#profileModal')) errors.push('team: hộp Cài đặt chưa đóng khi mở Nhân viên');
+if ((await p.$$('#teamBody .staff-card')).length !== 3) errors.push('team: danh sách phải có 3 nhân viên');
+if (!(await p.$('#teamBody .staff-card.inactive'))) errors.push('team: thiếu nhóm Đã khoá');
+if ((await p.innerHTML('#teamBody')).includes('<b>KTS Cũ')) errors.push('team: tên nhân viên chưa escape');
+if (!(await p.$('#teamBody .stat-warn'))) errors.push('team: báo cáo chờ >24h không tô cảnh báo');
+await shot(p, 'm-team');
+{
+  const n0 = (await p.evaluate(() => window.__calls)).length;
+  p.once('dialog', dlg => dlg.accept());
+  await p.click('[data-lock=u2]'); await p.waitForTimeout(400);
+  const calls = (await p.evaluate(() => window.__calls)).slice(n0);
+  if (!calls.some(c => c[0] === 'rpc' && c[1] === 'set_staff_active' && c[2].p_active === false)) errors.push('team: Khoá không gọi set_staff_active');
+  if (!calls.some(c => c[0] === 'fn' && c[2].action === 'sync_ban' && c[2].staff_id === 'u2')) errors.push('team: Khoá không chặn đăng nhập (sync_ban)');
+}
+await p.click('#btnTeamAdd'); await p.waitForTimeout(200);
+await p.fill('#staffFormName', 'KTS Mai'); await p.fill('#staffFormEmail', 'lan@x.vn'); await p.click('#btnStaffFormSave'); await p.waitForTimeout(300);
+if (!(await p.textContent('#staffFormError')).includes('đã có tài khoản')) errors.push('team: trùng email không báo lỗi tiếng Việt');
+await p.fill('#staffFormEmail', 'mai@x.vn'); await p.fill('#staffFormPhone', '+84 987 654 321'); await p.selectOption('#staffFormRole', 'manager');
+await p.click('#btnStaffFormSave'); await p.waitForTimeout(400);
+{
+  const c = (await p.evaluate(() => window.__calls)).find(c => c[0] === 'fn' && c[2].action === 'create' && c[2].email === 'mai@x.vn');
+  if (!c || c[2].phone !== '0987654321' || c[2].role !== 'manager') errors.push('team: tạo nhân viên gửi sai dữ liệu');
+  if (!(await p.isVisible('#passwordModal')) || (await p.textContent('#tempPassValue')) !== 'Md-abcde-fghjk') errors.push('team: không hiện mật khẩu tạm');
+}
+await shot(p, 'm-team-password');
+await p.click('#btnTempPassDone'); await p.waitForTimeout(200);
+if ((await p.textContent('#tempPassValue')) !== '') errors.push('team: mật khẩu tạm còn trên trang sau khi đóng');
+await p.click('[data-team-view=log]'); await p.waitForTimeout(400);
+if ((await p.$$('#teamBody .log-row')).length !== 3) errors.push('team: nhật ký phải có 3 dòng');
+if (!(await p.textContent('#teamBody')).includes('Hệ thống')) errors.push('team: thao tác không người làm phải ghi "Hệ thống"');
+if ((await p.innerHTML('#teamBody')).includes('<b>KTS Cũ <b>')) errors.push('team: nhật ký chưa escape');
+if (await p.isVisible('#btnTeamAdd')) errors.push('team: nút ＋ Nhân viên còn ở tab Nhật ký');
+await shot(p, 'm-team-log');
+await p.click('#btnTeamClose'); await p.waitForTimeout(200);
+
 // Cài đặt nhanh: ☾ đổi Tối ngay; ⚙ → cỡ chữ Lớn, English; tải lại vẫn giữ
 await p.click('#btnProfileCancel').catch(() => {});
 await p.click('#quickSettings .qs-toggle'); await p.waitForTimeout(400);

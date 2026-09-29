@@ -208,10 +208,70 @@
       <div class="field-hint">Quản lý bấm nút Zalo ở danh sách nhân viên để nhắn cho bạn.</div>
       <a class="profile-zalo" id="profileZalo" target="_blank" rel="noopener" hidden></a>
     </div>
+    <div>
+      <label class="field-label" for="profileNewPassword">Đổi mật khẩu</label>
+      <input type="password" id="profileNewPassword" autocomplete="new-password" placeholder="Bỏ trống nếu giữ nguyên">
+      <div class="field-hint">Ít nhất 8 ký tự. Nên đổi ngay sau khi nhận mật khẩu tạm.</div>
+    </div>
     <div class="login-error" id="profileError" role="alert"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnProfileCancel">Huỷ</button>
       <button class="btn btn-primary" id="btnProfileSave">Lưu</button>
+    </div>
+    <button type="button" class="btn btn-ghost team-open-btn" id="btnOpenTeam" hidden><img class="btn-ic" src="assets/icons/members.svg" alt="">Quản lý nhân viên</button>
+  </div>
+</div>
+
+<!-- ===================== NHÂN VIÊN (quản lý / quản trị) ===================== -->
+<div class="modal-backdrop" id="teamModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Nhân viên</div>
+    <div class="seg-switch" role="group" aria-label="Xem">
+      <button type="button" data-team-view="staff" class="active">Danh sách</button>
+      <button type="button" data-team-view="log">Nhật ký thao tác</button>
+    </div>
+    <div id="teamBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnTeamClose">Đóng</button>
+      <button class="btn btn-primary" id="btnTeamAdd" hidden>＋ Nhân viên</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="staffFormModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Thêm nhân viên</div>
+    <div class="field-hint" style="margin-top:0;">Hệ thống tạo tài khoản và một mật khẩu tạm — gửi cho nhân viên qua Zalo. KTS chỉ thấy công trình được giao (nút KTS phụ trách ở tab Công việc).</div>
+    <div><label class="field-label" for="staffFormName">Tên hiển thị</label><input type="text" id="staffFormName" maxlength="60" placeholder="VD: KTS Lan"></div>
+    <div><label class="field-label" for="staffFormEmail">Email đăng nhập</label><input type="email" id="staffFormEmail" autocomplete="off" placeholder="lan@noithatminhduc.com"></div>
+    <div><label class="field-label" for="staffFormPhone">Số điện thoại (Zalo)</label><input type="tel" id="staffFormPhone" inputmode="tel" maxlength="16" placeholder="0912 345 678"></div>
+    <div>
+      <label class="field-label" for="staffFormRole">Vai trò</label>
+      <select id="staffFormRole">
+        <option value="kts">KTS — chỉ công trình được giao</option>
+        <option value="manager">Quản lý — xem mọi công trình</option>
+        <option value="admin">Quản trị — thêm quản lý nhân viên</option>
+      </select>
+    </div>
+    <div class="login-error" id="staffFormError" role="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnStaffFormCancel">Huỷ</button>
+      <button class="btn btn-primary" id="btnStaffFormSave">Tạo tài khoản</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="passwordModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Mật khẩu tạm</div>
+    <div class="notice-warning" style="margin:0;">Chỉ hiện <b>một lần</b> — gửi ngay cho nhân viên. Đóng hộp này là không xem lại được, phải cấp mật khẩu mới.</div>
+    <div class="temp-pass">
+      <div class="field-label">Email</div><div id="tempPassEmail"></div>
+      <div class="field-label" style="margin-top:8px;">Mật khẩu</div><div class="temp-pass-value" id="tempPassValue"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnTempPassDone">Xong</button>
+      <button class="btn btn-primary" id="btnTempPassShare">Gửi qua Zalo</button>
     </div>
   </div>
 </div>
@@ -220,7 +280,7 @@
 <div class="modal-backdrop" id="membersModal">
   <div class="modal-sheet">
     <div class="modal-title">Ai phụ trách — <span id="membersProjectLabel"></span></div>
-    <div class="field-hint" style="margin-top:0;">KTS chỉ thấy và duyệt được công trình được tick. Quản lý / Quản trị luôn thấy tất cả.</div>
+    <div class="field-hint" style="margin-top:0;">KTS chỉ thấy và duyệt được công trình được tick. Quản lý / Quản trị luôn thấy tất cả. Đổi vai trò, thêm / khoá nhân viên: bấm tên ở đầu trang → Quản lý nhân viên.</div>
     <div id="membersList"></div>
     <div class="modal-actions"><button class="btn btn-primary" id="btnMembersClose" style="flex:none;width:100%;">Xong</button></div>
   </div>
