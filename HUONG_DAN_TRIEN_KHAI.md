@@ -108,15 +108,15 @@ không nhận được thông báo đẩy khi có cảnh báo, phải tự mở 
 
 ## BƯỚC 6 — Đưa app lên mạng
 
-**Netlify Drop (app.netlify.com/drop):** kéo thả **toàn bộ thư mục**
-`mda-crm-pwa` — bao gồm `index.html`, `crew.html`, `client.html`,
-`config.js`, `manifest.json`, `sw.js`, thư mục `css/`, `js/`, `vendor/`,
-2 file icon. **Không cần** kéo thư mục `supabase/` (đó là phần chạy
-trên server Supabase, không phải phần web tĩnh).
+**Cloudflare Pages** (dash.cloudflare.com → Compute → Workers & Pages →
+Create → Pages → Connect to Git): chọn repo `mda-crm`, nhánh `main`,
+Framework **None**, build command để trống, output directory `/`.
+Mỗi lần merge vào `main` Cloudflare tự cập nhật. Gắn tên miền
+`tiendo.noithatminhduc.com` ở tab **Custom domains** — xem
+[huong-dan-domain.html](huong-dan-domain.html).
 
-Netlify trả về link dạng `https://random-name-123.netlify.app` — đây
-là gốc để tạo mọi link con (staff mở `/index.html`, thầu phụ mở
-`/crew.html?t=...`, khách mở `/client.html?t=...`).
+Link gốc `https://tiendo.noithatminhduc.com` (staff mở `/index.html`,
+thầu phụ mở `/crew.html?t=...`, khách mở `/client.html?t=...`).
 
 ---
 
@@ -310,5 +310,5 @@ Không thấy tên thầu phụ, giá cả, hay vướng mắc nội bộ.
 - Supabase free: 500MB database + 1GB storage + 50.000 request/tháng.
   Với ảnh hiện trường hàng ngày của 5-6 đội, khả năng cần nâng Pro
   ($25/tháng) trong vòng vài tháng đầu.
-- Netlify hosting: miễn phí.
+- Cloudflare Pages hosting: miễn phí (không giới hạn băng thông, 500 lần cập nhật/tháng).
 - Không cần chi phí App Store/Google Play vì là PWA.

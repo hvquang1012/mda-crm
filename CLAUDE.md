@@ -91,7 +91,7 @@ Git Bash là chính, PowerShell cũng có. `curl`, `python3`, `openssl`, `git` �
 |---|---|
 | Supabase project ref | `lneaqpfiifqkpccpxgsp` (`mda-crm`, ap-southeast-1) |
 | Supabase URL | `https://lneaqpfiifqkpccpxgsp.supabase.co` |
-| Hosting | Cloudflare Pages, project `mda-crm` (auto-deploy từ `main`, không build step, output `/`) — Netlify cũ `zippy-douhua-7a4098.netlify.app` đã ngừng cập nhật (hết lượt gói free) |
+| Hosting | Cloudflare Pages, project `mda-crm` (auto-deploy từ `main`, không build step, output `/`) |
 | GitHub | `git@github.com:hvquang1012/mda-crm.git` |
 | Storage bucket | `site-photos` (private) |
 | Edge Functions | `crew-upload`, `get-photo-url`, `send-alerts` |
