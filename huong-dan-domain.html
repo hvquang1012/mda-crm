@@ -149,17 +149,7 @@ footer a{color:var(--brass-deep);}
     và không đụng tới website chính của công ty.
   </p>
 
-  <div class="callout warn">
-    <div class="callout-icon">▲</div>
-    <div>
-      <h3>Vì sao chuyển khỏi Netlify (9/2026)</h3>
-      <p>
-        Gói miễn phí Netlify hết lượt trong tháng thì <strong>dừng cập nhật</strong> trang chính:
-        web vẫn chạy nhưng kẹt ở bản cũ. Cloudflare Pages không giới hạn băng thông,
-        500 lần cập nhật/tháng, và domain đã nằm sẵn ở Cloudflare.
-      </p>
-    </div>
-  </div>
+  <p class="step-sub">Trước 9/2026 app chạy trên Netlify; chuyển sang Cloudflare Pages vì gói miễn phí Netlify hết lượt thì dừng cập nhật trang.</p>
 
   <h2>Tóm tắt nhanh</h2>
   <div class="quickref">
@@ -209,7 +199,7 @@ footer a{color:var(--brass-deep);}
       <div class="step-body">
         <p><strong>Chuyển tên miền sang Pages.</strong></p>
         <p>
-          <strong>DNS → Records</strong>: xoá bản ghi <code class="inline-code">tiendo</code> cũ (CNAME trỏ Netlify).
+          <strong>DNS → Records</strong>: xoá bản ghi <code class="inline-code">tiendo</code> cũ.
           Rồi vào project Pages → <strong>Custom domains</strong> → <strong>Set up a custom domain</strong> →
           gõ <code class="inline-code">tiendo.noithatminhduc.com</code> → <strong>Activate domain</strong>.
           Cloudflare tự tạo lại bản ghi và tự bật HTTPS.
@@ -233,13 +223,11 @@ footer a{color:var(--brass-deep);}
   <hr class="divider">
 
   <h2>Sau khi domain chạy</h2>
-  <p class="step-sub" style="margin-bottom:14px;">Không cần làm gì thêm ở phía Supabase hay code — chỉ đổi phần đầu của các link đã gửi.</p>
+  <p class="step-sub" style="margin-bottom:14px;">Không cần làm gì thêm ở phía Supabase hay code — link gửi thợ, chủ nhà luôn bắt đầu bằng tên miền riêng.</p>
   <div class="card" style="padding:20px 24px;">
     <p style="margin:0 0 10px; font-size:14.5px;">
-      Link Zalo cho thợ, đội trưởng, chủ nhà đổi từ:
+      Link Zalo cho thợ, đội trưởng, chủ nhà luôn dùng dạng:
     </p>
-    <p style="margin:0 0 4px;"><code class="inline-code">zippy-douhua-7a4098.netlify.app/crew.html?t=... (Netlify cũ — kẹt bản cũ)</code></p>
-    <p style="margin:0 0 10px; font-size:14.5px;">sang:</p>
     <p style="margin:0;"><code class="inline-code">tiendo.noithatminhduc.com/crew.html?t=...</code></p>
     <p style="margin:14px 0 0; font-size:13.5px; color:var(--ink-soft);">
       Token (phần <code class="inline-code">?t=...</code>) giữ nguyên — token nằm trong database,
