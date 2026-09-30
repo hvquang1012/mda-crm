@@ -234,7 +234,10 @@ function setSelectMode(on) {
 function syncSelectBar() {
   const btn = document.getElementById('btnSelectMode');
   btn?.setAttribute('aria-pressed', String(state.selectMode));
-  if (btn) btn.textContent = state.selectMode ? '✕ Thoát chọn' : '☑ Chọn nhiều';
+  if (btn) { btn.textContent = state.selectMode ? '✓ Đang chọn · Thoát' : '☑ Chọn nhiều'; btn.classList.toggle('on', state.selectMode); }
+  document.getElementById('packagesList')?.classList.toggle('select-mode', state.selectMode);
+  const hint = document.getElementById('selectHint');
+  if (hint) hint.hidden = !state.selectMode;
   const bar = document.getElementById('selectBar');
   if (!bar) return;
   // Bỏ các id không còn tồn tại (đã xoá / đổi công trình) để số đếm không sai
