@@ -38,9 +38,20 @@ Mở `config.js`, điền `SUPABASE_URL` và `SUPABASE_ANON_KEY` từ Bước 1.
 
 ## BƯỚC 3 — Tạo tài khoản nhân viên
 
-**Authentication → Users → Add user → Create new user**, nhập email +
-mật khẩu cho từng giám sát/chỉ huy trưởng. Hệ thống tự tạo hồ sơ nhân
-viên khi tài khoản được tạo — không cần thao tác gì thêm.
+**Chỉ làm một lần cho tài khoản quản trị đầu tiên:** **Authentication →
+Users → Add user → Create new user**, nhập email + mật khẩu của bạn. Rồi
+nâng tài khoản đó lên Quản trị: **SQL Editor → New query**, chạy
+`update staff set role = 'admin' where email = 'email-của-bạn';`
+
+Từ người thứ hai trở đi **thêm ngay trong app** (cần deploy Edge Function
+`admin-users` ở Bước 4): bấm **tên của bạn ở đầu trang → Quản lý nhân
+viên → ＋ Nhân viên**, nhập tên, email, số Zalo, vai trò → app tạo tài
+khoản và hiện **mật khẩu tạm một lần** → bấm **Gửi qua Zalo**. Nhân viên
+đăng nhập xong bấm tên mình ở đầu trang để đổi mật khẩu.
+
+Nhân viên nghỉ việc: cùng màn đó bấm **Khoá** — người đó không đăng nhập
+và không xem được công trình nào nữa, lịch sử duyệt vẫn giữ. **Không xoá
+tài khoản trong Supabase** (sẽ báo lỗi vì còn lịch sử báo cáo).
 
 ---
 
@@ -61,13 +72,17 @@ từ Project URL, dạng `https://<project-ref>.supabase.co`):
 supabase link --project-ref <project-ref>
 ```
 
-Deploy 3 hàm:
+Deploy 4 hàm:
 
 ```bash
 supabase functions deploy crew-upload
 supabase functions deploy get-photo-url
 supabase functions deploy send-alerts
+supabase functions deploy admin-users
 ```
+
+`admin-users` là chức năng thêm / khoá nhân viên và cấp lại mật khẩu ngay
+trong app (Bước 3).
 
 ---
 

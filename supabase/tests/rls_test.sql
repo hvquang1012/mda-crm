@@ -229,3 +229,51 @@ set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
 select 'thợ nhắn công trình đã đóng (phải lỗi project_closed)' t; select crew_send_message('tok','55555555-5555-5555-5555-555555555555','x');
 reset role;
 update projects set status='active' where id='33333333-3333-3333-3333-333333333333';
+
+-- ============================================================
+-- QUẢN LÝ NHÂN VIÊN: khoá tài khoản + nhật ký thao tác
+-- A = admin, K1 = KTS phụ trách P1 (có tạo 'P mới của K1'), K2 = KTS không phụ trách gì
+-- ============================================================
+set role authenticated; set request.jwt.claim.role='authenticated';
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'K1 khoá K2 (phải lỗi admin_only)' t; select set_staff_active('aaaaaaaa-0000-0000-0000-000000000003', false);
+select 'K1 xem staff_overview (phải lỗi manager_only)' t; select staff_overview();
+select 'K1 đọc audit_log (0 dòng)' t, count(*) from audit_log;
+select 'K1 tự mở khoá bằng update (phải lỗi)' t; update staff set active = true where id = auth.uid();
+select 'K1 ghi audit_log (phải lỗi)' t; insert into audit_log(action) values ('x');
+select 'K1 trước khi bị khoá thấy' t, count(*) from projects;
+insert into push_subscriptions(staff_id, endpoint, p256dh, auth) values (auth.uid(), 'https://push/k1', 'p', 'a');
+
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000001';
+select 'A tự khoá mình (phải lỗi cannot_deactivate_self)' t; select set_staff_active(auth.uid(), false);
+select 'A khoá K1' t, set_staff_active('aaaaaaaa-0000-0000-0000-000000000002', false);
+select 'K1 bị xoá đăng ký push (0)' t, count(*) from push_subscriptions where staff_id='aaaaaaaa-0000-0000-0000-000000000002';
+select 'A đổi vai trò K2 → manager' t, set_staff_role('aaaaaaaa-0000-0000-0000-000000000003', 'manager');
+select 'A gỡ K1 khỏi P1' t;
+delete from project_members where project_id='33333333-3333-3333-3333-333333333333' and staff_id='aaaaaaaa-0000-0000-0000-000000000002';
+insert into project_members values ('33333333-3333-3333-3333-333333333333','aaaaaaaa-0000-0000-0000-000000000002');
+select 'staff_overview: K1 khoá, 2 công trình, 1 chờ duyệt' t, e->>'active' active, e->>'projects' projects, e->>'pending_reports' pending
+  from json_array_elements(staff_overview()) e where e->>'id' = 'aaaaaaaa-0000-0000-0000-000000000002';
+select 'A đọc nhật ký' t; select action, actor_id is not null as has_actor, detail->>'name' as name, detail->>'project' as project from audit_log order by id;
+
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'K1 đã khoá thấy công trình (0)' t, count(*) from projects;
+select 'K1 đã khoá thấy báo cáo (0)' t, count(*) from progress_reports;
+select 'K1 đã khoá thấy đội thầu phụ (0)' t, count(*) from subcontractors;
+select 'K1 đã khoá chỉ thấy dòng staff của mình (1)' t, count(*), bool_and(not active) from staff;
+select 'K1 đã khoá dashboard (0 công trình)' t, json_array_length(dashboard_summary()->'projects');
+select 'K1 đã khoá tạo công trình (phải lỗi RLS)' t; insert into projects(name) values ('lén');
+select 'K1 đã khoá đăng ký push lại (phải lỗi RLS)' t; insert into push_subscriptions(staff_id, endpoint, p256dh, auth) values (auth.uid(), 'https://push/k1b', 'p', 'a');
+
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000001';
+select 'A mở khoá K1' t, set_staff_active('aaaaaaaa-0000-0000-0000-000000000002', true);
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'K1 mở khoá lại thấy' t, count(*) from projects;
+select 'K1 thu hồi link thợ' t; update crew_links set revoked_at = now() where id='77777777-7777-7777-7777-777777777777';
+reset role;
+update crew_links set revoked_at = null where id='77777777-7777-7777-7777-777777777777';
+select 'nhật ký cuối' t; select action, detail->>'name' as name from audit_log order by id desc limit 3;
+set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
+select 'anon đọc audit_log (phải lỗi)' t; select * from audit_log;
+select 'anon gọi staff_overview (phải lỗi)' t; select staff_overview();
+reset role;

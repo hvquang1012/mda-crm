@@ -962,3 +962,20 @@ button.dash-chip{cursor:pointer;}
 @media (max-width:520px){ .project-bar .btn-ic{width:20px;height:20px;} .project-bar .icon-btn{gap:3px;} }
 /* Biểu tượng navy trên nền tím: viền trắng mảnh cho nổi */
 .header-logo.logo-mark{background:#fff;border-radius:50%;padding:2px;box-shadow:0 2px 8px -2px rgba(0,0,0,.3);}
+
+/* ---------- Màn Nhân viên (js/staff/team.js) ---------- */
+.team-open-btn{display:flex;align-items:center;justify-content:center;gap:8px;}
+.staff-card{padding:12px 0;border-top:1px dashed var(--line);}
+.staff-card.inactive{opacity:.6;}
+.staff-card-head{display:flex;align-items:center;gap:8px;}
+.staff-card-name{flex:1;min-width:0;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.staff-card-meta{font-size:12px;color:var(--ink-soft);margin-top:2px;overflow-wrap:anywhere;}
+.staff-card-stats{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12.5px;color:var(--ink-soft);}
+.staff-card-stats .stat-warn{color:var(--warning);font-weight:700;}
+.staff-card-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;}
+.staff-card-actions select{width:auto;padding:7px 10px;font-size:13px;}
+.log-row{display:flex;gap:10px;padding:8px 0;border-top:1px dashed var(--line);font-size:13px;line-height:1.45;}
+.log-time{flex:none;width:78px;color:var(--ink-faint);font-variant-numeric:tabular-nums;font-size:12px;padding-top:1px;}
+#teamLogProject{margin-bottom:6px;}
+.temp-pass{background:var(--bg);border-radius:var(--radius-md);padding:12px 14px;overflow-wrap:anywhere;}
+.temp-pass-value{font-size:22px;font-weight:800;letter-spacing:.04em;font-variant-numeric:tabular-nums;user-select:all;}

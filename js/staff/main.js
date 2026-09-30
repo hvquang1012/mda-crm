@@ -13,6 +13,7 @@ import { renderChat, refreshChatBadge, onRealtimeMessage } from './chat.js';
 import { wireExportButton } from './export.js';
 import { setupPush, pushState } from '../push.js';
 import { renderStaffName, openProfileModal } from './profile.js';
+import { openTeam } from './team.js';
 import { mountQuickSettings } from '../settings.js';
 
 mountQuickSettings(document.getElementById('quickSettings'));
@@ -38,12 +39,16 @@ document.getElementById('btnLogin').onclick = async () => {
   errBox.textContent = '';
   if (!email || !password) { errBox.textContent = 'Nhập đầy đủ email và mật khẩu.'; return; }
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) { errBox.textContent = 'Sai email hoặc mật khẩu.'; return; }
+  if (error) { errBox.textContent = /banned/i.test(error.message || '') ? 'Tài khoản đã bị khoá — liên hệ quản trị Minh Đức.' : 'Sai email hoặc mật khẩu.'; return; }
   state.user = data.user;
   await enterStaffApp();
 };
 
 document.getElementById('staffName').onclick = openProfileModal;
+document.getElementById('btnOpenTeam').onclick = () => {
+  document.getElementById('profileModal').classList.remove('show');
+  openTeam();
+};
 
 document.getElementById('btnLogout').onclick = async () => {
   await supabase.auth.signOut();
@@ -51,8 +56,15 @@ document.getElementById('btnLogout').onclick = async () => {
 };
 
 async function enterStaffApp() {
-  showScreen('mainScreen');
   await loadStaffProfile();
+  // Tài khoản đã khoá (màn Nhân viên): DB đã chặn mọi dữ liệu, ở đây chỉ báo rõ lý do
+  if (state.profile.active === false) {
+    await supabase.auth.signOut();
+    showScreen('loginScreen');
+    document.getElementById('loginError').textContent = 'Tài khoản đã bị khoá — liên hệ quản trị Minh Đức.';
+    return;
+  }
+  showScreen('mainScreen');
   await initItemsTab();
   await renderProjectSelect();
   await switchTab(tabFromHash() || 'dashboard');

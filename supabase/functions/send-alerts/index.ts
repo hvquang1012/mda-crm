@@ -113,15 +113,17 @@ Deno.serve(async (req) => {
   const [{ data: subs }, { data: projects }, { data: staff }, { data: members }] = await Promise.all([
     admin.from('push_subscriptions').select('id, staff_id, endpoint, p256dh, auth'),
     admin.from('projects').select('id, name, created_by').in('id', projectIds),
-    admin.from('staff').select('id, role'),
+    admin.from('staff').select('*'),  // '*': chưa có cột active vẫn chạy
     admin.from('project_members').select('project_id, staff_id').in('project_id', projectIds)
   ]);
   const projectName = new Map((projects || []).map(p => [p.id, p.name]));
+  // Nhân viên đã khoá (staff.active = false) không nhận gì — kể cả khi còn đăng ký push cũ
+  const inactive = new Set((staff || []).filter(s => s.active === false).map(s => s.id));
   const managers = new Set((staff || []).filter(s => s.role === 'manager' || s.role === 'admin').map(s => s.id));
   const canSee = (staffId: string, projectId: string) =>
-    managers.has(staffId)
+    !inactive.has(staffId) && (managers.has(staffId)
     || (members || []).some(m => m.project_id === projectId && m.staff_id === staffId)
-    || (projects || []).some(p => p.id === projectId && p.created_by === staffId);
+    || (projects || []).some(p => p.id === projectId && p.created_by === staffId));
 
   let sent = 0;
   const staleEndpoints = new Set<string>();
