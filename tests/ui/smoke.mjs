@@ -35,6 +35,10 @@ const shot = (p, n) => p.screenshot({ path: path.join(OUT, n + '.png'), fullPage
 
 let p = await page('index.html', 390, 844);
 await shot(p, 'm-dashboard');
+// Menu ⚙ của nhân viên có mục Thông báo (trạng thái + nút/hướng dẫn theo máy)
+await p.click('#quickSettings .qs-open'); await p.waitForTimeout(200);
+if (!(await p.textContent('.qs-menu [data-qs-extra]')).includes('Thông báo')) errors.push('menu ⚙: thiếu mục Thông báo');
+await p.click('#quickSettings .qs-open');
 // Logo: điện thoại chỉ hiện biểu tượng; máy tính hiện logo ngang trắng
 if (!(await p.isVisible('#mainScreen .logo-mark')) || (await p.isVisible('#mainScreen .logo-wide'))) errors.push('logo: điện thoại phải chỉ hiện biểu tượng');
 {

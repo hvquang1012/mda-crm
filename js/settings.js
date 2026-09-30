@@ -120,7 +120,8 @@ function buildMenu() {
     + `<div class="qs-group"><div class="qs-label" data-qs-label="qs.lang"></div>
         <div class="seg-switch" role="group">
           <button type="button" data-qs="lang" data-val="vi">Tiếng Việt</button>
-          <button type="button" data-qs="lang" data-val="en">English</button></div></div>`;
+          <button type="button" data-qs="lang" data-val="en">English</button></div></div>`
+    + `<div class="qs-group" data-qs-extra hidden></div>`;
   menuEl.onclick = e => {
     const b = e.target.closest('[data-qs]');
     if (!b) return;
@@ -136,10 +137,20 @@ function buildMenu() {
 
 function closeMenu() { if (menuEl) menuEl.hidden = true; }
 
+// Phần mở rộng của menu (trang nhân viên gắn mục "Thông báo"): render(slot) vẽ vào
+// khối cuối menu mỗi lần mở; các trang khác không gọi thì menu không đổi.
+let menuExtra = null;
+export function setMenuExtra(render) { menuExtra = render; }
+function renderExtra() {
+  const slot = menuEl?.querySelector('[data-qs-extra]');
+  if (slot && menuExtra) { slot.hidden = false; menuExtra(slot); }
+}
+
 function openMenu(anchor) {
   if (!menuEl.hidden) { closeMenu(); return; }
   menuEl.hidden = false;
   syncButtons();
+  renderExtra();
   const r = anchor.getBoundingClientRect();
   menuEl.style.top = (r.bottom + 8) + 'px';
   if (window.innerWidth > 520) {

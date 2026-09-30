@@ -927,6 +927,9 @@ div.timeline-row{cursor:default;}
 .qs-title{font-weight:800;font-size:15px;margin-bottom:8px;}
 .qs-label{font-size:12px;font-weight:700;color:var(--ink-soft);}
 .qs-menu .seg-switch{display:flex;margin:6px 0 12px;}
+.qs-push-status{font-size:13px;font-weight:700;margin:4px 0;}
+.qs-push-hint{font-size:12px;color:var(--ink-soft);margin-bottom:8px;line-height:1.4;}
+.qs-push-btn{margin:6px 0 10px;min-height:40px;}
 .qs-menu .seg-switch button{flex:1;padding:8px 6px;}
 /* Cỡ chữ: CSS viết bằng px nên phóng phần nội dung bằng zoom — giữ tỉ lệ bố cục.
    Thanh đầu trang giữ nguyên để các nút không bị đẩy tràn trên điện thoại. */
