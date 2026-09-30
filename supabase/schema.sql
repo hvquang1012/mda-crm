@@ -864,10 +864,12 @@ begin
     'stages', coalesce((
       select json_agg(json_build_object(
         'name', wp.name,
-        'planned_start', wp.planned_start, 'planned_end', wp.planned_end,
+        -- Hạng mục thiếu ngày thì suy từ đầu việc con (chỉ để hiển thị, không ghi DB)
+        'planned_start', coalesce(wp.planned_start, (select min(wi3.planned_start) from work_items wi3 where wi3.work_package_id = wp.id)),
+        'planned_end',   coalesce(wp.planned_end,   (select max(wi3.planned_end)   from work_items wi3 where wi3.work_package_id = wp.id)),
         'status', wp.status,
         'percent', (select coalesce(round(avg(wi2.percent)), 0) from work_items wi2 where wi2.work_package_id = wp.id)
-      ) order by wp.planned_start nulls last)
+      ) order by coalesce(wp.planned_start, (select min(wi4.planned_start) from work_items wi4 where wi4.work_package_id = wp.id)) nulls last)
       from work_packages wp where wp.project_id = p.id
     ), '[]'::json),
     'photos', coalesce((

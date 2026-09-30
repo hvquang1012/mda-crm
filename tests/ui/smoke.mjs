@@ -239,6 +239,17 @@ await shot(p, 'c-list');
   if (!(await q.textContent('#clientErrorMsg')).includes('đã đóng')) errors.push('client: link công trình đã đóng không báo khoá');
   await q.context().close();
 }
+// Timeline chủ nhà: chỉ đọc, không nút bấm, có giai đoạn chưa có lịch, không cuộn ngang
+{
+  const q = await page('client.html?t=ok', 375, 800);
+  await q.waitForSelector('#clientStageList .timeline-row', { timeout: 3000 }).catch(() => errors.push('client: không vẽ timeline giai đoạn'));
+  if ((await q.$$('#clientStageList .timeline-row')).length !== 2) errors.push('client: timeline phải có đúng 2 giai đoạn đã lên lịch');
+  if ((await q.$$('#clientStageList button')).length) errors.push('client: timeline chủ nhà không được có nút bấm');
+  if (!(await q.textContent('#clientStageList')).includes('Chưa có lịch (1)')) errors.push('client: thiếu nhóm "Chưa có lịch"');
+  if (await q.evaluate(() => document.documentElement.scrollWidth > innerWidth)) errors.push('client: timeline gây cuộn ngang ở 375px');
+  await shot(q, 'client-timeline');
+  await q.context().close();
+}
 await p.click('.crew-item-card'); await p.waitForTimeout(400);
 await p.click('#crewQtyChips .chip[data-set]'); await p.click('#crewNoteChips .chip');
 await shot(p, 'c-form');

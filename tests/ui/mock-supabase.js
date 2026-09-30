@@ -70,6 +70,12 @@
     chat_inbox: [
       { work_item_id: 'i1', item_name: 'Lắp đá mặt bếp', project_id: P1, project_name: 'Nhà anh Minh — Ocean Park', subcontractor_id: 's1', sub_name: 'Đội đá Sơn', last_body: '', last_author: 'anh Sơn', last_author_kind: 'crew', last_has_photos: true, last_at: new Date(Date.now() - 3600e3).toISOString(), unread: 2, total: 3 },
       { work_item_id: 'i3', item_name: 'Kéo dây, đấu hộp', project_id: P1, project_name: 'Nhà anh Minh — Ocean Park', subcontractor_id: 's2', sub_name: 'Điện Hùng', last_body: 'Ok anh <script>', last_author: 'KTS Lan', last_author_kind: 'staff', last_has_photos: false, last_at: new Date(Date.now() - 26 * 3600e3).toISOString(), unread: 0, total: 4 }],
+    client_view: { project: { id: P1, name: 'Nhà anh Minh — Ocean Park', address: 'Ocean Park', start_date: d(-20), end_date: d(25), status: 'active' },
+      stages: [
+        { name: 'Đá bếp', planned_start: d(-10), planned_end: d(5), status: 'delayed', percent: 21 },
+        { name: 'Điện', planned_start: d(-20), planned_end: d(-5), status: 'done', percent: 100 },
+        { name: 'Sơn hoàn thiện', planned_start: null, planned_end: null, status: 'notStarted', percent: 0 }],
+      photos: [] },
     chat_mark_read: null,
     crew_messages: (a) => crewMsgs.filter(m => !a.p_since || m.created_at > a.p_since),
     crew_send_message: (a) => {

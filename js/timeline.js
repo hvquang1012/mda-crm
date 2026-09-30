@@ -146,7 +146,7 @@ function renderTickLines(ticks) {
   return ticks.map(tick => `<span class="timeline-tick" style="left:${tick.left.toFixed(3)}%"></span>`).join('');
 }
 
-function renderRow(row, window, ticks, today) {
+function renderRow(row, window, ticks, today, readOnly) {
   const geometry = barGeometry(row.start, row.end, window);
   if (!geometry) return '';
   const expected = expectedProgress(row, today);
@@ -162,8 +162,11 @@ function renderRow(row, window, ticks, today) {
   const meta = `${displayDate(row.start)} → ${displayDate(row.end)}${row.meta ? ` · ${escapeHtml(row.meta)}` : ''}`;
   const aria = `${row.name}, ${fill} phần trăm, ${visual.label}, từ ${displayDate(row.start)} đến ${displayDate(row.end)}`;
 
+  const open = readOnly
+    ? `<div class="timeline-row ${visual.className}" role="group" aria-label="${escapeHtml(aria)}">`
+    : `<button type="button" class="timeline-row ${visual.className}" data-item-id="${escapeHtml(row.id)}" aria-label="${escapeHtml(aria)}">`;
   return `
-    <button type="button" class="timeline-row ${visual.className}" data-item-id="${escapeHtml(row.id)}" aria-label="${escapeHtml(aria)}">
+    ${open}
       <span class="timeline-row-head">
         <span class="timeline-row-name">${escapeHtml(row.name)}</span>
         <span class="timeline-row-pct">${Math.round(fill)}%</span>
@@ -178,12 +181,14 @@ function renderRow(row, window, ticks, today) {
         <span>${meta}</span>
         <span class="timeline-signal ${visual.signalClass}">${escapeHtml(visual.label)}</span>
       </span>
-    </button>`;
+    ${readOnly ? '</div>' : '</button>'}`;
 }
 
 // groupActions(group) → HTML nút thao tác đặt bên phải tiêu đề đội (tuỳ chọn, chỉ trang staff dùng)
 // rowAction(row) → HTML nút đặt cạnh dòng đầu việc (ngoài <button> dòng — không lồng nút trong nút)
-export function renderTimeline(groups, { project, today = localTodayDay(), groupActions, rowAction } = {}) {
+// readOnly → dòng là <div> không bấm được, không có nhóm "Đặt ngày" (trang chủ nhà)
+// group.title rỗng → không vẽ đầu nhóm
+export function renderTimeline(groups, { project, today = localTodayDay(), groupActions, rowAction, readOnly = false } = {}) {
   const allRows = (groups || []).flatMap(group => group.rows || []);
   const window = makeWindow(project, allRows);
   if (!window) return '<div class="timeline-error">Dự án chưa có khung ngày hợp lệ.</div>';
@@ -208,20 +213,24 @@ export function renderTimeline(groups, { project, today = localTodayDay(), group
     if (!scheduledRows.length) return '';
     return `
       <section class="timeline-group">
-        <div class="timeline-group-head">
+        ${group.title ? `<div class="timeline-group-head">
           <div>
             <div class="timeline-group-title">${escapeHtml(group.title)}</div>
             ${group.subtitle ? `<div class="timeline-group-subtitle">${escapeHtml(group.subtitle)}</div>` : ''}
           </div>
           ${groupActions ? groupActions(group) : ''}
-        </div>
+        </div>` : ''}
         ${scheduledRows.map(row => rowAction
-          ? `<div class="timeline-row-wrap">${renderRow(row, window, ticks, today)}${rowAction(row)}</div>`
-          : renderRow(row, window, ticks, today)).join('')}
+          ? `<div class="timeline-row-wrap">${renderRow(row, window, ticks, today, readOnly)}${rowAction(row)}</div>`
+          : renderRow(row, window, ticks, today, readOnly)).join('')}
       </section>`;
   }).join('');
 
-  const unscheduledHtml = unscheduled.length ? `
+  const unscheduledHtml = unscheduled.length && readOnly ? `
+    <section class="timeline-unscheduled-wrap">
+      <div class="timeline-unscheduled-title">Chưa có lịch (${unscheduled.length})</div>
+      ${unscheduled.map(row => `<div class="timeline-unscheduled is-static"><span>${escapeHtml(row.name)}</span></div>`).join('')}
+    </section>` : unscheduled.length ? `
     <section class="timeline-unscheduled-wrap">
       <div class="timeline-unscheduled-title">Chưa lên lịch (${unscheduled.length})</div>
       ${unscheduled.map(row => `
