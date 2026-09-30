@@ -13,7 +13,7 @@ import { renderChat, refreshChatBadge, onRealtimeMessage } from './chat.js';
 import { wireExportButton } from './export.js';
 import { setupPush, pushState } from '../push.js';
 import { renderStaffName, openProfileModal } from './profile.js';
-import { mountQuickSettings } from '../settings.js';
+import { mountQuickSettings, setMenuExtra } from '../settings.js';
 
 mountQuickSettings(document.getElementById('quickSettings'));
 
@@ -98,6 +98,36 @@ function initPushButton() {
     else showToast('Chưa bật được thông báo, thử lại sau.', true);
   };
 }
+
+// Mục "Thông báo" trong menu ⚙: cho biết máy này đã bật / chưa bật / bị chặn,
+// và có nút bật hoặc đăng ký lại (khi nút 🔔 đã ẩn vì máy đã cho phép).
+const PUSH_TEXT = {
+  granted: ['✓ Đã bật trên máy này', ''],
+  default: ['Chưa bật', ''],
+  denied: ['✕ Đang bị chặn', 'Vào Cài đặt của trình duyệt/điện thoại, cho phép thông báo cho trang này.'],
+  'needs-install': ['Chưa cài vào màn hình chính', 'iPhone: bấm Chia sẻ → "Thêm vào MH chính", rồi mở app từ biểu tượng đó.'],
+  unsupported: ['Máy này không hỗ trợ', 'Đang mở trong Zalo/Facebook? Hãy mở bằng Safari hoặc Chrome.']
+};
+function renderPushMenu(slot) {
+  const st = pushState();
+  const [label, hint] = PUSH_TEXT[st] || PUSH_TEXT.unsupported;
+  const canAct = st === 'granted' || st === 'default';
+  slot.innerHTML = `<div class="qs-label">Thông báo</div>
+    <div class="qs-push-status">${label}</div>
+    ${hint ? `<div class="qs-push-hint">${hint}</div>` : ''}
+    ${canAct ? `<button type="button" class="btn btn-ghost btn-block qs-push-btn">${st === 'granted' ? 'Đăng ký lại máy này' : 'Bật thông báo'}</button>` : ''}`;
+  const btn = slot.querySelector('.qs-push-btn');
+  if (!btn) return;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    const ok = await setupPush(supabase, state.user.id).catch(() => false);
+    btn.disabled = false;
+    if (ok) { document.getElementById('btnPush').hidden = true; showToast('Đã bật — sẽ báo khi có báo cáo mới.', false); }
+    else showToast(pushState() === 'denied' ? 'Bạn đã chặn thông báo.' : 'Chưa bật được thông báo, thử lại sau.', true);
+    renderPushMenu(slot);
+  };
+}
+setMenuExtra(renderPushMenu);
 
 // ---------- Điều hướng tab ----------
 const TABS = ['dashboard', 'approvals', 'items', 'chat', 'alerts'];

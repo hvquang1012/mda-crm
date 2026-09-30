@@ -864,10 +864,12 @@ begin
     'stages', coalesce((
       select json_agg(json_build_object(
         'name', wp.name,
-        'planned_start', wp.planned_start, 'planned_end', wp.planned_end,
+        -- Hạng mục thiếu ngày thì suy từ đầu việc con (chỉ để hiển thị, không ghi DB)
+        'planned_start', coalesce(wp.planned_start, (select min(wi3.planned_start) from work_items wi3 where wi3.work_package_id = wp.id)),
+        'planned_end',   coalesce(wp.planned_end,   (select max(wi3.planned_end)   from work_items wi3 where wi3.work_package_id = wp.id)),
         'status', wp.status,
         'percent', (select coalesce(round(avg(wi2.percent)), 0) from work_items wi2 where wi2.work_package_id = wp.id)
-      ) order by wp.planned_start nulls last)
+      ) order by coalesce(wp.planned_start, (select min(wi4.planned_start) from work_items wi4 where wi4.work_package_id = wp.id)) nulls last)
       from work_packages wp where wp.project_id = p.id
     ), '[]'::json),
     'photos', coalesce((
@@ -1400,6 +1402,42 @@ end;
 $$;
 
 -- ============================================================
+-- SỬA NHIỀU ĐẦU VIỆC CÙNG LÚC (chọn một số đầu việc, không phải cả hạng mục).
+-- security invoker: RLS quyết định ai sửa được. Một câu lệnh = một giao dịch —
+-- có id không sửa được (công trình không phụ trách / id sai) thì hoàn tác cả lô.
+-- ============================================================
+create or replace function shift_items_schedule(p_item_ids uuid[], p_days int)
+returns void
+language plpgsql security invoker set search_path = public as $$
+declare v_n int;
+begin
+  if p_item_ids is null or cardinality(p_item_ids) = 0 or p_days is null or p_days = 0 then return; end if;
+  if abs(p_days) > 365 then raise exception 'invalid_shift'; end if;
+  update work_items set planned_start = planned_start + p_days, planned_end = planned_end + p_days
+    where id = any(p_item_ids);
+  get diagnostics v_n = row_count;
+  if v_n <> (select count(distinct x) from unnest(p_item_ids) x) then raise exception 'forbidden'; end if;
+end;
+$$;
+
+-- Đặt ngày cụ thể cho nhiều đầu việc; p_start / p_end null = giữ nguyên ngày đó.
+create or replace function set_items_schedule(p_item_ids uuid[], p_start date, p_end date)
+returns void
+language plpgsql security invoker set search_path = public as $$
+declare v_n int;
+begin
+  if p_item_ids is null or cardinality(p_item_ids) = 0 or (p_start is null and p_end is null) then return; end if;
+  update work_items set planned_start = coalesce(p_start, planned_start), planned_end = coalesce(p_end, planned_end)
+    where id = any(p_item_ids);
+  get diagnostics v_n = row_count;
+  if v_n <> (select count(distinct x) from unnest(p_item_ids) x) then raise exception 'forbidden'; end if;
+  if exists (select 1 from work_items where id = any(p_item_ids) and planned_start > planned_end) then
+    raise exception 'invalid_dates';
+  end if;
+end;
+$$;
+
+-- ============================================================
 -- DASHBOARD QUẢN LÝ — một lần gọi trả đủ số liệu cho tab Tổng quan.
 -- security invoker: chạy bằng quyền người gọi nên RLS tự lọc — KTS chỉ
 -- thấy số liệu công trình mình phụ trách, quản lý thấy tất cả.
@@ -1894,6 +1932,8 @@ grant execute on function compute_alerts() to authenticated; -- nút "Kiểm tra
 grant execute on function dashboard_summary() to authenticated;
 grant execute on function set_staff_role(uuid, text) to authenticated;
 grant execute on function shift_package_schedule(uuid, int) to authenticated;
+grant execute on function shift_items_schedule(uuid[], int) to authenticated;
+grant execute on function set_items_schedule(uuid[], date, date) to authenticated;
 -- Dùng bên trong policy — người gọi (authenticated) phải được thực thi
 grant execute on function is_manager() to authenticated;
 grant execute on function can_access_project(uuid) to authenticated;

@@ -18,26 +18,17 @@ PWA tĩnh + Supabase, không build step. Thầu chính (MD Architects) theo dõi
 
 ---
 
-## Cạm bẫy môi trường
+## Môi trường vận hành
 
-### Đường dẫn có dấu tiếng Việt làm hỏng Supabase CLI
+**Máy:** Mac Mini M4 (Apple Silicon, arm64), macOS 27. Dự án chạy và test trên máy này. Cài công cụ bằng Homebrew, dùng bản arm64 native (không cần Rosetta).
 
-Thư mục dự án nằm ở `C:\Users\hvqua\OneDrive\Máy tính\mda-crm-pwa`. Chữ "Máy tính" khiến `supabase link` thất bại:
+**Shell:** zsh (mặc định macOS). `curl`, `git`, `python3` có sẵn (đi kèm Xcode Command Line Tools — thiếu thì `xcode-select --install`). `openssl` trên macOS là LibreSSL; `openssl rand -hex 16` vẫn chạy được.
 
-```
-PlatformError: AlreadyExists: FileSystem.makeDirectory (...\supabase\.temp)
-```
+Chưa chắc máy đã cài gì → **kiểm tra trước, cài nếu thiếu**, đừng giả định.
 
-**Cách xử lý:** copy riêng thư mục `supabase/` sang đường dẫn ASCII (scratchpad) rồi chạy CLI ở đó. Không cần copy cả repo.
+### Node/npx
 
-```bash
-cp -r "C:/Users/hvqua/OneDrive/Máy tính/mda-crm-pwa/supabase" "$SCRATCH/mda-deploy/"
-cd "$SCRATCH/mda-deploy" && npx --yes supabase link --project-ref lneaqpfiifqkpccpxgsp
-```
-
-### Node/npx có thể không tồn tại
-
-Máy này **không cài Node global**. Có phiên `npx` chạy được, có phiên báo `command not found`. Kiểm tra trước khi lên kế hoạch dùng CLI.
+Kiểm tra: `node -v`. Thiếu thì `brew install node`. Supabase CLI chạy qua `npx --yes supabase ...` (không cài global, xem AGENTS.md mục 6).
 
 **Phương án dự phòng khi không có npx** — gọi thẳng Management API bằng `curl`:
 
@@ -48,13 +39,34 @@ curl -s -X POST "https://api.supabase.com/v1/projects/lneaqpfiifqkpccpxgsp/datab
   --data-binary @payload.json
 ```
 
-`payload.json` dạng `{"query": "<SQL>"}`. Dựng file này bằng `python3` (có sẵn) để escape JSON đúng — đừng nội suy SQL tiếng Việt thẳng vào chuỗi shell.
+`payload.json` dạng `{"query": "<SQL>"}`. Dựng file này bằng `python3` để escape JSON đúng — đừng nội suy SQL tiếng Việt thẳng vào chuỗi shell.
 
 Tương tự, tạo tài khoản nhân viên qua Auth Admin API bằng `curl` với `service_role` key thay vì CLI.
 
-### Shell
+### Đường dẫn có dấu làm hỏng Supabase CLI
 
-Git Bash là chính, PowerShell cũng có. `curl`, `python3`, `openssl`, `git` đều sẵn. `node`, `npm` thì không chắc.
+Trên máy Windows cũ, thư mục có chữ "Máy tính" khiến `supabase link` thất bại:
+
+```
+PlatformError: AlreadyExists: FileSystem.makeDirectory (...\supabase\.temp)
+```
+
+Trên Mac chạy CLI ngay trong repo. Nếu vẫn gặp lỗi này (đường dẫn repo có dấu), copy riêng thư mục `supabase/` sang đường dẫn ASCII rồi chạy CLI ở đó — không cần copy cả repo:
+
+```bash
+mkdir -p "$SCRATCH/mda-deploy" && cp -r supabase "$SCRATCH/mda-deploy/"
+cd "$SCRATCH/mda-deploy" && npx --yes supabase link --project-ref lneaqpfiifqkpccpxgsp
+```
+
+### Chạy & test trên máy này
+
+| Việc | Lệnh |
+|---|---|
+| Chạy web local | `python3 -m http.server 8080` |
+| Test SQL (Postgres cục bộ, không đụng project thật) | Cài: `brew install postgresql@16 && brew services start postgresql@16`. Chạy: `PGHOST=/tmp PGPORT=5433 PGUSER=postgres bash supabase/tests/run.sh` (đổi host/port theo cách Postgres đang chạy) |
+| Test khói giao diện (backend giả lập) | `python3 -m http.server 8765 & node tests/ui/smoke.mjs` — cần Playwright, lần đầu `npx playwright install chromium` |
+
+Zalo in-app browser và PWA đã cài vẫn phải test tay trên **điện thoại thật** (AGENTS.md mục 7). Trên Mac chỉ dùng Safari/Chrome để xem giao diện.
 
 ---
 

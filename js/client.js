@@ -6,8 +6,9 @@
 // mỗi 45 giây, đủ nhanh cho nhu cầu xem tiến độ của chủ nhà.
 // ============================================================
 import { initSupabase } from './supabase.js';
-import { showToast, showScreen, escapeHtml, displayDate, setOnlineDots, daysUntil } from './ui.js';
+import { showToast, showScreen, setOnlineDots, daysUntil } from './ui.js';
 import { mountQuickSettings } from './settings.js';
+import { renderTimeline } from './timeline.js';
 
 mountQuickSettings(document.getElementById('quickSettings'));
 
@@ -60,19 +61,17 @@ function render(data) {
     <div class="stat-chip"><div class="k">TIẾN ĐỘ TB</div><div class="v">${avg}<span style="font-size:12px;font-weight:500;">%</span></div></div>
   `;
 
-  const stageWrap = document.getElementById('clientStageList');
-  stageWrap.innerHTML = stages.length ? stages.map(s => `
-    <div class="client-stage-card">
-      <div class="task-top">
-        <div>
-          <div class="task-name">${escapeHtml(s.name)}</div>
-          <div class="task-meta">${displayDate(s.planned_start)} → ${displayDate(s.planned_end)}</div>
-        </div>
-        <span class="badge ${STATUS_CLASS[s.status]}">${s.percent}%</span>
-      </div>
-      <div class="progress-track"><div class="progress-fill ${STATUS_CLASS[s.status]}" style="width:${s.percent}%"></div></div>
-    </div>
-  `).join('') : '<div class="empty-hint">Chưa có giai đoạn nào được cập nhật.</div>';
+  // Timeline cấp giai đoạn (hạng mục) — chỉ đọc, không có tên đội hay đầu việc
+  document.getElementById('clientStageList').innerHTML = stages.length
+    ? renderTimeline([{
+        id: 'stages',
+        title: '',
+        rows: stages.map((s, i) => ({
+          id: String(i), name: s.name, start: s.planned_start, end: s.planned_end,
+          percent: s.percent, status: s.status
+        }))
+      }], { project: data.project, readOnly: true })
+    : '<div class="empty-hint">Chưa có giai đoạn nào được cập nhật.</div>';
 
   renderPhotos(data.photos || []);
 }

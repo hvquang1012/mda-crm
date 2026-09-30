@@ -73,6 +73,8 @@ export async function db(promise, { successMsg, errorMsg } = {}) {
 const RPC_ERROR_VI = {
   not_authenticated: 'Phiên đăng nhập đã hết — đăng nhập lại giúp',
   forbidden: 'Bạn không phụ trách công trình này',
+  invalid_dates: 'Ngày kết thúc phải từ ngày bắt đầu trở đi',
+  invalid_shift: 'Chỉ dời được tối đa 365 ngày',
   already_processed: 'Báo cáo đã được người khác duyệt / trả lại trước đó',
   report_not_found: 'Không tìm thấy báo cáo (có thể đã bị xử lý)',
   mixed_items: 'Nhóm báo cáo thuộc nhiều đầu việc khác nhau — tải lại trang',

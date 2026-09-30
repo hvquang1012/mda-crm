@@ -624,7 +624,25 @@ button.dash-chip{cursor:pointer;}
 .timeline-unscheduled-wrap{margin-top:14px;}
 .timeline-unscheduled-title{font-size:12px;font-weight:750;color:var(--danger);margin-bottom:6px;}
 .timeline-unscheduled{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:44px;padding:10px 14px;margin-bottom:6px;border:1.5px dashed var(--line);border-radius:var(--radius-input);font-family:inherit;background:var(--paper);color:var(--ink);text-align:left;cursor:pointer;}
+.timeline-unscheduled.is-static{cursor:default;}
+div.timeline-row{cursor:default;}
 .timeline-unscheduled small{color:var(--primary-strong);font-weight:700;}
+.section-actions{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end;}
+/* Chọn nhiều đầu việc */
+.select-box{display:inline-block;flex:none;width:18px;height:18px;margin-right:8px;vertical-align:-4px;border:2px solid var(--ink-faint);border-radius:6px;background:var(--paper);}
+.select-box.on{border-color:var(--primary);background:var(--primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat;}
+.select-row{display:flex;align-items:center;gap:8px;width:100%;min-height:52px;padding:8px 6px;margin:0;border:0;border-top:1px dashed var(--line);background:transparent;color:var(--ink);text-align:left;font-family:inherit;cursor:pointer;}
+.select-row:first-child{border-top:0;}
+.select-row .select-box{margin-right:0;vertical-align:baseline;}
+.select-row-main{flex:1;min-width:0;display:block;}
+.select-row-main .task-name,.select-row-main .task-meta{display:block;}
+.select-row.is-selected,.timeline-row.is-selected,.timeline-unscheduled.is-selected{background:var(--primary-soft);}
+.select-row:focus-visible{outline:3px solid var(--primary-soft);outline-offset:2px;}
+.select-bar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:10px 14px;background:var(--paper);border-top:2px solid var(--border-card);}
+.select-bar[hidden]{display:none;}
+.select-count{flex:1 0 100%;font-size:13px;font-weight:800;color:var(--primary-strong);}
+.select-bar .icon-btn{min-height:40px;}
+.select-bar .icon-btn:disabled{opacity:.45;}
 .timeline-error{padding:14px;border:1px solid var(--danger);border-radius:var(--radius-md);background:var(--danger-soft);color:var(--danger);font-size:13px;}
 
 @supports not (color:color-mix(in srgb,black,white)){
@@ -925,6 +943,9 @@ button.dash-chip{cursor:pointer;}
 .qs-title{font-weight:800;font-size:15px;margin-bottom:8px;}
 .qs-label{font-size:12px;font-weight:700;color:var(--ink-soft);}
 .qs-menu .seg-switch{display:flex;margin:6px 0 12px;}
+.qs-push-status{font-size:13px;font-weight:700;margin:4px 0;}
+.qs-push-hint{font-size:12px;color:var(--ink-soft);margin-bottom:8px;line-height:1.4;}
+.qs-push-btn{margin:6px 0 10px;min-height:40px;}
 .qs-menu .seg-switch button{flex:1;padding:8px 6px;}
 /* Cỡ chữ: CSS viết bằng px nên phóng phần nội dung bằng zoom — giữ tỉ lệ bố cục.
    Thanh đầu trang giữ nguyên để các nút không bị đẩy tràn trên điện thoại. */

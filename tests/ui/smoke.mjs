@@ -35,6 +35,10 @@ const shot = (p, n) => p.screenshot({ path: path.join(OUT, n + '.png'), fullPage
 
 let p = await page('index.html', 390, 844);
 await shot(p, 'm-dashboard');
+// Menu ⚙ của nhân viên có mục Thông báo (trạng thái + nút/hướng dẫn theo máy)
+await p.click('#quickSettings .qs-open'); await p.waitForTimeout(200);
+if (!(await p.textContent('.qs-menu [data-qs-extra]')).includes('Thông báo')) errors.push('menu ⚙: thiếu mục Thông báo');
+await p.click('#quickSettings .qs-open');
 // Logo: điện thoại chỉ hiện biểu tượng; máy tính hiện logo ngang trắng
 if (!(await p.isVisible('#mainScreen .logo-mark')) || (await p.isVisible('#mainScreen .logo-wide'))) errors.push('logo: điện thoại phải chỉ hiện biểu tượng');
 {
@@ -222,6 +226,31 @@ await p.click('[data-open-project]'); await p.waitForTimeout(500); await shot(p,
   if (!ups.length || ups.some(c => Object.keys(c[2]).join() !== 'status' || c[2].status !== 'done')) errors.push('timeline: Xong cả hạng mục không gửi status=done');
   if (await p.isVisible('#itemModal.show')) errors.push('timeline: bấm nút lại mở hộp sửa đầu việc');
 }
+// Chọn nhiều đầu việc: chạm dòng = tích (không mở hộp sửa), thanh thao tác đếm đúng, Đặt ngày gọi RPC nguyên lô
+for (const view of ['timeline', 'list']) {
+  if (view === 'list') { await p.click('#btnItemsListView'); await p.waitForTimeout(200); }
+  const tag = `chọn nhiều (${view}): `;
+  await p.click('#btnSelectMode'); await p.waitForTimeout(200);
+  if (!(await p.isVisible('#selectBar'))) errors.push(tag + 'không hiện thanh thao tác');
+  if (!(await p.$eval('#btnSelDates', b => b.disabled))) errors.push(tag + 'chưa chọn mà nút vẫn bấm được');
+  const rowSel = view === 'timeline' ? '.timeline-row' : '.select-row';
+  const rows = await p.$$(rowSel);
+  if (rows.length < 2) { errors.push(tag + 'cần >= 2 dòng, có ' + rows.length); }
+  else {
+    await p.locator(rowSel).nth(0).click(); await p.waitForTimeout(100); await p.locator(rowSel).nth(1).click(); await p.waitForTimeout(150);
+    if (await p.isVisible('#itemModal.show')) errors.push(tag + 'chạm dòng lại mở hộp sửa');
+    if (!(await p.textContent('#selectCount')).includes('2')) errors.push(tag + 'đếm sai: ' + await p.textContent('#selectCount'));
+    if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)) errors.push(tag + 'cuộn ngang');
+    await shot(p, 'd-select-' + view);
+    await p.click('#btnSelDates'); await p.waitForTimeout(150);
+    await p.fill('#setDatesStart', '2026-10-05');
+    await p.click('#btnSetDatesSave'); await p.waitForTimeout(400);
+    const c = (await p.evaluate(() => window.__calls)).filter(x => x[0] === 'rpc' && x[1] === 'set_items_schedule').pop();
+    if (!c || c[2].p_item_ids.length !== 2 || c[2].p_start !== '2026-10-05' || c[2].p_end !== null) errors.push(tag + 'Đặt ngày gửi sai: ' + JSON.stringify(c));
+    if (await p.isVisible('#selectBar')) errors.push(tag + 'xong rồi vẫn ở chế độ chọn');
+  }
+}
+await p.click('#btnItemsTimelineView');
 await p.click('#btnMembers'); await p.waitForTimeout(300); await shot(p, 'd-members');
 if ((await p.getAttribute('#membersList .zalo-btn', 'href')) !== 'https://zalo.me/0912345678') errors.push('members: thiếu nút Zalo');
 
@@ -237,6 +266,17 @@ await shot(p, 'c-list');
 {
   const q = await page('client.html?t=closed', 390, 844);
   if (!(await q.textContent('#clientErrorMsg')).includes('đã đóng')) errors.push('client: link công trình đã đóng không báo khoá');
+  await q.context().close();
+}
+// Timeline chủ nhà: chỉ đọc, không nút bấm, có giai đoạn chưa có lịch, không cuộn ngang
+{
+  const q = await page('client.html?t=ok', 375, 800);
+  await q.waitForSelector('#clientStageList .timeline-row', { timeout: 3000 }).catch(() => errors.push('client: không vẽ timeline giai đoạn'));
+  if ((await q.$$('#clientStageList .timeline-row')).length !== 2) errors.push('client: timeline phải có đúng 2 giai đoạn đã lên lịch');
+  if ((await q.$$('#clientStageList button')).length) errors.push('client: timeline chủ nhà không được có nút bấm');
+  if (!(await q.textContent('#clientStageList')).includes('Chưa có lịch (1)')) errors.push('client: thiếu nhóm "Chưa có lịch"');
+  if (await q.evaluate(() => document.documentElement.scrollWidth > innerWidth)) errors.push('client: timeline gây cuộn ngang ở 375px');
+  await shot(q, 'client-timeline');
   await q.context().close();
 }
 await p.click('.crew-item-card'); await p.waitForTimeout(400);

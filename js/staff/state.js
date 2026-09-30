@@ -10,6 +10,8 @@ export const state = {
   templates: [],          // mẫu đầu việc kèm items — items.js nạp, wizard.js dùng chung
   currentProjectId: null, // dự án đang chọn ở tab "Công việc"
   itemsView: 'list',      // list | timeline — giữ khi realtime render lại
+  selectMode: false,      // tab Công việc: đang chọn nhiều đầu việc để sửa cùng lúc
+  selectedItems: new Set(), // id đầu việc đã chọn (giữ khi render lại)
   activeTab: 'dashboard',
   pendingCount: 0,        // số báo cáo chờ duyệt — hiện chấm đỏ ở bottom nav
   openIssuesCount: 0,     // số vướng mắc chưa xử lý — chấm đỏ tab "Cần xử lý"
