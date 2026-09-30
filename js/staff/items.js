@@ -88,6 +88,7 @@ function renderCurrentPackages() {
     return;
   }
 
+  const selecting = state.selectMode;
   if (state.itemsView === 'timeline') {
     const groups = currentPackages.map(pkg => ({
       id: pkg.id,
@@ -107,15 +108,21 @@ function renderCurrentPackages() {
     }));
     wrap.innerHTML = renderTimeline(groups, {
       project: currentProject(),
-      groupActions: g => g.rows.some(r => r.status !== 'done')
-        ? `<button class="icon-btn" data-action="done-package" data-package-id="${g.id}">✓ Xong cả hạng mục</button>` : '',
-      rowAction: row => chatButtonHtml(row.id)
+      selection: selecting ? state.selectedItems : null,
+      groupActions: g => selecting ? selectGroupButton(g.rows.map(r => r.id), g.id)
+        : g.rows.some(r => r.status !== 'done')
+          ? `<button class="icon-btn" data-action="done-package" data-package-id="${g.id}">✓ Xong cả hạng mục</button>` : '',
+      rowAction: selecting ? undefined : row => chatButtonHtml(row.id)
     });
     wireTimelineRows(wrap);
+  } else if (selecting) {
+    wrap.innerHTML = currentPackages.map(pkg => renderSelectPackage(pkg)).join('');
+    wireSelectRows(wrap);
   } else {
     wrap.innerHTML = currentPackages.map(pkg => renderPackageCard(pkg)).join('');
     wirePackageCards(wrap);
   }
+  syncSelectBar();
 }
 
 // Nút Đóng / Mở lại (icon close-project / reopen-project) + dòng nhắc theo trạng thái công trình đang xem
@@ -158,7 +165,10 @@ function syncItemsView() {
 
 function wireTimelineRows(wrap) {
   wrap.querySelectorAll('[data-item-id]').forEach(row => {
-    row.onclick = () => openItemModal(null, row.dataset.itemId);
+    row.onclick = state.selectMode ? () => toggleSelected(row.dataset.itemId) : () => openItemModal(null, row.dataset.itemId);
+  });
+  wrap.querySelectorAll('[data-action=select-group]').forEach(b => {
+    b.onclick = (e) => { e.stopPropagation(); toggleSelectedGroup(b.dataset.itemIds.split(',')); };
   });
   wrap.querySelectorAll('[data-action=done-package]').forEach(b => {
     b.onclick = (e) => { e.stopPropagation(); markPackageDone(b.dataset.packageId); };
@@ -166,6 +176,130 @@ function wireTimelineRows(wrap) {
   wrap.querySelectorAll('[data-action=chat]').forEach(b => {
     b.onclick = (e) => { e.stopPropagation(); state.openChat(b.dataset.itemId); };
   });
+}
+
+// ---------- Chọn nhiều đầu việc để sửa cùng lúc ----------
+function selectGroupButton(ids, key) {
+  const all = ids.length > 0 && ids.every(id => state.selectedItems.has(id));
+  return `<button type="button" class="icon-btn" data-action="select-group" data-group-id="${key}" data-item-ids="${ids.join(',')}">${all ? 'Bỏ chọn cả đội' : 'Chọn cả đội'}</button>`;
+}
+
+function renderSelectPackage(pkg) {
+  const items = [...(pkg.work_items || [])].sort((a, b) => a.seq - b.seq);
+  return `
+    <div class="task-card package-card">
+      <div class="task-top">
+        <div>
+          <div class="task-name">${tradeEmoji(pkg.trade)} ${escapeHtml(pkg.subcontractors?.name || pkg.name)}</div>
+          <div class="task-meta">${escapeHtml(pkg.name)}</div>
+        </div>
+        ${selectGroupButton(items.map(i => i.id), pkg.id)}
+      </div>
+      <div class="wi-list">${items.map(it => {
+        const on = state.selectedItems.has(it.id);
+        return `<button type="button" class="select-row${on ? ' is-selected' : ''}" data-item-id="${it.id}" aria-pressed="${on}">
+          <span class="select-box${on ? ' on' : ''}" aria-hidden="true"></span>
+          <span class="select-row-main"><span class="task-name">${escapeHtml(it.name)}</span>
+            <span class="task-meta">${displayDate(it.planned_start)} → ${displayDate(it.planned_end)}</span></span>
+          <span class="badge ${it.status === 'done' ? 'ahead' : it.status}">${it.status === 'done' ? '✓ Xong' : it.percent + '%'}</span>
+        </button>`;
+      }).join('') || '<div class="empty-hint" style="padding:16px 0;">Chưa có đầu việc</div>'}</div>
+    </div>`;
+}
+
+function wireSelectRows(wrap) {
+  wrap.querySelectorAll('.select-row').forEach(row => { row.onclick = () => toggleSelected(row.dataset.itemId); });
+  wrap.querySelectorAll('[data-action=select-group]').forEach(b => {
+    b.onclick = (e) => { e.stopPropagation(); toggleSelectedGroup(b.dataset.itemIds.split(',').filter(Boolean)); };
+  });
+}
+
+function toggleSelected(id) {
+  if (state.selectedItems.has(id)) state.selectedItems.delete(id); else state.selectedItems.add(id);
+  renderCurrentPackages();
+}
+
+function toggleSelectedGroup(ids) {
+  const all = ids.length > 0 && ids.every(id => state.selectedItems.has(id));
+  ids.forEach(id => { if (all) state.selectedItems.delete(id); else state.selectedItems.add(id); });
+  renderCurrentPackages();
+}
+
+function setSelectMode(on) {
+  state.selectMode = on;
+  if (!on) state.selectedItems.clear();
+  renderCurrentPackages();
+}
+
+function syncSelectBar() {
+  const btn = document.getElementById('btnSelectMode');
+  btn?.setAttribute('aria-pressed', String(state.selectMode));
+  if (btn) btn.textContent = state.selectMode ? '✕ Thoát chọn' : '☑ Chọn nhiều';
+  const bar = document.getElementById('selectBar');
+  if (!bar) return;
+  // Bỏ các id không còn tồn tại (đã xoá / đổi công trình) để số đếm không sai
+  const alive = new Set(flatItems.map(i => i.id));
+  [...state.selectedItems].forEach(id => { if (!alive.has(id)) state.selectedItems.delete(id); });
+  bar.hidden = !state.selectMode;
+  document.getElementById('selectCount').textContent = `Đã chọn ${state.selectedItems.size}`;
+  bar.querySelectorAll('button:not(#btnSelCancel)').forEach(b => { b.disabled = state.selectedItems.size === 0; });
+}
+
+// Dời lịch các đầu việc đã chọn (số ngày dương = lùi, âm = sớm)
+async function shiftSelected() {
+  const ids = [...state.selectedItems];
+  if (!ids.length) return;
+  const raw = prompt(`Dời lịch ${ids.length} đầu việc đã chọn bao nhiêu ngày?\nSố dương = lùi lại (vào trễ), số âm = làm sớm hơn.`, '1');
+  if (raw === null) return;
+  const days = parseInt(raw, 10);
+  if (!Number.isInteger(days) || days === 0) { showToast('Nhập số ngày khác 0', true); return; }
+  let warn = '';
+  if (days > 0) {
+    // Đầu việc khác (không nằm trong lô đang dời) đang chờ các việc này — nhắc dời theo
+    const { data } = await state.supabase.from('dependencies')
+      .select('successor_item_id, successor:successor_item_id(name)').in('predecessor_item_id', ids);
+    const outside = (data || []).filter(d => d.successor && !state.selectedItems.has(d.successor_item_id));
+    if (outside.length) warn = `\n\n⚠ Có ${outside.length} đầu việc khác đang chờ các việc này (VD: "${outside[0].successor.name}") — nhớ dời theo.`;
+  }
+  if (!confirm(`Dời ${ids.length} đầu việc ${days > 0 ? 'lùi' : 'sớm'} ${Math.abs(days)} ngày?${warn}`)) return;
+  const { error } = await state.supabase.rpc('shift_items_schedule', { p_item_ids: ids, p_days: days });
+  if (error) { showToast(rpcErrorText(error, 'Không dời được lịch'), true); return; }
+  showToast(`Đã dời lịch ${ids.length} đầu việc ${days > 0 ? '+' : ''}${days} ngày`);
+  setSelectMode(false);
+  renderPackages();
+}
+
+function openSetDatesModal() {
+  if (!state.selectedItems.size) return;
+  document.getElementById('setDatesCount').textContent = `${state.selectedItems.size} đầu việc`;
+  document.getElementById('setDatesStart').value = '';
+  document.getElementById('setDatesEnd').value = '';
+  document.getElementById('setDatesModal').classList.add('show');
+}
+
+async function saveSetDates() {
+  const ids = [...state.selectedItems];
+  const start = document.getElementById('setDatesStart').value || null;
+  const end = document.getElementById('setDatesEnd').value || null;
+  if (!start && !end) { showToast('Chọn ít nhất một ngày', true); return; }
+  if (dateRangeInvalid(start, end)) { showToast('Ngày kết thúc phải từ ngày bắt đầu trở đi', true); return; }
+  const btn = document.getElementById('btnSetDatesSave');
+  btn.disabled = true;
+  const { error } = await state.supabase.rpc('set_items_schedule', { p_item_ids: ids, p_start: start, p_end: end });
+  btn.disabled = false;
+  if (error) { showToast(rpcErrorText(error, 'Không đặt được ngày'), true); return; }
+  showToast(`Đã đặt ngày cho ${ids.length} đầu việc`);
+  closeModal('setDatesModal');
+  setSelectMode(false);
+  renderPackages();
+}
+
+async function doneSelected() {
+  const ids = [...state.selectedItems].filter(id => flatItems.find(i => i.id === id)?.status !== 'done');
+  if (!ids.length) { showToast('Các đầu việc đã chọn đều đã xong', true); return; }
+  if (!confirm(`Chốt xong ${ids.length} đầu việc đã chọn?\n\nKhối lượng giữ nguyên, chỉ đổi trạng thái sang Xong.`)) return;
+  await setItemsDone(ids, true);
+  setSelectMode(false);
 }
 
 // Nút 💬 trò chuyện của đầu việc + số tin chưa đọc (chat.js cập nhật số qua data-chat-count)
@@ -355,6 +489,14 @@ function wireStaticButtons() {
     state.itemsView = 'timeline';
     renderCurrentPackages();
   };
+
+  document.getElementById('btnSelectMode').onclick = () => setSelectMode(!state.selectMode);
+  document.getElementById('btnSelCancel').onclick = () => setSelectMode(false);
+  document.getElementById('btnSelShift').onclick = shiftSelected;
+  document.getElementById('btnSelDates').onclick = openSetDatesModal;
+  document.getElementById('btnSelDone').onclick = doneSelected;
+  document.getElementById('btnSetDatesCancel').onclick = () => closeModal('setDatesModal');
+  document.getElementById('btnSetDatesSave').onclick = saveSetDates;
 
   document.getElementById('btnNewPackage').onclick = openPackageModal;
   document.getElementById('btnPkgCancel').onclick = () => closeModal('packageModal');

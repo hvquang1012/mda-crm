@@ -87,6 +87,20 @@ set role authenticated; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-00000
 select 'K3 (không phụ trách) dời lịch (phải lỗi forbidden)' t; select shift_package_schedule('44444444-4444-4444-4444-444444444444', 3);
 reset role;
 
+-- Sửa nhiều đầu việc: chọn một số, atomic
+reset role; select id as item1 from work_items order by seq limit 1 \gset
+set role authenticated; set request.jwt.claim.role='authenticated'; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'K1 dời 1 đầu việc đã chọn -2 ngày' t, shift_items_schedule(array[:'item1'::uuid], -2);
+select 'đầu việc đã chọn lùi đúng 2 ngày' t, planned_end = current_date + 1 as ok from work_items where id = :'item1'::uuid;
+select 'K1 đặt ngày bắt đầu (kết thúc giữ nguyên)' t, set_items_schedule(array[:'item1'::uuid], current_date, null);
+select 'ngày bắt đầu = hôm nay, kết thúc giữ nguyên' t, planned_start = current_date and planned_end = current_date + 1 as ok from work_items where id = :'item1'::uuid;
+select 'K1 đặt bắt đầu sau kết thúc (phải lỗi invalid_dates)' t; select set_items_schedule(array[:'item1'::uuid], current_date + 30, null);
+select 'sau lỗi ngày bắt đầu không đổi (rollback)' t, planned_start = current_date as ok from work_items where id = :'item1'::uuid;
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000004';
+select 'K3 (không phụ trách) dời đầu việc (phải lỗi forbidden)' t; select shift_items_schedule(array[:'item1'::uuid], 1);
+select 'K3 đặt ngày đầu việc (phải lỗi forbidden)' t; select set_items_schedule(array[:'item1'::uuid], current_date, null);
+reset role;
+
 -- Thông báo báo cáo mới: gom theo người gửi, chờ yên 90 giây, đánh dấu xong thì hết
 reset role;
 select 'hàng đợi thông báo: vừa gửi → chờ (0 dòng)' t, count(*) from reports_to_notify();

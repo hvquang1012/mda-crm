@@ -146,7 +146,7 @@ function renderTickLines(ticks) {
   return ticks.map(tick => `<span class="timeline-tick" style="left:${tick.left.toFixed(3)}%"></span>`).join('');
 }
 
-function renderRow(row, window, ticks, today, readOnly) {
+function renderRow(row, window, ticks, today, readOnly, selection) {
   const geometry = barGeometry(row.start, row.end, window);
   if (!geometry) return '';
   const expected = expectedProgress(row, today);
@@ -162,13 +162,14 @@ function renderRow(row, window, ticks, today, readOnly) {
   const meta = `${displayDate(row.start)} → ${displayDate(row.end)}${row.meta ? ` · ${escapeHtml(row.meta)}` : ''}`;
   const aria = `${row.name}, ${fill} phần trăm, ${visual.label}, từ ${displayDate(row.start)} đến ${displayDate(row.end)}`;
 
+  const picked = selection ? selection.has(row.id) : false;
   const open = readOnly
     ? `<div class="timeline-row ${visual.className}" role="group" aria-label="${escapeHtml(aria)}">`
-    : `<button type="button" class="timeline-row ${visual.className}" data-item-id="${escapeHtml(row.id)}" aria-label="${escapeHtml(aria)}">`;
+    : `<button type="button" class="timeline-row ${visual.className}${picked ? ' is-selected' : ''}" data-item-id="${escapeHtml(row.id)}" aria-label="${escapeHtml(aria)}"${selection ? ` aria-pressed="${picked}"` : ''}>`;
   return `
     ${open}
       <span class="timeline-row-head">
-        <span class="timeline-row-name">${escapeHtml(row.name)}</span>
+        <span class="timeline-row-name">${selection ? `<span class="select-box${picked ? ' on' : ''}" aria-hidden="true"></span>` : ''}${escapeHtml(row.name)}</span>
         <span class="timeline-row-pct">${Math.round(fill)}%</span>
       </span>
       <span class="timeline-track">
@@ -188,7 +189,8 @@ function renderRow(row, window, ticks, today, readOnly) {
 // rowAction(row) → HTML nút đặt cạnh dòng đầu việc (ngoài <button> dòng — không lồng nút trong nút)
 // readOnly → dòng là <div> không bấm được, không có nhóm "Đặt ngày" (trang chủ nhà)
 // group.title rỗng → không vẽ đầu nhóm
-export function renderTimeline(groups, { project, today = localTodayDay(), groupActions, rowAction, readOnly = false } = {}) {
+// selection (Set id) → chế độ chọn nhiều: dòng có ô tích, chạm để tích/bỏ tích
+export function renderTimeline(groups, { project, today = localTodayDay(), groupActions, rowAction, readOnly = false, selection = null } = {}) {
   const allRows = (groups || []).flatMap(group => group.rows || []);
   const window = makeWindow(project, allRows);
   if (!window) return '<div class="timeline-error">Dự án chưa có khung ngày hợp lệ.</div>';
@@ -221,8 +223,8 @@ export function renderTimeline(groups, { project, today = localTodayDay(), group
           ${groupActions ? groupActions(group) : ''}
         </div>` : ''}
         ${scheduledRows.map(row => rowAction
-          ? `<div class="timeline-row-wrap">${renderRow(row, window, ticks, today, readOnly)}${rowAction(row)}</div>`
-          : renderRow(row, window, ticks, today, readOnly)).join('')}
+          ? `<div class="timeline-row-wrap">${renderRow(row, window, ticks, today, readOnly, selection)}${rowAction(row)}</div>`
+          : renderRow(row, window, ticks, today, readOnly, selection)).join('')}
       </section>`;
   }).join('');
 
@@ -234,9 +236,9 @@ export function renderTimeline(groups, { project, today = localTodayDay(), group
     <section class="timeline-unscheduled-wrap">
       <div class="timeline-unscheduled-title">Chưa lên lịch (${unscheduled.length})</div>
       ${unscheduled.map(row => `
-        <button type="button" class="timeline-unscheduled" data-item-id="${escapeHtml(row.id)}">
-          <span>${escapeHtml(row.name)} <small>· ${escapeHtml(row.groupTitle)}</small></span>
-          <small>Đặt ngày →</small>
+        <button type="button" class="timeline-unscheduled${selection && selection.has(row.id) ? ' is-selected' : ''}" data-item-id="${escapeHtml(row.id)}"${selection ? ` aria-pressed="${selection.has(row.id)}"` : ''}>
+          <span>${selection ? `<span class="select-box${selection.has(row.id) ? ' on' : ''}" aria-hidden="true"></span>` : ''}${escapeHtml(row.name)} <small>· ${escapeHtml(row.groupTitle)}</small></span>
+          <small>${selection ? '' : 'Đặt ngày →'}</small>
         </button>`).join('')}
     </section>` : '';
 
