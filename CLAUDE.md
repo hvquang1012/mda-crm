@@ -82,6 +82,8 @@ Zalo in-app browser và PWA đã cài vẫn phải test tay trên **điện tho�
 
 ## Quy trình làm việc
 
+**Vai của Claude trong repo này: kiến trúc + lập plan + review** — Antigravity viết code (AGENTS.md mục 0). Tính năng mới → viết bản giao việc `plans/NNN-*.md` theo mẫu [plans/README.md](plans/README.md), không tự code trừ khi người dùng bảo. Review PR của Antigravity: checklist AGENTS.md mục 5 (bảo mật trước) + mục "Điểm review" của plan, ghi kết quả vào "Nhật ký review" của plan.
+
 **Trước khi sửa:** đọc file liên quan. Codebase nhỏ (~3.300 dòng), đọc thẳng nhanh hơn là suy đoán.
 
 **Sau khi sửa:**
