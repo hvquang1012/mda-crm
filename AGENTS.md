@@ -2,7 +2,42 @@
 
 Quy ước kỹ thuật và checklist review cho dự án **MDA Site**. Đọc [README.md](README.md) trước để nắm bối cảnh nghiệp vụ.
 
-Áp dụng cho mọi agent làm việc trên repo này (Claude Code, Codex, ...). Claude Code đọc thêm [CLAUDE.md](CLAUDE.md) cho phần vận hành.
+Áp dụng cho mọi agent làm việc trên repo này (Claude Code, Antigravity, Codex, ...). Phần vận hành môi trường (Mac Mini M4, Supabase CLI, lệnh test) nằm ở [CLAUDE.md](CLAUDE.md) mục "Môi trường vận hành" — **dùng chung cho mọi agent**, không riêng Claude.
+
+---
+
+## 0. Phân vai giữa các agent
+
+| Agent | Vai | Được làm | Không làm |
+|---|---|---|---|
+| **Claude Code** | Kiến trúc sư + reviewer | Thiết kế, viết bản giao việc trong [`plans/`](plans/README.md), review mọi thay đổi theo checklist mục 5, sửa tài liệu (`*.md`, `plans/`) | Viết code tính năng — trừ khi người dùng yêu cầu rõ |
+| **Antigravity** | Người viết code | Code đúng phạm vi một bản giao việc `plans/NNN-*.md` có trạng thái `Sẵn sàng`, viết test, cập nhật tài liệu liên quan | Tự đổi thiết kế: bảng, cột, quyền, luồng nghiệp vụ, dependency |
+
+**Gặp chỗ plan không nói rõ hoặc thấy cần đổi thiết kế → dừng, ghi câu hỏi vào mục "Câu hỏi mở" của plan**, báo người dùng. Không tự quyết rồi code tiếp.
+
+### Quy trình một tính năng
+
+1. **Claude** viết `plans/NNN-ten-ngan.md` theo mẫu ở [`plans/README.md`](plans/README.md), trạng thái `Sẵn sàng`.
+2. **Antigravity** tạo nhánh `feat/NNN-ten-ngan` từ `main`, đổi trạng thái `Đang làm`, code theo plan.
+3. **Antigravity** chạy test (mục 6), tick checklist nghiệm thu trong plan, đổi trạng thái `Chờ review`, mở PR (mô tả: link plan + những gì đã/chưa làm được).
+4. **Claude** review — mục **Bảo mật** trước, rồi mục "Điểm review" của plan — ghi kết quả vào PR và mục "Nhật ký review" của plan.
+5. **Antigravity** sửa theo review, lặp bước 4 tới khi đạt.
+6. **Người dùng** merge vào `main` (Cloudflare Pages tự deploy) và tự chạy migration lên Supabase thật. Đổi trạng thái `Xong`.
+
+Không agent nào push thẳng vào `main`.
+
+### Thế nào là "xong"
+
+- `supabase/tests/run.sh` và `tests/ui/smoke.mjs` chạy qua — kể cả ca mới mà plan yêu cầu thêm.
+- Migration mới đánh số tiếp theo trong `supabase/migrations/`, **chép y hệt** vào `supabase/schema.sql`, chạy 2 lần vô hại (`if not exists`, `create or replace`, `drop policy if exists` trước `create policy`).
+- Đổi bất biến (bảng mới, quyền mới, luồng mới) → cập nhật mục 2/3 của file này và README.
+- Chuỗi hiển thị, comment, tên biến nghiệp vụ bằng tiếng Việt.
+
+### Giới hạn chung
+
+- Không đọc, in, commit secret (`service_role`, `sbp_...`, mật khẩu). `anon` key trong `config.js` công khai có chủ ý.
+- Không chạy migration hay ghi dữ liệu lên project Supabase thật — `config.js` trỏ thẳng production, test bằng Postgres cục bộ và backend giả lập (mục 6).
+- Không tự đổi bảng màu/typography, thêm dependency, đổi mô hình quyền.
 
 ---
 
