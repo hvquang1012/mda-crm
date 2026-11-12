@@ -11,8 +11,8 @@ Mỗi phần một nhánh tạo từ `main` **mới nhất** (phần trước đ
 | # | Nhánh | Làm mục nào | Ghi chú |
 |---|---|---|---|
 | 1 | `011-1-sua-loi-ngay-gio` | I | Nhỏ, không đụng SQL. Trong PR này cũng nâng `sw.js` lên `v12`. |
-| 2 | `011-2-giai-doan-va-checklist` | A, D1, D2, D4, E, F, G, H | Toàn bộ SQL nằm ở đây (kể cả bảng `survey_photos` — PR 3 chỉ thêm giao diện). Nút "📷 Ảnh" ở mỗi mục checklist **chưa làm** ở PR này. `sw.js` → `v13`. |
-| 3 | `011-3-ve-so-do-len-anh` | B, C, D3 + nút "📷 Ảnh" của D2 | Phải có kết quả thử tay trên điện thoại thật trong PR. `sw.js` → `v14`. |
+| 2 | `011-2-giai-doan-va-checklist` | A (gồm A10), D1, D2, D4, E, F, G, H | Toàn bộ SQL nằm ở đây (kể cả bảng `survey_photos`, `survey_files` — PR 3 chỉ thêm giao diện). Nút "📷 Ảnh" ở mỗi mục checklist **chưa làm** ở PR này. `sw.js` → `v13`. |
+| 3 | `011-3-ve-so-do-len-anh` | B, C, D3, D5 + nút "📷 Ảnh" của D2 | Phải có kết quả thử tay trên điện thoại thật trong PR. `sw.js` → `v14`. |
 
 Checklist nghiệm thu: PR nào tick phần của PR đó (SQL + giao diện checklist ở PR 2; ca "chọn ảnh giả → trình bắt điểm" và "Thử tay" ở PR 3). Tài liệu cập nhật ở PR có thay đổi tương ứng.
 
@@ -34,6 +34,7 @@ Chỉ **nhân viên đăng nhập** (`index.html`) dùng. Thợ (`crew.html`) v�
 | Đo đạc | **Đo trên ảnh**, không AR/WebXR (iPhone Safari/Zalo không hỗ trợ AR web). Số đo nhập tay từ thước laser / app Đo của iPhone, hoặc **ước tính theo thước chuẩn** (kẻ lên vật đã biết kích thước). Không thêm thư viện. |
 | Cổng chặn | **Giai đoạn công trình**: `survey` (Khảo sát) → `design` (Lên phương án) → `construction` (Thi công). Rời `survey` khi checklist chưa đủ → DB raise `survey_incomplete`. Lùi giai đoạn thì tự do. Công trình cũ mặc định `construction`. |
 | Checklist | **Theo công trình** (một danh sách cho cả công trình), **mẫu dùng chung do quản lý/admin sửa**. Mỗi mục có lựa chọn "Không áp dụng" + **lý do bắt buộc**. |
+| File mặt bằng quét | Đính kèm file xuất từ app quét phòng bên ngoài (Polycam, Magicplan… trên iPhone có LiDAR). App **chỉ lưu và mở/tải**: không dựng hình 3D, không tự đọc số đo từ file, không bắt buộc có file mới qua cổng. |
 | Cột giai đoạn | Cột mới `projects.phase`, **tách khỏi** `projects.status` (active/done/paused) — không chạm trigger `trg_projects_status` / khoá link. |
 
 ## Phạm vi file
@@ -203,6 +204,28 @@ Trong `schema.sql`, đặt hai dòng này **sau** dòng `revoke execute on all f
 
 **A9. Cảnh báo bỏ qua công trình chưa thi công** — `compute_alerts()`: mọi chỗ đang `join projects pj on … and pj.status = 'active'` (6 chỗ) thêm `and pj.phase = 'construction'`. Công trình đang khảo sát / lên phương án không sinh cảnh báo "không ra quân / chậm / quá hạn" và không bị tự đổi trạng thái đầu việc, kể cả khi đã lỡ có đầu việc. Sửa luôn câu comment đầu hàm. Không đổi `crew_*` / `client_view` (vẫn lọc theo `status`).
 
+**A10. File mặt bằng quét**
+
+```sql
+create table if not exists survey_files (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references projects(id) on delete cascade,
+  name text not null,                 -- tên gốc của file, để hiển thị
+  path text not null,                 -- {project_id}/survey/files/... (tên đã làm sạch)
+  mime text,
+  size_bytes bigint,
+  note text,
+  created_by uuid references auth.users(id) on delete set null default auth.uid(),
+  created_at timestamptz default now(),
+  constraint survey_files_path_scope check (_path_project(path) = project_id)
+);
+create index if not exists idx_survey_files_project on survey_files(project_id);
+```
+
+- Thứ tự khai báo so với `_path_project()`: xử lý **cùng cách** đã chọn cho `survey_photos` (A4).
+- RLS + grant (đặt cùng khối A7): `enable row level security`; `revoke all on survey_files from anon`; `grant select, insert, delete on survey_files to authenticated` (**không update** — tải nhầm thì xoá, tải lại); policy `for all to authenticated using (can_access_project(project_id)) with check (can_access_project(project_id))`, có `drop policy if exists` trước.
+- **Không** tham gia `survey_missing` / cổng chặn.
+
 Storage: **không cần policy mới** — ảnh khảo sát lưu `{project_id}/survey/...`, policy `staff upload/read site-photos` lọc theo thư mục đầu = `project_id` đã đúng. Edge Function `get-photo-url` với `kind=client` ký **mọi path có tiền tố `{project_id}/`** — tức chủ nhà về lý thuyết ký được ảnh khảo sát nếu biết đúng tên file. Tên file có `Date.now()` + 6 ký tự ngẫu nhiên và chủ nhà chỉ nhận path từ `client_view()` (không chứa ảnh khảo sát) nên **chấp nhận, không sửa Edge Function trong plan này**; ghi một dòng vào AGENTS.md mục "Đã biết".
 
 ### B. Trình bắt điểm — `js/annotate.js` (mới)
@@ -273,6 +296,18 @@ export async function uploadSurveyBlobs(supabaseClient, projectId, { mainBlob, t
 
   Đường dẫn: `${projectId}/survey/${ngày-địa-phương}/${kind}-${stamp}.jpg` và `…-thumb.jpg`.
 - Ảnh gốc khảo sát **bắt buộc qua `prepareImage(file)`** (nhận HEIC/DNG, nén 1280/q0.7) — không upload file gốc điện thoại.
+- Thêm (cho D5):
+
+```js
+// Tải 1 file mặt bằng quét, giữ nguyên file (không nén). Trả { path, name, mime, size_bytes }
+export async function uploadSurveyFile(supabaseClient, projectId, file);
+```
+
+  - Dùng lại `putStaffBlob` + `withRetry`, `contentType` = `file.type` (trống thì `application/octet-stream`).
+  - Đường dẫn `${projectId}/survey/files/${stamp}-${tên-đã-làm-sạch}`. **Tên gốc không đưa thẳng vào đường dẫn**: bỏ dấu tiếng Việt, mọi ký tự ngoài `a-z 0-9 . _ -` → `-`, cắt còn tối đa 60 ký tự, giữ đuôi. Tên gốc trả về ở `name` để lưu vào cột `name`.
+  - Chỉ nhận đuôi `pdf, png, jpg, jpeg, dxf, dwg, usdz, glb, obj, zip` (so đuôi chữ thường). **Không nhận `svg`, `html`, `htm`, `js`** — mở qua link ký có thể chạy script. Sai loại → `PhotoError('Loại file này chưa hỗ trợ — xuất từ app quét dưới dạng PDF, ảnh, DXF hoặc USDZ')`.
+  - Giới hạn **25 MB** (`file.size`); vượt → `PhotoError('File nặng quá 25 MB — xuất bản nhẹ hơn hoặc chia theo phòng')`. File rỗng → cũng báo lỗi.
+  - **Không** qua `prepareImage` kể cả khi là ảnh (giữ độ nét bản vẽ).
 - Sửa lại số đo → upload ảnh `ann` **mới** (stamp mới) rồi update dòng `survey_photos`. File ảnh vẽ cũ để lại (staff không có quyền xoá Storage). Tương tự, "🗑 Xoá ảnh" chỉ xoá dòng `survey_photos`, file gốc + ảnh vẽ vẫn nằm trên Storage — ghi cả hai vào AGENTS.md "Đã biết".
 
 ### D. Màn hình khảo sát — `js/staff/survey.js` (mới)
@@ -303,6 +338,13 @@ export async function surveyMissing(projectId);       // gọi RPC survey_missin
 - Dùng lại `galleryHtml`/`wireGalleries` (`js/gallery.js`) nếu hợp, không bắt buộc.
 
 **D4. Sửa mẫu (quản lý)** — modal mới `#surveyTemplateModal` trong `index.html`: danh sách mục, sửa nhãn/nhóm/loại/đơn vị/gợi ý/thứ tự, bật tắt "Bắt buộc", "Bắt buộc ảnh", "Đang dùng". Thêm mục mới. **Không có nút xoá** (chỉ tắt "Đang dùng"). Ghi trực tiếp bảng `survey_checklist_items`, đọc `{ error }`.
+
+**D5. Mặt bằng quét (PR 3)** — khối "📎 Mặt bằng quét" đặt **giữa checklist và album**:
+- Nút "＋ Đính kèm file": `<input type="file" accept=".pdf,.png,.jpg,.jpeg,.dxf,.dwg,.usdz,.glb,.obj,.zip">` (không `capture`, không `multiple` ở bản này). Hint: *"File xuất từ app quét phòng (Polycam, Magicplan…): PDF, ảnh, DXF, USDZ. Tối đa 25 MB."*
+- Luồng: `uploadSurveyFile(...)` → `insert survey_files` (đọc `{ error }`) → vẽ lại danh sách. Trong lúc tải: nút hiện "Đang gửi file…", khoá bấm 2 lần. Lỗi → `showToast(e.message, true)`, giữ `File` trong bộ nhớ để bấm "Thử lại".
+- Danh sách (mới nhất trên cùng): tên gốc, dung lượng (KB/MB), ngày, người tải. Chạm vào dòng → `signStaffPhotoUrl(path)` → mở tab mới (`target="_blank" rel="noopener"`); PDF/ảnh trình duyệt tự xem, loại khác tự tải về. Nút 🗑 (confirm) xoá dòng `survey_files`.
+- Chưa có file → dòng trống: *"Chưa có file mặt bằng. Quét phòng bằng app ngoài rồi đính kèm vào đây."*
+- Tên file, ghi chú vào `innerHTML` phải qua `escapeHtml()`.
 
 ### E. Tab Công việc — `index.html`, `js/staff/items.js`, `js/staff/state.js`
 
@@ -360,6 +402,7 @@ Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang 
 - Xuất PDF/Excel biên bản khảo sát (plan sau).
 - Hàng đợi offline (IndexedDB) cho khảo sát — bản này chỉ "Thử lại" trong phiên.
 - Checklist theo từng phòng (đã chốt: theo công trình).
+- Xem 3D trong app, đọc số đo từ file quét, tích hợp trực tiếp với app quét (Polycam/Magicplan), tải nhiều file một lần.
 - Zoom/pan ảnh trong trình bắt điểm, nhiều thước chuẩn trên 1 ảnh.
 - Đổi bảng màu, font, thêm dependency/build step.
 
@@ -367,12 +410,13 @@ Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang 
 
 **SQL** — thêm vào `supabase/tests/rls_test.sql` (theo kiểu "(phải lỗi)" sẵn có), chạy `PGHOST=… PGPORT=… PGUSER=postgres bash supabase/tests/run.sh`:
 - [ ] Schema áp 2 lần không lỗi (run.sh đã kiểm).
-- [ ] anon `select * from survey_answers` / `survey_photos` / `survey_checklist_items` (phải lỗi).
+- [ ] anon `select * from survey_answers` / `survey_photos` / `survey_files` / `survey_checklist_items` (phải lỗi).
 - [ ] anon gọi `survey_missing(...)` và `_survey_missing_count(...)` (phải lỗi); K1 gọi `_survey_missing_count(...)` (phải lỗi).
 - [ ] K2 (không phụ trách P1) thấy 0 dòng `survey_answers` của P1; insert vào P1 (phải lỗi).
 - [ ] K1 upsert câu trả lời P1 được; `na = true` không lý do (phải lỗi).
 - [ ] K1 sửa `survey_checklist_items.required` (phải lỗi / 0 dòng đổi); admin sửa được.
 - [ ] K1 insert `survey_photos` với `path` thuộc công trình khác (phải lỗi).
+- [ ] `survey_files`: K1 insert cho P1 được; `path` thuộc công trình khác (phải lỗi); K2 thấy 0 dòng của P1; K1 `update` (phải lỗi — không có quyền update); K1 xoá được.
 - [ ] P1 ở `survey`, còn thiếu → `update projects set phase='design'` (phải lỗi `survey_incomplete`); `survey_missing(P1)` liệt kê đúng mục + lý do `photo`.
 - [ ] Điền đủ (có mục `na` + lý do, có ảnh cho mục `photo_required`) → chuyển `design` được → lùi `survey` được.
 - [ ] Công trình insert thẳng `phase='construction'` được.
@@ -389,12 +433,15 @@ Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang 
 - [ ] Gõ `0` vào "Độ nghiêng tường" → mục chuyển ✓ (không báo thiếu).
 - [ ] Wizard chọn "Bắt đầu từ khảo sát" → chỉ có **1** lời gọi insert (`projects`, `phase='survey'`), không insert `work_packages` / `crew_links` / `client_links`; chọn "Thi công ngay" → đủ 3 bước như cũ.
 - [ ] Chọn ảnh giả (`setInputFiles` với `icon-512.png`) → trình bắt điểm mở → kẻ 1 đoạn đo (2 cú chạm) → nhập số → Lưu → có upload storage + insert `survey_photos` với `annotations` dài 1.
+- [ ] (PR 3) Mock thêm bảng `survey_files`. `setInputFiles` một file `mat-bang.pdf` giả → có upload storage vào `…/survey/files/…` + insert `survey_files` với `name = 'mat-bang.pdf'`; dòng mới hiện trong danh sách.
+- [ ] (PR 3) `setInputFiles` file `x.svg` → hiện toast lỗi, **không** có lời gọi upload/insert. File tên có dấu (`Mặt bằng tầng 2.pdf`) → đường dẫn Storage chỉ gồm ký tự ASCII, tên hiển thị giữ nguyên dấu.
 - [ ] Không lỗi console (smoke.mjs đã gom `errors`).
 
 **Tài liệu**
 - [ ] `AGENTS.md` mục 3: bất biến khảo sát (cổng `trg_projects_phase`; mẫu chỉ quản lý sửa; ảnh khảo sát giữ gốc + ảnh vẽ 1280/q0.8 + `annotations`); cảnh báo chỉ chạy cho công trình `phase='construction'`; mục 5 "Đã biết": ảnh vẽ cũ và ảnh đã xoá không bị xoá khỏi Storage.
 - [ ] `README.md`: bảng dữ liệu (+3 bảng, cột `phase`), cấu trúc file (`annotate.js`, `survey.js`), dòng tính năng.
-- [ ] `HUONG_DAN_TRIEN_KHAI.md`: bước chạy `011_khao_sat.sql` (bấm từng bước trên Supabase SQL Editor, viết cho người không biết code).
+- [ ] `HUONG_DAN_TRIEN_KHAI.md`: bước chạy `011_khao_sat.sql` (bấm từng bước trên Supabase SQL Editor, viết cho người không biết code). (PR 3) Thêm bước kiểm kho ảnh `site-photos` trên Supabase (Storage → bucket → Edit): nếu đang đặt giới hạn loại file hoặc dung lượng < 25 MB thì nới ra, kèm từng bước bấm.
+- [ ] (PR 3) `AGENTS.md` "Đã biết": xoá file mặt bằng chỉ xoá dòng, file còn trên Storage; file mặt bằng **không nén**, tối đa 25 MB, danh sách đuôi được phép nằm ở `photos.js`.
 
 **Thử tay** (ghi kết quả vào PR; người dùng làm nếu agent không có máy):
 - [ ] iPhone Safari + PWA đã cài: chụp ảnh (HEIC) → vẽ → lưu → mở lại sửa được.
@@ -411,6 +458,7 @@ Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang 
 5. **Ảnh:** ảnh gốc qua `prepareImage`; ảnh vẽ 1280/q0.8; tải ảnh để sửa bằng `fetch → blob` (không tainted canvas); nhận được HEIC.
 6. **Không phá tính năng cũ:** view Danh sách/Timeline, Chọn nhiều, wizard, hộp duyệt chạy như trước; `crew.html` không tải thêm byte nào.
 7. **Sau ghi phải vẽ lại**, không trông vào realtime.
+8. **File mặt bằng:** danh sách đuôi được phép và giới hạn 25 MB kiểm trước khi upload; `svg`/`html` bị từ chối; tên gốc không vào thẳng đường dẫn Storage; link mở có `rel="noopener"`.
 
 ## Câu hỏi mở
 
