@@ -467,3 +467,5 @@ _(Người code ghi vào đây khi plan không rõ — dừng chờ trả lời.
 ## Nhật ký review
 
 _(Claude ghi kết quả từng lượt review.)_
+
+- 2026-11-12 · Claude · **PR 1 (`011-1-sua-loi-ngay-gio`, #35): Đạt.** Đủ 6 lỗi mục I, `sw.js` v12, smoke test exit 0. Ghi chú không chặn: `crew.js` còn bản `localDateISO()` trùng; toast "Còn mẫu rỗng" hiện quá ngắn; chưa thử tay luồng nhập thay.
