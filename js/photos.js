@@ -10,6 +10,7 @@
 // phía chủ nhà không cần biết ảnh gốc định dạng gì.
 // ============================================================
 
+import { localDateISO } from './ui.js';
 import { sniffImageFormat, readTakenAt, extractPreviewJpeg, heicToCanvas, FORMAT_LABEL } from './convert.js';
 
 const MAIN_MAX_DIM = 1280;
@@ -194,7 +195,7 @@ export async function uploadPreparedCrewPhoto(supabaseClient, token, { mainBlob,
 export async function uploadStaffPhoto(supabaseClient, file, projectId, subcontractorId) {
   const { mainBlob, thumbBlob, takenAt } = await prepareImage(file);
   const stamp = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-  const dateFolder = new Date().toISOString().slice(0, 10);
+  const dateFolder = localDateISO(); // ngày địa phương, không phải UTC
   const mainPath = `${projectId}/${subcontractorId}/${dateFolder}/staff-${stamp}.jpg`;
   const thumbPath = `${projectId}/${subcontractorId}/${dateFolder}/staff-${stamp}-thumb.jpg`;
 

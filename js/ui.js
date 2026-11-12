@@ -15,7 +15,12 @@ export function displayDate(s) {
   const d = new Date(s + 'T00:00:00');
   return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear();
 }
-export function todayISO() { return new Date().toISOString().slice(0, 10); }
+// Ngày theo giờ máy (VN), không phải UTC: toISOString() trước 7h sáng giờ VN
+// trả về ngày hôm qua.
+export function localDateISO(d = new Date()) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+export function todayISO() { return localDateISO(); }
 
 // Số ngày còn lại tới `dateStr`. Âm nghĩa là đã trễ — KHÔNG kẹp về 0
 // (bug đã có ở bản cũ: Math.max(0,...) che mất số ngày trễ thật sự).
