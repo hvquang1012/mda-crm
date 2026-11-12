@@ -1,8 +1,20 @@
 # 011 — Khảo sát & số hoá hiện trạng
 
-**Trạng thái:** Sẵn sàng · **Nhánh:** `feat/011-khao-sat` · **Người code:** Antigravity · **Review:** Claude Code
+**Trạng thái:** Sẵn sàng · **Nhánh:** 3 nhánh, xem [Thứ tự làm](#thứ-tự-làm-3-pr-merge-lần-lượt) · **Người code:** Antigravity · **Review:** Claude Code
 
 > Đọc [AGENTS.md](../AGENTS.md) (nhất là mục 0, 2, 3, 4) trước khi code. Mọi bất biến ở đó vẫn áp dụng.
+
+## Thứ tự làm (3 PR, merge lần lượt)
+
+Mỗi phần một nhánh tạo từ `main` **mới nhất** (phần trước đã merge), một PR riêng. Không gộp.
+
+| # | Nhánh | Làm mục nào | Ghi chú |
+|---|---|---|---|
+| 1 | `011-1-sua-loi-ngay-gio` | I | Nhỏ, không đụng SQL. Trong PR này cũng nâng `sw.js` lên `v12`. |
+| 2 | `011-2-giai-doan-va-checklist` | A, D1, D2, D4, E, F, G, H | Toàn bộ SQL nằm ở đây (kể cả bảng `survey_photos` — PR 3 chỉ thêm giao diện). Nút "📷 Ảnh" ở mỗi mục checklist **chưa làm** ở PR này. `sw.js` → `v13`. |
+| 3 | `011-3-ve-so-do-len-anh` | B, C, D3 + nút "📷 Ảnh" của D2 | Phải có kết quả thử tay trên điện thoại thật trong PR. `sw.js` → `v14`. |
+
+Checklist nghiệm thu: PR nào tick phần của PR đó (SQL + giao diện checklist ở PR 2; ca "chọn ảnh giả → trình bắt điểm" và "Thử tay" ở PR 3). Tài liệu cập nhật ở PR có thay đổi tương ứng.
 
 ## Bối cảnh
 
@@ -97,7 +109,7 @@ create table if not exists survey_answers (
 );
 ```
 
-Gắn trigger `set_updated_at()` có sẵn (xem cách các bảng khác gắn) và đặt `updated_by = auth.uid()` mỗi lần update (trigger nhỏ hoặc client gửi — **ưu tiên trigger**, client không tin được).
+Gắn trigger `set_updated_at()` có sẵn (xem cách `work_packages` gắn). Thêm một trigger `before insert or update` đặt `new.updated_by = auth.uid()` — **bắt buộc dùng trigger**, client không gửi cột này (client không tin được).
 
 **A4. Ảnh hiện trạng**
 
@@ -137,7 +149,7 @@ language sql stable security invoker set search_path = public as $$ ... $$;
 
 Một mục `active and required` coi là **đủ** khi có dòng `survey_answers` và:
 - `na = true` (lý do đã được constraint đảm bảo), **hoặc**
-- theo `kind`: number → `value->>'n'` là số > 0; size → cả `w` và `h` là số > 0; text → `trim(value->>'t') <> ''`.
+- theo `kind`: number → `value->>'n'` **là số** (cho phép `0` và số âm — tường thẳng nghiêng 0, cốt sàn chênh 0 hoặc âm đều là số đo hợp lệ); size → cả `w` và `h` là số > 0; text → `trim(value->>'t') <> ''`. Kiểm "là số" bằng `jsonb_typeof(value->'n') = 'number'`, không ép kiểu chuỗi (ép kiểu lỗi sẽ làm hỏng cả hàm).
 
 Thêm điều kiện ảnh: mục `photo_required` (và không `na`) phải có ≥1 `survey_photos` cùng `project_id` + `item_id`. Thiếu ảnh → `reason = 'photo'`. Trả `'[]'::json` khi đủ (không trả null). Sắp theo `seq`.
 
@@ -178,9 +190,18 @@ Policy (luôn `drop policy if exists` trước):
 - `survey_checklist_items`: select `to authenticated using (true)`; insert/update `to authenticated` **chỉ `is_manager()`** — KTS không được tự gỡ cờ bắt buộc để lách cổng.
 - `survey_answers`, `survey_photos`: `for all to authenticated using (can_access_project(project_id)) with check (can_access_project(project_id))`.
 
-Grant execute: `survey_missing(uuid)` → authenticated. `_survey_missing_count` / `_on_project_phase_change` → không grant (đã có `revoke execute on all functions ... from public`; kiểm thứ tự trong `schema.sql` để hàm mới bị revoke đúng).
+Quyền gọi hàm — Postgres tự cấp EXECUTE cho PUBLIC khi tạo hàm mới, và file migration chạy **riêng** nên không được dựa vào dòng `revoke execute on all functions` của `schema.sql`. Ghi rõ trong **cả hai file**:
+
+```sql
+revoke execute on function survey_missing(uuid), _survey_missing_count(uuid), _on_project_phase_change() from public, anon;
+grant execute on function survey_missing(uuid) to authenticated;
+```
+
+Trong `schema.sql`, đặt hai dòng này **sau** dòng `revoke execute on all functions in schema public from public`. `_survey_missing_count` / `_on_project_phase_change` không grant cho ai.
 
 **A8. Tổng quan** — `dashboard_summary()`: thêm `p.phase` vào CTE `proj` (trong `select` + đã `group by p.id` nên được) và `'phase', pr.phase` vào `json_build_object` của công trình.
+
+**A9. Cảnh báo bỏ qua công trình chưa thi công** — `compute_alerts()`: mọi chỗ đang `join projects pj on … and pj.status = 'active'` (6 chỗ) thêm `and pj.phase = 'construction'`. Công trình đang khảo sát / lên phương án không sinh cảnh báo "không ra quân / chậm / quá hạn" và không bị tự đổi trạng thái đầu việc, kể cả khi đã lỡ có đầu việc. Sửa luôn câu comment đầu hàm. Không đổi `crew_*` / `client_view` (vẫn lọc theo `status`).
 
 Storage: **không cần policy mới** — ảnh khảo sát lưu `{project_id}/survey/...`, policy `staff upload/read site-photos` lọc theo thư mục đầu = `project_id` đã đúng. Edge Function `get-photo-url` với `kind=client` ký **mọi path có tiền tố `{project_id}/`** — tức chủ nhà về lý thuyết ký được ảnh khảo sát nếu biết đúng tên file. Tên file có `Date.now()` + 6 ký tự ngẫu nhiên và chủ nhà chỉ nhận path từ `client_view()` (không chứa ảnh khảo sát) nên **chấp nhận, không sửa Edge Function trong plan này**; ghi một dòng vào AGENTS.md mục "Đã biết".
 
@@ -252,7 +273,7 @@ export async function uploadSurveyBlobs(supabaseClient, projectId, { mainBlob, t
 
   Đường dẫn: `${projectId}/survey/${ngày-địa-phương}/${kind}-${stamp}.jpg` và `…-thumb.jpg`.
 - Ảnh gốc khảo sát **bắt buộc qua `prepareImage(file)`** (nhận HEIC/DNG, nén 1280/q0.7) — không upload file gốc điện thoại.
-- Sửa lại số đo → upload ảnh `ann` **mới** (stamp mới) rồi update dòng `survey_photos`. File ảnh vẽ cũ để lại (staff không có quyền xoá Storage) — ghi vào AGENTS.md "Đã biết".
+- Sửa lại số đo → upload ảnh `ann` **mới** (stamp mới) rồi update dòng `survey_photos`. File ảnh vẽ cũ để lại (staff không có quyền xoá Storage). Tương tự, "🗑 Xoá ảnh" chỉ xoá dòng `survey_photos`, file gốc + ảnh vẽ vẫn nằm trên Storage — ghi cả hai vào AGENTS.md "Đã biết".
 
 ### D. Màn hình khảo sát — `js/staff/survey.js` (mới)
 
@@ -272,10 +293,10 @@ export async function surveyMissing(projectId);       // gọi RPC survey_missin
 - Nút "📷 Ảnh (n)" → chụp ảnh gắn vào mục này (`item_id`), mở trình bắt điểm (mục D3).
 - Trạng thái góc phải: ✓ đủ · ⚠ thiếu số · 📷 thiếu ảnh.
 - **Tự lưu khi rời ô** (`change`/`blur`): `upsert` vào `survey_answers` (`onConflict: 'project_id,item_id'`) qua helper `db()` hoặc đọc `{ error }`. Lỗi → giữ nguyên số đã gõ, hiện "Chưa lưu · Thử lại" ở mục đó (nút thử lại). Lưu xong → cập nhật lại tiến độ.
-- Số nhập phải > 0; `na` mà lý do trống → không gửi, báo ngay ở ô.
+- Hợp lệ phía client **khớp đúng A5**: `number` nhận mọi số kể cả `0` và âm (ô trống = chưa điền); `size` cả hai ô phải > 0; `na` mà lý do trống → không gửi, báo ngay ở ô. Ô `number` dùng `inputmode="decimal"` kèm cho gõ dấu trừ (bàn phím số iPhone không có dấu `-` → thêm nút nhỏ "±" cạnh ô).
 
 **D3. Album hiện trạng** (dưới checklist) — nhóm theo `area`:
-- Nút "＋ Chụp ảnh hiện trạng": hỏi khu vực (gợi ý các `area` đã có), `<input type="file" accept="image/*,.heic,.heif,.dng" capture="environment">`.
+- Nút "＋ Chụp ảnh hiện trạng": hỏi khu vực (gợi ý các `area` đã có), `<input type="file" accept="image/*,.heic,.heif,.dng">` — **không** đặt `capture` (repo không dùng ở đâu; đặt vào là mất lựa chọn "Thư viện ảnh", trong khi nhân viên cần lấy ảnh đã chụp sẵn hoặc ảnh từ app Đo của iPhone).
 - Luồng: `prepareImage(file)` → `openAnnotator(...)` → (Lưu) `uploadSurveyBlobs(..., 'orig')` + nếu có vẽ thì `uploadSurveyBlobs(annotated, 'ann')` → `insert survey_photos`. Huỷ trình bắt điểm → vẫn hỏi "Lưu ảnh không vẽ?" (ảnh hiện trạng thuần cũng có giá trị).
 - Trong lúc tải: nút hiện "Đang gửi ảnh…", khoá bấm 2 lần. Lỗi → `showToast(e.message, true)` (PhotoError đã có câu dễ hiểu), giữ bản nén trong bộ nhớ để bấm "Thử lại" không phải vẽ lại.
 - Lưới thumbnail (ưu tiên `annotated_thumb_path`, không có thì `thumb_path`), ký URL bằng `signStaffPhotoUrl`. Chạm → `openLightbox` (ảnh vẽ), kèm nút "✎ Sửa số đo" và "🗑 Xoá ảnh" (xoá dòng `survey_photos`, confirm trước).
@@ -291,25 +312,33 @@ export async function surveyMissing(projectId);       // gọi RPC survey_missin
   - `construction` → không nút tiến, link nhỏ "← Về lên phương án".
   - Sau khi đổi: cập nhật `state.projects`, vẽ lại thanh + view.
 - Công trình đã đóng (`status='done'`) → thanh giai đoạn chỉ hiển thị, không nút.
+- Ở `survey` / `design`, view Danh sách chưa có đội nào → thay câu trống hiện tại bằng *"Chưa vào thi công — đội và đầu việc thêm khi lên phương án xong"*. **Khoá nút "＋ Thêm đội"** ở cả hai giai đoạn này (đã chốt với người dùng): nút `disabled`, bấm/chạm hiện toast *"Chuyển công trình sang Thi công rồi mới thêm đội"*. Các lối thêm đội / đầu việc khác trong tab (nếu có, ví dụ thêm từ mẫu) khoá cùng cách. Chỉ khoá ở giao diện — không thêm ràng buộc DB; A9 vẫn giữ làm lớp chặn cảnh báo cho dữ liệu lỡ có.
 - **`items-view-switch`** thêm nút thứ 3 `📐 Khảo sát` (`id="btnItemsSurveyView"`). `state.itemsView` thêm giá trị `'survey'` (cập nhật comment trong `state.js`). Khi đổi công trình: công trình ở `survey` → mặc định view khảo sát; giai đoạn khác → giữ view đang chọn trừ khi đang ở `survey` thì về `list`.
 - View `survey`: ẩn `#packagesList`, nút "Chọn nhiều", "＋ Thêm đội", khối xuất CSV; hiện vùng `#surveyView` → `renderSurvey()`. Rời view thì ngược lại.
 - Realtime: **không bắt buộc** subscribe bảng khảo sát ở bản này; sau mỗi lần ghi phải tự vẽ lại (AGENTS.md mục 4).
 
 ### F. Tạo công trình — `js/staff/wizard.js`
 
-Bước 1 thêm lựa chọn 2 nút (chip): **"Bắt đầu từ khảo sát hiện trạng"** (mặc định) / **"Thi công ngay"** → `info.phase = 'survey' | 'construction'`, ghi vào insert `projects`. Hint dưới: *"Khảo sát: phải điền đủ số đo bắt buộc mới chuyển sang lên phương án được."*
+Bước 1 thêm lựa chọn 2 nút (chip): **"Bắt đầu từ khảo sát hiện trạng"** (mặc định) / **"Thi công ngay"** → `info.phase = 'survey' | 'construction'`, ghi vào insert `projects`. Hint dưới: *"Khảo sát: phải điền đủ số đo bắt buộc mới chuyển sang lên phương án được. Đội thi công thêm khi vào Thi công."*
+
+**Chọn "Bắt đầu từ khảo sát" thì wizard chỉ còn bước 1.** Hiện wizard luôn tạo đội + đầu việc có lịch từ hôm nay + link thợ + link chủ nhà (`wizard.js` ~dòng 215–246) — với công trình còn đang đo thì đó là dữ liệu rác: thợ có link khi chưa có việc, chủ nhà thấy timeline giả. Vì vậy:
+- Thanh bước ẩn bước 2–3, nút bước 1 đổi thành "✓ Tạo công trình".
+- Chỉ `insert projects`; **không** tạo `subcontractors` / `work_packages` / `work_items` / `crew_links` / `client_links`.
+- Tạo xong: đóng wizard, chọn công trình mới, mở thẳng view Khảo sát (không hiện màn "gửi link cho đội").
+- "Thi công ngay": wizard 3 bước chạy **y như cũ**.
+- Đội thêm bằng "＋ Thêm đội" có sẵn **sau khi công trình sang Thi công** (nút bị khoá ở Khảo sát / Lên phương án — mục E); link chủ nhà tạo bằng nút có sẵn ở `items.js` (~dòng 853).
 
 ### G. Tổng quan — `js/staff/dashboard.js`
 
-Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang khảo sát` / `✏ Lên phương án`. Công trình ở 2 giai đoạn này chưa có đầu việc → không hiển thị "0% / trễ" gây hiểu nhầm (thay bằng dòng "Chưa vào thi công"). Bấm chip → `state.currentProjectId = id`, `state.itemsView = 'survey'` (nếu `survey`), `state.navigate('items')`.
+Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang khảo sát` / `✏ Lên phương án`. Công trình ở 2 giai đoạn này — **dù có đầu việc hay chưa** — không hiển thị "0% / trễ / còn n ngày" gây hiểu nhầm (thay bằng dòng "Chưa vào thi công") và không tính vào các số tổng "chậm tiến độ" của trang. Nếu việc này cần sửa SQL trong `dashboard_summary()` thì làm ở đó (lọc theo `phase`), không lọc mò ở client. Bấm chip → `state.currentProjectId = id`, `state.itemsView = 'survey'` (nếu `survey`), `state.navigate('items')`.
 
 ### H. Linh tinh
 
 - `js/ui.js` → `RPC_ERROR_VI`: `survey_incomplete: 'Còn thiếu số liệu khảo sát bắt buộc — điền đủ hoặc chọn "Không áp dụng" kèm lý do'`.
 - `css/app.css`: style trình bắt điểm (toàn màn hình, nền tối, thanh công cụ, kính lúp), thanh giai đoạn, checklist. **Chỉ dùng token sẵn có** trong `:root`, khai báo cả khối sáng và tối nếu thêm biến. Không inline style mới.
-- `sw.js`: `CACHE = 'mda-progress-v12'`. Không thêm `annotate.js`/`survey.js` vào `SHELL` (runtime cache tự lo). Giữ network-first.
+- `sw.js`: tăng `CACHE` thêm 1 ở **mỗi PR** (v12 → v13 → v14, xem "Thứ tự làm"). Không thêm `annotate.js`/`survey.js` vào `SHELL` (runtime cache tự lo). Giữ network-first.
 
-### I. Sửa lỗi nhỏ từ review code (cùng nhánh, commit riêng)
+### I. Sửa lỗi nhỏ từ review code (PR 1 — nhánh `011-1-sua-loi-ngay-gio`)
 
 | # | Vị trí | Lỗi | Sửa |
 |---|---|---|---|
@@ -339,7 +368,7 @@ Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang 
 **SQL** — thêm vào `supabase/tests/rls_test.sql` (theo kiểu "(phải lỗi)" sẵn có), chạy `PGHOST=… PGPORT=… PGUSER=postgres bash supabase/tests/run.sh`:
 - [ ] Schema áp 2 lần không lỗi (run.sh đã kiểm).
 - [ ] anon `select * from survey_answers` / `survey_photos` / `survey_checklist_items` (phải lỗi).
-- [ ] anon gọi `survey_missing(...)` (phải lỗi).
+- [ ] anon gọi `survey_missing(...)` và `_survey_missing_count(...)` (phải lỗi); K1 gọi `_survey_missing_count(...)` (phải lỗi).
 - [ ] K2 (không phụ trách P1) thấy 0 dòng `survey_answers` của P1; insert vào P1 (phải lỗi).
 - [ ] K1 upsert câu trả lời P1 được; `na = true` không lý do (phải lỗi).
 - [ ] K1 sửa `survey_checklist_items.required` (phải lỗi / 0 dòng đổi); admin sửa được.
@@ -347,17 +376,23 @@ Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang 
 - [ ] P1 ở `survey`, còn thiếu → `update projects set phase='design'` (phải lỗi `survey_incomplete`); `survey_missing(P1)` liệt kê đúng mục + lý do `photo`.
 - [ ] Điền đủ (có mục `na` + lý do, có ảnh cho mục `photo_required`) → chuyển `design` được → lùi `survey` được.
 - [ ] Công trình insert thẳng `phase='construction'` được.
+- [ ] Mục `number` trả lời `{"n": 0}` và `{"n": -20}` → **không** nằm trong `survey_missing`; `{"n": "abc"}` / `{}` → vẫn thiếu. Mục `size` có `w = 0` → vẫn thiếu.
+- [ ] `updated_by`: K1 upsert kèm `updated_by` của người khác → dòng lưu vẫn là id của K1.
+- [ ] `compute_alerts()`: công trình `phase='survey'` có đầu việc quá hạn → **không** sinh cảnh báo, trạng thái đầu việc không đổi; đổi sang `construction` rồi chạy lại → có cảnh báo.
 - [ ] `dashboard_summary()` có trường `phase`.
 
 **Giao diện** — `tests/ui/mock-supabase.js` thêm bảng `survey_checklist_items`, `survey_answers`, `survey_photos`, `projects.phase` (P1 để `survey`), RPC `survey_missing`; `tests/ui/smoke.mjs`:
 - [ ] Mở tab Công việc → P1 tự vào view Khảo sát; chụp màn hình điện thoại (390px) + máy tính, sáng + tối.
 - [ ] Gõ 1 số vào mục → có lời gọi upsert `survey_answers`.
 - [ ] Bấm "Chuyển sang lên phương án" khi thiếu → hiện danh sách thiếu, không có lời gọi update `projects`.
+- [ ] P1 ở `survey`: nút "＋ Thêm đội" bị khoá, bấm không mở form; đổi mock sang `construction` → bấm mở form như cũ.
+- [ ] Gõ `0` vào "Độ nghiêng tường" → mục chuyển ✓ (không báo thiếu).
+- [ ] Wizard chọn "Bắt đầu từ khảo sát" → chỉ có **1** lời gọi insert (`projects`, `phase='survey'`), không insert `work_packages` / `crew_links` / `client_links`; chọn "Thi công ngay" → đủ 3 bước như cũ.
 - [ ] Chọn ảnh giả (`setInputFiles` với `icon-512.png`) → trình bắt điểm mở → kẻ 1 đoạn đo (2 cú chạm) → nhập số → Lưu → có upload storage + insert `survey_photos` với `annotations` dài 1.
 - [ ] Không lỗi console (smoke.mjs đã gom `errors`).
 
 **Tài liệu**
-- [ ] `AGENTS.md` mục 3: bất biến khảo sát (cổng `trg_projects_phase`; mẫu chỉ quản lý sửa; ảnh khảo sát giữ gốc + ảnh vẽ 1280/q0.8 + `annotations`); mục 5 "Đã biết": ảnh vẽ cũ không xoá khỏi Storage.
+- [ ] `AGENTS.md` mục 3: bất biến khảo sát (cổng `trg_projects_phase`; mẫu chỉ quản lý sửa; ảnh khảo sát giữ gốc + ảnh vẽ 1280/q0.8 + `annotations`); cảnh báo chỉ chạy cho công trình `phase='construction'`; mục 5 "Đã biết": ảnh vẽ cũ và ảnh đã xoá không bị xoá khỏi Storage.
 - [ ] `README.md`: bảng dữ liệu (+3 bảng, cột `phase`), cấu trúc file (`annotate.js`, `survey.js`), dòng tính năng.
 - [ ] `HUONG_DAN_TRIEN_KHAI.md`: bước chạy `011_khao_sat.sql` (bấm từng bước trên Supabase SQL Editor, viết cho người không biết code).
 
@@ -369,7 +404,8 @@ Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang 
 ## Điểm review (Claude sẽ soi — tự kiểm trước khi mở PR)
 
 1. **Bảo mật:** không `grant`/`policy` nào cho `anon`; mọi policy bảng khảo sát dùng `can_access_project()`; mẫu checklist chỉ `is_manager()` ghi; hàm `security definer` mới đều có `set search_path = public` và không được grant cho người gọi tuỳ ý.
-2. **Cổng không lách được:** chỉ chặn ở trigger DB, không chỉ ở nút. Thử `update projects set phase = 'construction'` thẳng từ `survey` khi thiếu → phải lỗi.
+2. **Định nghĩa "đủ" một chỗ:** quy tắc ở client (D2) khớp từng chữ với `survey_missing` (A5) — số `0` / âm hợp lệ.
+2b. **Cổng không lách được:** chỉ chặn ở trigger DB, không chỉ ở nút. Thử `update projects set phase = 'construction'` thẳng từ `survey` khi thiếu → phải lỗi.
 3. **XSS:** nhãn mục, lý do, khu vực, ghi chú, chữ trong `annotations` vào `innerHTML` đều qua `escapeHtml()`.
 4. **Lỗi Supabase:** mọi `.upsert/.insert/.update/.delete/.rpc` đọc `{ error }` — không `try/catch` suông.
 5. **Ảnh:** ảnh gốc qua `prepareImage`; ảnh vẽ 1280/q0.8; tải ảnh để sửa bằng `fetch → blob` (không tainted canvas); nhận được HEIC.

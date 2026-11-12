@@ -6,9 +6,11 @@ Claude Code viết bản giao việc ở đây; Antigravity code theo đúng b�
 
 | Số | Tính năng | Trạng thái | Nhánh |
 |---|---|---|---|
-| 011 | [Khảo sát & số hoá hiện trạng](011-khao-sat-hien-trang.md) | Sẵn sàng | `feat/011-khao-sat` |
+| 011 | [Khảo sát & số hoá hiện trạng](011-khao-sat-hien-trang.md) | Sẵn sàng | `011-1-sua-loi-ngay-gio` → `011-2-giai-doan-va-checklist` → `011-3-ve-so-do-len-anh` |
 
 Trạng thái: `Sẵn sàng` → `Đang làm` → `Chờ review` → `Cần sửa` ↔ `Chờ review` → `Xong`. Người đổi trạng thái ghi lại ở đầu file plan.
+
+Tên nhánh: `NNN-viec-lam-bang-tieng-viet-khong-dau` — đọc tên là biết nhánh làm gì (không dùng tiền tố `feat/`, `fix/`). Plan chia nhiều PR thì thêm số thứ tự: `NNN-1-…`, `NNN-2-…`, merge lần lượt.
 
 Số plan đi theo số migration nếu có đổi SQL (plan 011 ↔ `supabase/migrations/011_*.sql`) để dễ dò. Plan không đụng SQL thì lấy số kế tiếp.
 
@@ -17,7 +19,7 @@ Số plan đi theo số migration nếu có đổi SQL (plan 011 ↔ `supabase/m
 ```markdown
 # NNN — Tên tính năng
 
-**Trạng thái:** Sẵn sàng · **Nhánh:** feat/NNN-ten · **Người code:** Antigravity · **Review:** Claude Code
+**Trạng thái:** Sẵn sàng · **Nhánh:** NNN-viec-lam · **Người code:** Antigravity · **Review:** Claude Code
 
 ## Bối cảnh
 Vấn đề nghiệp vụ, vì sao làm, kết quả mong muốn (viết bằng ngôn ngữ công trình).
