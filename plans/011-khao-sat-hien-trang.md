@@ -312,21 +312,21 @@ export async function surveyMissing(projectId);       // gọi RPC survey_missin
   - `construction` → không nút tiến, link nhỏ "← Về lên phương án".
   - Sau khi đổi: cập nhật `state.projects`, vẽ lại thanh + view.
 - Công trình đã đóng (`status='done'`) → thanh giai đoạn chỉ hiển thị, không nút.
-- Ở `survey` / `design`, view Danh sách chưa có đội nào → thay câu trống hiện tại bằng *"Chưa vào thi công — đội và đầu việc thêm khi lên phương án xong"*. Nút "＋ Thêm đội" vẫn dùng được (chuẩn bị trước đội trong lúc lên phương án); cảnh báo đã bị A9 chặn.
+- Ở `survey` / `design`, view Danh sách chưa có đội nào → thay câu trống hiện tại bằng *"Chưa vào thi công — đội và đầu việc thêm khi lên phương án xong"*. **Khoá nút "＋ Thêm đội"** ở cả hai giai đoạn này (đã chốt với người dùng): nút `disabled`, bấm/chạm hiện toast *"Chuyển công trình sang Thi công rồi mới thêm đội"*. Các lối thêm đội / đầu việc khác trong tab (nếu có, ví dụ thêm từ mẫu) khoá cùng cách. Chỉ khoá ở giao diện — không thêm ràng buộc DB; A9 vẫn giữ làm lớp chặn cảnh báo cho dữ liệu lỡ có.
 - **`items-view-switch`** thêm nút thứ 3 `📐 Khảo sát` (`id="btnItemsSurveyView"`). `state.itemsView` thêm giá trị `'survey'` (cập nhật comment trong `state.js`). Khi đổi công trình: công trình ở `survey` → mặc định view khảo sát; giai đoạn khác → giữ view đang chọn trừ khi đang ở `survey` thì về `list`.
 - View `survey`: ẩn `#packagesList`, nút "Chọn nhiều", "＋ Thêm đội", khối xuất CSV; hiện vùng `#surveyView` → `renderSurvey()`. Rời view thì ngược lại.
 - Realtime: **không bắt buộc** subscribe bảng khảo sát ở bản này; sau mỗi lần ghi phải tự vẽ lại (AGENTS.md mục 4).
 
 ### F. Tạo công trình — `js/staff/wizard.js`
 
-Bước 1 thêm lựa chọn 2 nút (chip): **"Bắt đầu từ khảo sát hiện trạng"** (mặc định) / **"Thi công ngay"** → `info.phase = 'survey' | 'construction'`, ghi vào insert `projects`. Hint dưới: *"Khảo sát: phải điền đủ số đo bắt buộc mới chuyển sang lên phương án được. Đội thi công thêm sau."*
+Bước 1 thêm lựa chọn 2 nút (chip): **"Bắt đầu từ khảo sát hiện trạng"** (mặc định) / **"Thi công ngay"** → `info.phase = 'survey' | 'construction'`, ghi vào insert `projects`. Hint dưới: *"Khảo sát: phải điền đủ số đo bắt buộc mới chuyển sang lên phương án được. Đội thi công thêm khi vào Thi công."*
 
 **Chọn "Bắt đầu từ khảo sát" thì wizard chỉ còn bước 1.** Hiện wizard luôn tạo đội + đầu việc có lịch từ hôm nay + link thợ + link chủ nhà (`wizard.js` ~dòng 215–246) — với công trình còn đang đo thì đó là dữ liệu rác: thợ có link khi chưa có việc, chủ nhà thấy timeline giả. Vì vậy:
 - Thanh bước ẩn bước 2–3, nút bước 1 đổi thành "✓ Tạo công trình".
 - Chỉ `insert projects`; **không** tạo `subcontractors` / `work_packages` / `work_items` / `crew_links` / `client_links`.
 - Tạo xong: đóng wizard, chọn công trình mới, mở thẳng view Khảo sát (không hiện màn "gửi link cho đội").
 - "Thi công ngay": wizard 3 bước chạy **y như cũ**.
-- Đội thêm sau bằng "＋ Thêm đội" có sẵn; link chủ nhà tạo bằng nút có sẵn ở `items.js` (~dòng 853).
+- Đội thêm bằng "＋ Thêm đội" có sẵn **sau khi công trình sang Thi công** (nút bị khoá ở Khảo sát / Lên phương án — mục E); link chủ nhà tạo bằng nút có sẵn ở `items.js` (~dòng 853).
 
 ### G. Tổng quan — `js/staff/dashboard.js`
 
@@ -385,6 +385,7 @@ Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang 
 - [ ] Mở tab Công việc → P1 tự vào view Khảo sát; chụp màn hình điện thoại (390px) + máy tính, sáng + tối.
 - [ ] Gõ 1 số vào mục → có lời gọi upsert `survey_answers`.
 - [ ] Bấm "Chuyển sang lên phương án" khi thiếu → hiện danh sách thiếu, không có lời gọi update `projects`.
+- [ ] P1 ở `survey`: nút "＋ Thêm đội" bị khoá, bấm không mở form; đổi mock sang `construction` → bấm mở form như cũ.
 - [ ] Gõ `0` vào "Độ nghiêng tường" → mục chuyển ✓ (không báo thiếu).
 - [ ] Wizard chọn "Bắt đầu từ khảo sát" → chỉ có **1** lời gọi insert (`projects`, `phase='survey'`), không insert `work_packages` / `crew_links` / `client_links`; chọn "Thi công ngay" → đủ 3 bước như cũ.
 - [ ] Chọn ảnh giả (`setInputFiles` với `icon-512.png`) → trình bắt điểm mở → kẻ 1 đoạn đo (2 cú chạm) → nhập số → Lưu → có upload storage + insert `survey_photos` với `annotations` dài 1.
