@@ -18,7 +18,7 @@ Quy ước kỹ thuật và checklist review cho dự án **MDA Site**. Đọc [
 ### Quy trình một tính năng
 
 1. **Claude** viết `plans/NNN-ten-ngan.md` theo mẫu ở [`plans/README.md`](plans/README.md), trạng thái `Sẵn sàng`.
-2. **Antigravity** tạo nhánh `feat/NNN-ten-ngan` từ `main`, đổi trạng thái `Đang làm`, code theo plan.
+2. **Antigravity** tạo nhánh từ `main` theo đúng tên ghi trong plan (dạng `NNN-viec-lam`, ví dụ `011-1-sua-loi-ngay-gio`; plan chia nhiều PR thì làm lần lượt từng nhánh), đổi trạng thái `Đang làm`, code theo plan.
 3. **Antigravity** chạy test (mục 6), tick checklist nghiệm thu trong plan, đổi trạng thái `Chờ review`, mở PR (mô tả: link plan + những gì đã/chưa làm được).
 4. **Claude** review — mục **Bảo mật** trước, rồi mục "Điểm review" của plan — ghi kết quả vào PR và mục "Nhật ký review" của plan.
 5. **Antigravity** sửa theo review, lặp bước 4 tới khi đạt.
