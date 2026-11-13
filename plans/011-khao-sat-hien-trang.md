@@ -469,3 +469,4 @@ _(Người code ghi vào đây khi plan không rõ — dừng chờ trả lời.
 _(Claude ghi kết quả từng lượt review.)_
 
 - 2026-11-12 · Claude · **PR 1 (`011-1-sua-loi-ngay-gio`, #35): Đạt.** Đủ 6 lỗi mục I, `sw.js` v12, smoke test exit 0. Ghi chú không chặn: `crew.js` còn bản `localDateISO()` trùng; toast "Còn mẫu rỗng" hiện quá ngắn; chưa thử tay luồng nhập thay.
+- 2026-11-13 · Claude · **PR 2 (`011-2-giai-doan-va-checklist`, #37): Đạt về code.** Tự chạy lại `run.sh` (62 ca phải-lỗi đều đúng, schema áp 2 lần) và smoke test (exit 0). Bảo mật, cổng chặn, quy tắc "đủ" khớp plan. Trước khi merge: xung đột 1 dòng `sw.js` với PR 1 (giữ `v13`). Nên sửa: bước 8b của hướng dẫn triển khai — chạy migration **trước** khi merge; hai mục bắt buộc ảnh chưa có nút chụp tới PR 3 (tạm bỏ tick hoặc chờ PR 3).
