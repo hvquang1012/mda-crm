@@ -10,9 +10,12 @@ import { renderTimeline } from '../timeline.js';
 import { zaloLinkHtml, roleIconHtml, ROLE_VI } from './profile.js';
 import { setProjectStatus } from './project-status.js';
 import { openProjectWizard, scheduleFromTemplate, crewLinkUrl, clientLinkUrl } from './wizard.js';
+import { renderSurvey, surveyMissing } from './survey.js';
 
 let currentPackages = [];  // work_packages của currentProjectId, kèm work_items lồng bên trong
 let flatItems = [];        // toàn bộ work_items của dự án hiện tại, dùng cho picker phụ thuộc
+let lastProjectId = null;  // để biết vừa đổi công trình → chọn view mặc định theo giai đoạn
+let surveyOpts = {};       // tuỳ chọn cho lần vẽ view Khảo sát kế tiếp (danh sách mục thiếu)
 
 // ---------- Bootstrap ----------
 export async function initItemsTab() {
@@ -62,6 +65,9 @@ export async function renderProjectSelect() {
 export async function renderPackages() {
   const wrap = document.getElementById('packagesList');
   if (!wrap || !state.currentProjectId) return;
+  applyProjectView();
+  syncItemsView();
+  renderPhaseBar();
   wrap.innerHTML = '<div class="empty-hint">Đang tải...</div>';
 
   const { data, error } = await state.supabase
@@ -74,7 +80,94 @@ export async function renderPackages() {
   currentPackages = data || [];
   flatItems = currentPackages.flatMap(p => (p.work_items || []).map(it => ({ ...it, packageName: p.name, subName: p.subcontractors?.name })));
   syncProjectClosed();
+  renderPhaseBar();
 
+  renderCurrentPackages();
+}
+
+// ---------- Giai đoạn công trình: Khảo sát → Lên phương án → Thi công ----------
+const PHASES = [['survey', 'Khảo sát'], ['design', 'Lên phương án'], ['construction', 'Thi công']];
+function projectPhase(p = currentProject()) { return p?.phase || 'construction'; }
+// Chưa vào thi công → khoá thêm đội / đầu việc (chỉ ở giao diện; DB không ràng buộc,
+// compute_alerts tự bỏ qua công trình chưa thi công)
+function preConstruction() { return projectPhase() !== 'construction'; }
+const LOCK_MSG = 'Chuyển công trình sang Thi công rồi mới thêm đội';
+
+// Vừa đổi công trình: đang khảo sát → mở view Khảo sát; giai đoạn khác → giữ
+// view đang chọn, trừ khi đang ở Khảo sát thì về Danh sách.
+function applyProjectView() {
+  if (state.currentProjectId === lastProjectId) return;
+  lastProjectId = state.currentProjectId;
+  if (projectPhase() === 'survey') state.itemsView = 'survey';
+  else if (state.itemsView === 'survey') state.itemsView = 'list';
+  if (state.itemsView === 'survey') { state.selectMode = false; state.selectedItems.clear(); }
+}
+
+function renderPhaseBar() {
+  const bar = document.getElementById('phaseBar');
+  if (!bar) return;
+  const p = currentProject();
+  if (!p) { bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.hidden = false;
+  const phase = projectPhase(p);
+  const cur = PHASES.findIndex(x => x[0] === phase);
+  const steps = PHASES.map(([k, label], i) => `<li class="phase-step${i < cur ? ' done' : ''}${i === cur ? ' active' : ''}"${i === cur ? ' aria-current="step"' : ''}>${i < cur ? '✓ ' : ''}${label}</li>`).join('');
+  let actions = '';
+  if (p.status !== 'done') {
+    if (phase === 'survey') actions = '<button type="button" class="btn btn-primary phase-next" data-phase-go="design">Chuyển sang lên phương án →</button>';
+    else if (phase === 'design') actions = '<button type="button" class="link-btn phase-back" data-phase-go="survey">← Quay lại khảo sát</button><button type="button" class="btn btn-primary phase-next" data-phase-go="construction">Bắt đầu thi công →</button>';
+    else actions = '<button type="button" class="link-btn phase-back" data-phase-go="design">← Về lên phương án</button>';
+  }
+  bar.innerHTML = `<ol class="phase-steps" aria-label="Giai đoạn công trình">${steps}</ol>${actions ? `<div class="phase-actions">${actions}</div>` : ''}`;
+  bar.querySelectorAll('[data-phase-go]').forEach(b => { b.onclick = () => changePhase(b.dataset.phaseGo, b); });
+}
+
+const PHASE_CONFIRM = {
+  'survey>design': n => `Chuyển "${n}" sang Lên phương án?\n\nSố liệu khảo sát vẫn sửa được sau này.`,
+  'design>construction': n => `Bắt đầu thi công "${n}"?\n\nTừ giờ thêm được đội thi công, và hệ thống bắt đầu cảnh báo trễ tiến độ cho công trình này.`,
+  'design>survey': n => `Đưa "${n}" quay lại Khảo sát?\n\nMuốn sang Lên phương án lại thì phải điền đủ số đo bắt buộc.`,
+  'construction>design': n => `Đưa "${n}" về Lên phương án?\n\nCảnh báo trễ tiến độ tạm dừng và khoá thêm đội cho tới khi bắt đầu thi công lại.`
+};
+
+async function changePhase(target, btn) {
+  const p = currentProject();
+  if (!p || p.status === 'done') return;
+  const from = projectPhase(p);
+  if (from === target) return;
+  if (from === 'survey') {
+    // Kiểm trước cho dễ hiểu — cổng thật là trigger trg_projects_phase ở DB
+    btn.disabled = true;
+    const miss = await surveyMissing(p.id);
+    btn.disabled = false;
+    if (miss === null) return;
+    if (miss.length) { showSurveyMissing(miss); return; }
+  }
+  const ask = PHASE_CONFIRM[`${from}>${target}`];
+  if (ask && !confirm(ask(p.name))) return;
+  btn.disabled = true;
+  const { data, error } = await state.supabase.from('projects').update({ phase: target }).eq('id', p.id).select('id');
+  btn.disabled = false;
+  if (error) {
+    showToast(rpcErrorText(error, 'Không đổi được giai đoạn'), true);
+    // Người khác vừa xoá số đo → hiện lại danh sách thiếu
+    if (String(error.message || '').includes('survey_incomplete')) {
+      const miss = await surveyMissing(p.id);
+      if (miss?.length) showSurveyMissing(miss);
+    }
+    return;
+  }
+  if (!data?.length) { showToast('Bạn không phụ trách công trình này', true); return; }
+  p.phase = target;
+  if (target === 'survey') state.itemsView = 'survey';
+  else if (state.itemsView === 'survey') state.itemsView = 'list';
+  showToast(target === 'design' ? 'Đã chuyển sang Lên phương án' : target === 'construction' ? 'Đã chuyển sang Thi công — giờ thêm đội được' : target === 'survey' ? 'Đã quay lại Khảo sát' : 'Đã đổi giai đoạn');
+  await renderProjectSelect();
+}
+
+function showSurveyMissing(miss) {
+  showToast(`Còn ${miss.length} mục khảo sát bắt buộc chưa đủ`, true);
+  state.itemsView = 'survey';
+  surveyOpts = { missing: miss };
   renderCurrentPackages();
 }
 
@@ -82,9 +175,21 @@ function renderCurrentPackages() {
   const wrap = document.getElementById('packagesList');
   if (!wrap) return;
   syncItemsView();
+  syncAddLocks();
+
+  if (state.itemsView === 'survey') {
+    if (state.selectMode) { state.selectMode = false; state.selectedItems.clear(); }
+    syncSelectBar();
+    const opts = surveyOpts; surveyOpts = {};
+    renderSurvey(document.getElementById('surveyView'), currentProject(), opts);
+    return;
+  }
 
   if (!currentPackages.length) {
-    wrap.innerHTML = '<div class="empty-hint">Chưa có hạng mục nào. Bấm ＋ để thêm đội thầu phụ vào công trình.</div>';
+    wrap.innerHTML = preConstruction()
+      ? '<div class="empty-hint">Chưa vào thi công — đội và đầu việc thêm khi lên phương án xong</div>'
+      : '<div class="empty-hint">Chưa có hạng mục nào. Bấm ＋ để thêm đội thầu phụ vào công trình.</div>';
+    syncSelectBar();
     return;
   }
 
@@ -151,16 +256,33 @@ async function toggleProjectClosed() {
 }
 
 function syncItemsView() {
-  const timeline = state.itemsView === 'timeline';
+  const view = state.itemsView;
+  const timeline = view === 'timeline';
+  const survey = view === 'survey';
   document.getElementById('packagesList')?.classList.toggle('timeline-view', timeline);
-  const listButton = document.getElementById('btnItemsListView');
-  const timelineButton = document.getElementById('btnItemsTimelineView');
-  listButton?.classList.toggle('active', !timeline);
-  timelineButton?.classList.toggle('active', timeline);
-  listButton?.setAttribute('aria-pressed', String(!timeline));
-  timelineButton?.setAttribute('aria-pressed', String(timeline));
+  [['btnItemsListView', 'list'], ['btnItemsTimelineView', 'timeline'], ['btnItemsSurveyView', 'survey']].forEach(([id, v]) => {
+    const b = document.getElementById(id);
+    b?.classList.toggle('active', view === v);
+    b?.setAttribute('aria-pressed', String(view === v));
+  });
+  // View Khảo sát: ẩn danh sách hạng mục, Chọn nhiều, ＋ Thêm đội, xuất CSV
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.hidden = !on; };
+  show('packagesList', !survey);
+  show('packagesHeader', !survey);
+  show('surveyView', survey);
   const exportSection = document.getElementById('itemsExportSection');
-  if (exportSection) exportSection.style.display = timeline ? 'none' : 'block';
+  if (exportSection) exportSection.style.display = timeline || survey ? 'none' : 'block';
+}
+
+// Khoá "＋ Thêm đội" khi chưa vào thi công: vẫn bấm được để báo lý do (aria-disabled,
+// không dùng thuộc tính disabled vì nút disabled không nhận cú chạm để hiện toast)
+function syncAddLocks() {
+  const btn = document.getElementById('btnNewPackage');
+  if (!btn) return;
+  const locked = preConstruction();
+  btn.classList.toggle('is-locked', locked);
+  if (locked) { btn.setAttribute('aria-disabled', 'true'); btn.title = LOCK_MSG; }
+  else { btn.removeAttribute('aria-disabled'); btn.title = ''; }
 }
 
 function wireTimelineRows(wrap) {
@@ -313,6 +435,7 @@ function chatButtonHtml(itemId) {
 
 function renderPackageCard(pkg) {
   const items = (pkg.work_items || []).sort((a, b) => a.seq - b.seq);
+  const lock = preConstruction();
   const itemsHtml = items.map(it => `
     <div class="task-card wi-row" data-item-card="${it.id}">
       <div class="task-top" data-action="toggle-edit" data-item-id="${it.id}" title="Bấm để sửa nhanh khối lượng / ngày">
@@ -358,8 +481,8 @@ function renderPackageCard(pkg) {
       </div>
       <div class="task-actions wrap">
         <button class="icon-btn strong" data-action="crew-link" data-package-id="${pkg.id}">🔗 Link cho đội</button>
-        <button class="icon-btn" data-action="add-item" data-package-id="${pkg.id}">＋ Đầu việc</button>
-        <button class="icon-btn" data-action="paste-items" data-package-id="${pkg.id}">📋 Dán từ Excel</button>
+        <button class="icon-btn${lock ? ' is-locked' : ''}" data-action="add-item" data-package-id="${pkg.id}"${lock ? ` aria-disabled="true" title="${LOCK_MSG}"` : ''}>＋ Đầu việc</button>
+        <button class="icon-btn${lock ? ' is-locked' : ''}" data-action="paste-items" data-package-id="${pkg.id}"${lock ? ` aria-disabled="true" title="${LOCK_MSG}"` : ''}>📋 Dán từ Excel</button>
         <button class="icon-btn" data-action="shift" data-package-id="${pkg.id}">⇆ Dời lịch</button>
         <button class="icon-btn wi-more" data-action="menu" aria-expanded="false" aria-label="Thao tác khác của hạng mục">⋯</button>
         <div class="wi-menu" hidden>
@@ -385,7 +508,7 @@ function unitLabel(u) { return { m2: 'm²', diem: 'điểm', md: 'md', tron_goi:
 
 function wirePackageCards(wrap) {
   const on = (action, fn) => wrap.querySelectorAll(`[data-action=${action}]`).forEach(b => { b.onclick = (e) => { e.stopPropagation(); if (b.closest('.wi-menu')) closeMenus(wrap); fn(b); }; });
-  on('add-item', b => openItemModal(b.dataset.packageId));
+  on('add-item', b => { if (preConstruction()) { showToast(LOCK_MSG, true); return; } openItemModal(b.dataset.packageId); });
   on('edit-item', b => openItemModal(null, b.dataset.itemId));
   on('delete-item', b => deleteItem(b.dataset.itemId));
   on('done-item', b => setItemsDone([b.dataset.itemId], true));
@@ -394,7 +517,7 @@ function wirePackageCards(wrap) {
   on('delete-package', b => deletePackage(b.dataset.packageId));
   on('crew-link', b => openCrewLinkModal(b.dataset.packageId));
   on('report-for', b => openStaffReportModal(b.dataset.itemId, b.dataset.itemName));
-  on('paste-items', b => openPasteModal(b.dataset.packageId));
+  on('paste-items', b => { if (preConstruction()) { showToast(LOCK_MSG, true); return; } openPasteModal(b.dataset.packageId); });
   on('shift', b => shiftPackage(b.dataset.packageId));
   on('chat', b => state.openChat(b.dataset.itemId));
   on('save-template', b => savePackageAsTemplate(b.dataset.packageId));
@@ -492,6 +615,10 @@ function wireStaticButtons() {
     state.itemsView = 'timeline';
     renderCurrentPackages();
   };
+  document.getElementById('btnItemsSurveyView').onclick = () => {
+    state.itemsView = 'survey';
+    renderCurrentPackages();
+  };
 
   document.getElementById('btnSelectMode').onclick = () => setSelectMode(!state.selectMode);
   document.getElementById('btnSelCancel').onclick = () => setSelectMode(false);
@@ -501,7 +628,10 @@ function wireStaticButtons() {
   document.getElementById('btnSetDatesCancel').onclick = () => closeModal('setDatesModal');
   document.getElementById('btnSetDatesSave').onclick = saveSetDates;
 
-  document.getElementById('btnNewPackage').onclick = openPackageModal;
+  document.getElementById('btnNewPackage').onclick = () => {
+    if (preConstruction()) { showToast(LOCK_MSG, true); return; }
+    openPackageModal();
+  };
   document.getElementById('btnPkgCancel').onclick = () => closeModal('packageModal');
   document.getElementById('btnPkgSave').onclick = savePackage;
   document.getElementById('pkgTrade').onchange = fillTemplateOptions;

@@ -6,6 +6,12 @@
 //   3. Xem trước lịch tự dàn theo mẫu → Tạo
 // Tạo xong hiện sẵn link cho từng đội + link chủ nhà, bấm là gửi Zalo.
 //
+// Chọn "Bắt đầu từ khảo sát hiện trạng" (mặc định) thì chỉ còn bước 1:
+// chỉ tạo công trình (phase='survey') — KHÔNG tạo đội / đầu việc / link
+// thợ / link chủ nhà (công trình đang đo thì đó là dữ liệu rác: thợ có link
+// khi chưa có việc, chủ nhà thấy timeline giả). Đội thêm ở tab Công việc
+// sau khi công trình sang Thi công.
+//
 // Module phụ của tab Công việc (chỉ items.js import) — đọc templates /
 // subcontractors qua state, không import chéo module tab khác.
 // ============================================================
@@ -43,7 +49,7 @@ export function openProjectWizard({ onDone } = {}) {
   onDoneCb = onDone;
   step = 1;
   const start = todayISO();
-  info = { name: '', client_name: '', address: '', start_date: start, end_date: addDays(start, 60) };
+  info = { name: '', client_name: '', address: '', start_date: start, end_date: addDays(start, 60), phase: 'survey' };
   teams = [];
   render();
   document.getElementById('wizardModal').classList.add('show');
@@ -51,21 +57,24 @@ export function openProjectWizard({ onDone } = {}) {
 
 function close() { document.getElementById('wizardModal').classList.remove('show'); }
 
+function surveyFirst() { return info.phase === 'survey'; }
+
 function render() {
   const body = document.getElementById('wizardBody');
   document.querySelectorAll('#wizardSteps [data-step]').forEach(el => {
     el.classList.toggle('active', +el.dataset.step === step);
     el.classList.toggle('done', +el.dataset.step < step);
+    el.hidden = surveyFirst() && +el.dataset.step > 1;   // khảo sát: chỉ 1 bước
   });
   const back = document.getElementById('btnWizardBack');
   const next = document.getElementById('btnWizardNext');
   back.textContent = step === 1 ? 'Huỷ' : '← Quay lại';
-  next.textContent = step === 3 ? '✓ Tạo công trình' : 'Tiếp →';
+  next.textContent = step === 3 || surveyFirst() ? '✓ Tạo công trình' : 'Tiếp →';
   back.onclick = () => { if (step === 1) close(); else { collect(); step--; render(); } };
   next.onclick = onNext;
   next.disabled = false;
 
-  if (step === 1) body.innerHTML = renderInfo();
+  if (step === 1) { body.innerHTML = renderInfo(); wireInfo(); }
   else if (step === 2) { body.innerHTML = renderTeams(); wireTeams(); }
   else body.innerHTML = renderPreview();
 }
@@ -78,7 +87,23 @@ function renderInfo() {
     <div class="row-inline">
       <div><span class="field-label">Bắt đầu</span><input type="date" id="wzStart" value="${info.start_date}"></div>
       <div><span class="field-label">Dự kiến bàn giao</span><input type="date" id="wzEnd" value="${info.end_date}"></div>
+    </div>
+    <div>
+      <span class="field-label">Bắt đầu từ đâu</span>
+      <div class="chip-row" role="group" aria-label="Giai đoạn bắt đầu">
+        <button type="button" class="chip${surveyFirst() ? ' active' : ''}" data-phase="survey" aria-pressed="${surveyFirst()}">📐 Bắt đầu từ khảo sát hiện trạng</button>
+        <button type="button" class="chip${surveyFirst() ? '' : ' active'}" data-phase="construction" aria-pressed="${!surveyFirst()}">🔨 Thi công ngay</button>
+      </div>
+      <div class="field-hint">Khảo sát: phải điền đủ số đo bắt buộc mới chuyển sang lên phương án được. Đội thi công thêm khi vào Thi công.</div>
     </div>`;
+}
+
+function wireInfo() {
+  document.querySelectorAll('#wizardBody [data-phase]').forEach(b => b.onclick = () => {
+    collect();
+    info.phase = b.dataset.phase;
+    render();
+  });
 }
 
 function subOptions(trade, selectedId) {
@@ -201,8 +226,23 @@ function onNext() {
     const bad = teams.findIndex(t => !t.subId && !t.newSubName);
     if (bad >= 0) { showToast(`Đội thứ ${bad + 1}: chọn đội có sẵn hoặc nhập tên đội mới`, true); return; }
   }
+  if (step === 1 && surveyFirst()) { createSurveyProject(); return; }
   if (step < 3) { step++; render(); return; }
   create();
+}
+
+// Bắt đầu từ khảo sát: chỉ insert projects, mở thẳng view Khảo sát
+async function createSurveyProject() {
+  const btn = document.getElementById('btnWizardNext');
+  btn.disabled = true;
+  btn.textContent = 'Đang tạo công trình...';
+  const { data: project, error } = await state.supabase.from('projects').insert({ ...info, phase: 'survey' }).select().single();
+  if (error) { btn.disabled = false; btn.textContent = '✓ Tạo công trình'; showToast(rpcErrorText(error, 'Không tạo được công trình'), true); return; }
+  state.currentProjectId = project.id;
+  state.itemsView = 'survey';
+  close();
+  showToast(`Đã tạo "${project.name}" — bắt đầu điền số đo khảo sát`);
+  onDoneCb?.(project);
 }
 
 async function create() {
@@ -212,7 +252,7 @@ async function create() {
   const progress = (msg) => { btn.textContent = msg; };
 
   progress('Đang tạo công trình...');
-  const { data: project, error: pErr } = await sb.from('projects').insert(info).select().single();
+  const { data: project, error: pErr } = await sb.from('projects').insert({ ...info, phase: 'construction' }).select().single();
   if (pErr) { btn.disabled = false; btn.textContent = '✓ Tạo công trình'; showToast(rpcErrorText(pErr, 'Không tạo được công trình'), true); return; }
 
   const links = [];

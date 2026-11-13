@@ -9,7 +9,8 @@ export const state = {
   subcontractors: [],
   templates: [],          // mẫu đầu việc kèm items — items.js nạp, wizard.js dùng chung
   currentProjectId: null, // dự án đang chọn ở tab "Công việc"
-  itemsView: 'list',      // list | timeline — giữ khi realtime render lại
+  itemsView: 'list',      // list | timeline | survey (📐 Khảo sát) — giữ khi realtime render lại;
+                          // đổi công trình: đang khảo sát → survey, giai đoạn khác mà đang survey → list
   selectMode: false,      // tab Công việc: đang chọn nhiều đầu việc để sửa cùng lúc
   selectedItems: new Set(), // id đầu việc đã chọn (giữ khi render lại)
   activeTab: 'dashboard',

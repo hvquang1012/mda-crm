@@ -58,7 +58,16 @@ if (!(await p.isVisible('#mainScreen .logo-mark')) || (await p.isVisible('#mainS
   const card = await p.$('[data-open-project=p3]');
   const txt = card ? await card.textContent() : '';
   if (!txt.includes('Đã xong') || txt.includes('Cần xử lý') || txt.includes('chưa có báo cáo') || txt.includes('dự báo trễ') || txt.includes('trễ 11')) errors.push('dashboard: công trình xong hết vẫn báo cần xử lý');
-  if ((await p.textContent('.kpi.critical .kpi-value').catch(() => '0')) !== '2') errors.push('dashboard: KPI Cần xử lý đếm cả công trình đã xong');
+  // P1 đang khảo sát + p3 đã xong không tính → chỉ còn P2
+  if ((await p.textContent('.kpi.critical .kpi-value').catch(() => '0')) !== '1') errors.push('dashboard: KPI Cần xử lý đếm cả công trình đã xong / đang khảo sát');
+}
+// Công trình đang khảo sát: chip giai đoạn, không 0% / trễ / còn n ngày
+{
+  const card = await p.$('[data-open-project=p1]');
+  const txt = card ? await card.textContent() : '';
+  if (!txt.includes('📐 Đang khảo sát') || !txt.includes('Chưa vào thi công')) errors.push('dashboard: thẻ công trình khảo sát thiếu chip giai đoạn / "Chưa vào thi công"');
+  if (/\d+%|còn \d+ ngày|trễ \d+|Cần xử lý|Cần chú ý|chưa có báo cáo/.test(txt)) errors.push('dashboard: thẻ công trình khảo sát vẫn hiện % / ngày / rủi ro: ' + txt);
+  await shot(p, 'm-dashboard-survey');
 }
 // Thẻ "Đã xong" có nút Đóng công trình; bấm không mở timeline
 {
@@ -145,6 +154,106 @@ await p.click('[data-action=approve]'); await p.waitForTimeout(300);
 console.log('calls', JSON.stringify((await p.evaluate(() => window.__calls)).filter(c => c[0] === 'rpc' && !['dashboard_summary', 'chat_inbox', 'chat_mark_read'].includes(c[1]))));
 await p.click('#nav-alerts'); await p.waitForTimeout(400); await shot(p, 'm-alerts');
 await p.click('#nav-items'); await p.waitForTimeout(400); await shot(p, 'm-items');
+// ---- Khảo sát hiện trạng (plan 011): P1 đang ở giai đoạn Khảo sát ----
+{
+  const calls = async () => p.evaluate(() => window.__calls);
+  const upserts = async () => (await calls()).filter(c => c[0] === 'upsert' && c[1] === 'survey_answers');
+  const card = (id) => `[data-survey-item=${id}]`;
+  const status = async (id) => (await p.textContent(card(id) + ' [data-status]')).trim();
+  const blurFill = async (sel, v) => { await p.fill(sel, v); await p.press(sel, 'Tab'); await p.waitForTimeout(250); };
+  if (!(await p.isVisible('#surveyView .survey-item')) || await p.isVisible('#packagesList')) errors.push('survey: P1 đang khảo sát không tự mở view Khảo sát');
+  if ((await p.getAttribute('#btnItemsSurveyView', 'aria-pressed')) !== 'true') errors.push('survey: nút 📐 Khảo sát không sáng');
+  if (await p.isVisible('#btnNewPackage') || await p.isVisible('#btnSelectMode') || await p.isVisible('#itemsExportSection')) errors.push('survey: view Khảo sát vẫn hiện Thêm đội / Chọn nhiều / xuất CSV');
+  const bar = await p.textContent('#phaseBar');
+  if (!bar.includes('Khảo sát') || !bar.includes('Lên phương án') || !bar.includes('Thi công') || !(await p.$('#phaseBar .phase-step.active[aria-current=step]'))) errors.push('survey: thanh giai đoạn thiếu bước / bước hiện tại');
+  if ((await p.$$('[data-survey-item]')).length !== 8) errors.push('survey: số mục checklist sai (mục đã tắt phải ẩn)');
+  if (await p.$('#surveyView .field-hint b')) errors.push('survey: gợi ý mục không được escape');
+  if (!(await p.textContent('#surveyProgress')).includes('0/5')) errors.push('survey: tiến độ ban đầu phải 0/5');
+  if (!(await p.isVisible('#btnSurveyTemplate'))) errors.push('survey: quản trị không thấy nút Sửa mẫu');
+  if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)) errors.push('survey: cuộn ngang ở 390px');
+  await shot(p, 'm-survey');
+  // Gõ số → tự lưu khi rời ô (upsert, không gửi updated_by); "2.650" hiểu là 2650
+  await blurFill(card('sc10') + ' [data-f=n]', '2.650');
+  {
+    const u = (await upserts()).pop();
+    if (!u || u[2].project_id !== 'p1' || u[2].item_id !== 'sc10' || u[2].value?.n !== 2650 || u[2].na !== false || 'updated_by' in u[2] || u[3]?.onConflict !== 'project_id,item_id') errors.push('survey: gõ số không upsert đúng: ' + JSON.stringify(u));
+    if (!(await status('sc10')).includes('✓') || !(await p.textContent('#surveyProgress')).includes('1/5')) errors.push('survey: lưu xong không cập nhật ✓ / tiến độ 1/5');
+    if ((await p.inputValue(card('sc10') + ' [data-f=n]')) !== '2650') errors.push('survey: số đã lưu không hiện lại 2650');
+  }
+  // Còn thiếu → bấm chuyển: hiện danh sách thiếu, KHÔNG gửi update projects
+  {
+    const n0 = (await calls()).length;
+    await p.click('#phaseBar [data-phase-go=design]'); await p.waitForTimeout(400);
+    if ((await calls()).slice(n0).some(c => c[0] === 'update' && c[1] === 'projects')) errors.push('survey: còn thiếu mà vẫn gửi update projects');
+    const notice = await p.textContent('#surveyMissingNotice');
+    if (!notice.includes('4 mục') || !notice.includes('Độ nghiêng tường') || !notice.includes('Cửa thang máy')) errors.push('survey: không hiện đủ danh sách mục thiếu: ' + notice);
+    await shot(p, 'm-survey-missing');
+  }
+  // Số 0 là số đo hợp lệ
+  await blurFill(card('sc40') + ' [data-f=n]', '0');
+  if (!(await status('sc40')).includes('✓')) errors.push('survey: gõ 0 vào Độ nghiêng tường vẫn báo thiếu');
+  // Nút ± cho số âm (bàn phím số iPhone không có dấu trừ)
+  await blurFill(card('sc20') + ' [data-f=n]', '20');
+  await p.click(card('sc20') + ' [data-action=sign]'); await p.waitForTimeout(250);
+  if ((await upserts()).pop()?.[2].value?.n !== -20) errors.push('survey: nút ± không lưu số âm');
+  // Gõ sai → báo ngay ở mục, không gửi
+  {
+    const n = (await upserts()).length;
+    await blurFill(card('sc20') + ' [data-f=n]', 'abc');
+    if ((await upserts()).length !== n || !(await p.isVisible(card('sc20') + ' [data-err]'))) errors.push('survey: số sai vẫn gửi / không báo lỗi');
+    await blurFill(card('sc20') + ' [data-f=n]', '-20');
+    await blurFill(card('sc50') + ' [data-f=w]', '0');
+    if ((await upserts()).length !== n + 1 || !(await p.textContent(card('sc50') + ' [data-err]')).includes('lớn hơn 0')) errors.push('survey: rộng = 0 vẫn gửi / không báo lỗi');
+    // Không áp dụng mà chưa có lý do → không gửi
+    await p.click(card('sc50') + ' [data-action=na]'); await p.waitForTimeout(150);
+    if ((await upserts()).length !== n + 1 || !(await p.isVisible(card('sc50') + ' [data-f=na_reason]')) || await p.isVisible(card('sc50') + ' [data-f=w]')) errors.push('survey: Không áp dụng chưa lý do vẫn gửi / không đổi ô nhập');
+    await blurFill(card('sc50') + ' [data-f=na_reason]', 'Nhà phố không có thang máy');
+    const u = (await upserts()).pop();
+    if (u?.[2].na !== true || u[2].na_reason !== 'Nhà phố không có thang máy' || !(await status('sc50')).includes('✓')) errors.push('survey: Không áp dụng + lý do không lưu đúng');
+  }
+  // Mục bắt buộc ảnh: có chữ nhưng chưa có ảnh → 📷 thiếu ảnh
+  await blurFill(card('sc30') + ' [data-f=t]', 'Dầm D1 220×400');
+  if (!(await status('sc30')).includes('📷')) errors.push('survey: mục bắt buộc ảnh chưa có ảnh không báo 📷');
+  await p.click(card('sc30') + ' [data-action=na]'); await blurFill(card('sc30') + ' [data-f=na_reason]', 'Trần phẳng, không có dầm');
+  if (!(await p.textContent('#surveyProgress')).includes('5/5')) errors.push('survey: đủ hết mà tiến độ chưa 5/5');
+  await shot(p, 'm-survey-done');
+  // Sửa mẫu khảo sát (quản trị): hiện cả mục đã tắt, lưu = update survey_checklist_items
+  await p.click('#btnSurveyTemplate'); await p.waitForTimeout(300);
+  if (!(await p.isVisible('#surveyTemplateModal.show')) || (await p.$$('#surveyTemplateList .tpl-row')).length !== 9) errors.push('survey: hộp sửa mẫu không mở / thiếu mục');
+  if (await p.$('#surveyTemplateModal [data-action*=delete]')) errors.push('survey: hộp sửa mẫu không được có nút xoá');
+  await p.click('#surveyTemplateList .tpl-row:first-child summary');
+  await p.fill('#surveyTemplateList .tpl-row:first-child [data-t=hint]', 'Đo 3 điểm, ghi số nhỏ nhất');
+  await shot(p, 'm-survey-template');
+  await p.click('#surveyTemplateList .tpl-row:first-child [data-action=tpl-save]'); await p.waitForTimeout(300);
+  if (!(await calls()).some(c => c[0] === 'update' && c[1] === 'survey_checklist_items' && c[2].hint === 'Đo 3 điểm, ghi số nhỏ nhất' && c[2].required === true)) errors.push('survey: lưu mẫu không gửi update đúng');
+  await p.click('#btnSurveyTplClose'); await p.waitForTimeout(300);
+  // Khảo sát / lên phương án: khoá "＋ Thêm đội", "＋ Đầu việc" (P1 đã lỡ có đội)
+  await p.click('#btnItemsListView'); await p.waitForTimeout(300);
+  // aria-disabled: Playwright không bấm nút "đã khoá" → force (người dùng thật vẫn chạm được để thấy lý do)
+  await p.click('#btnNewPackage', { force: true }); await p.waitForTimeout(200);
+  if (await p.isVisible('#packageModal.show') || !(await p.textContent('#toast')).includes('Thi công')) errors.push('survey: nút Thêm đội không bị khoá ở Khảo sát');
+  await p.click('.package-card [data-action=add-item]', { force: true }); await p.waitForTimeout(200);
+  if (await p.isVisible('#itemModal.show')) errors.push('survey: nút ＋ Đầu việc không bị khoá ở Khảo sát');
+  await shot(p, 'm-survey-locked');
+  // Đủ → chuyển Lên phương án → Thi công (đổi giai đoạn qua giao diện, mock ghi lại phase)
+  {
+    const n0 = (await calls()).length;
+    p.once('dialog', dlg => dlg.accept());
+    await p.click('#phaseBar [data-phase-go=design]'); await p.waitForTimeout(500);
+    if (!(await calls()).slice(n0).some(c => c[0] === 'update' && c[1] === 'projects' && c[2].phase === 'design')) errors.push('survey: đủ rồi mà không chuyển sang design');
+    if (!(await p.textContent('#phaseBar')).includes('Bắt đầu thi công') || !(await p.$('#phaseBar .phase-step.done'))) errors.push('survey: thanh giai đoạn không sang Lên phương án');
+    await p.click('#btnNewPackage', { force: true }); await p.waitForTimeout(200);
+    if (await p.isVisible('#packageModal.show')) errors.push('survey: Lên phương án vẫn thêm đội được');
+    await shot(p, 'm-phase-design');
+    p.once('dialog', dlg => dlg.accept());
+    await p.click('#phaseBar [data-phase-go=construction]'); await p.waitForTimeout(500);
+    if (!(await calls()).slice(n0).some(c => c[0] === 'update' && c[1] === 'projects' && c[2].phase === 'construction')) errors.push('survey: không chuyển sang Thi công');
+    if (!(await p.textContent('#phaseBar')).includes('Về lên phương án')) errors.push('survey: thanh giai đoạn Thi công thiếu link lùi');
+    await p.click('#btnNewPackage'); await p.waitForTimeout(200);
+    if (!(await p.isVisible('#packageModal.show'))) errors.push('survey: sang Thi công rồi mà Thêm đội không mở form');
+    await p.click('#btnPkgCancel');
+  }
+}
 // Đóng công trình: công trình đã đóng gom vào nhóm riêng; nút Đóng ↔ Mở lại
 if (!(await p.$('#projectSelect optgroup[label^="Đã đóng"] option[value=p4]'))) errors.push('items: thiếu nhóm Đã đóng trong danh sách công trình');
 if (((await p.textContent('#btnCloseProject')).trim() !== 'Đóng' || !(await p.$('#btnCloseProject img[src*="close-project"]'))) || !(await p.isHidden('#projectClosedNote'))) errors.push('items: nút Đóng sai với công trình đang chạy');
@@ -191,14 +300,37 @@ if ((await p.$$('.wi-row .badge.ahead')).length === 0 || !(await p.textContent('
 await p.click('[data-action=toggle-edit]'); await p.waitForTimeout(200); await shot(p, 'm-items-edit');
 await p.click('[data-action=paste-items]'); await p.fill('#pasteInput', 'Tên\tĐơn vị\tKL\nLắp lavabo\tđiểm\t3\t5/10/2026\t6/10/2026\nỐp tường\tm2\tabc\t1/1/2026\nCắt đá\tm²\t4,5\t2026-10-01'); await p.waitForTimeout(200); await shot(p, 'm-paste'); await p.click('#btnPasteCancel');
 await p.click('[data-action=crew-link]'); await p.waitForTimeout(300); await shot(p, 'm-links'); await p.click('#btnCrewLinkCancel');
-await p.click('#btnNewProject'); await p.fill('#wzName', 'Nhà test'); await p.click('#btnWizardNext');
+// Wizard "Bắt đầu từ khảo sát" (mặc định): 1 bước, chỉ insert projects, mở thẳng view Khảo sát
+{
+  const n0 = (await p.evaluate(() => window.__calls)).length;
+  await p.click('#btnNewProject'); await p.fill('#wzName', 'Nhà khảo sát');
+  if ((await p.$$('#wizardSteps li:not([hidden])')).length !== 1 || !(await p.textContent('#btnWizardNext')).includes('Tạo công trình')) errors.push('wizard khảo sát: không còn đúng 1 bước');
+  if ((await p.getAttribute('#wizardBody [data-phase=survey]', 'aria-pressed')) !== 'true') errors.push('wizard: mặc định phải là Bắt đầu từ khảo sát');
+  await shot(p, 'm-wizard-survey');
+  await p.click('#btnWizardNext'); await p.waitForTimeout(600);
+  const ins = (await p.evaluate(() => window.__calls)).slice(n0).filter(c => c[0] === 'insert');
+  if (ins.length !== 1 || ins[0][1] !== 'projects' || ins[0][2].phase !== 'survey') errors.push('wizard khảo sát: phải đúng 1 insert projects phase=survey: ' + JSON.stringify(ins.map(c => c[1])));
+  if (await p.isVisible('#wizardModal.show')) errors.push('wizard khảo sát: tạo xong chưa đóng');
+  if (!(await p.isVisible('#surveyView .survey-item')) || !(await p.$eval('#projectSelect', s => s.selectedOptions[0]?.textContent.includes('Nhà khảo sát')))) errors.push('wizard khảo sát: tạo xong không mở view Khảo sát của công trình mới');
+}
+// Wizard "Thi công ngay": 3 bước như cũ
+{
+  await p.click('#btnNewProject'); await p.fill('#wzName', 'Nhà test'); await p.click('#wizardBody [data-phase=construction]');
+  if ((await p.$$('#wizardSteps li:not([hidden])')).length !== 3 || (await p.inputValue('#wzName')) !== 'Nhà test') errors.push('wizard thi công ngay: không đủ 3 bước / mất tên đã gõ');
+  await p.click('#btnWizardNext');
+}
+const nWz = (await p.evaluate(() => window.__calls)).length;
 await p.click('[data-add=da]'); await p.waitForTimeout(100); await p.selectOption('.wz-sub', 's1'); await shot(p, 'm-wizard2');
 await p.click('#btnWizardNext'); await p.waitForTimeout(100); await shot(p, 'm-wizard3');
 { const rows = await p.$$eval('.wz-rows li', ls => ls.map(l => l.firstChild.textContent.trim()));
   if (rows.length !== new Set(rows).size) errors.push('wizard: mẫu vẫn lặp đầu việc ' + rows.join(', ')); }
 await p.click('#btnWizardNext'); await p.waitForTimeout(500); await shot(p, 'm-wizard-done');
+{
+  const ins = (await p.evaluate(() => window.__calls)).slice(nWz).filter(c => c[0] === 'insert').map(c => c[1] + (c[1] === 'projects' ? ':' + c[2].phase : ''));
+  for (const t of ['projects:construction', 'work_packages', 'work_items', 'crew_links', 'client_links']) if (!ins.includes(t)) errors.push('wizard thi công ngay: thiếu insert ' + t + ' (' + ins.join(', ') + ')');
+}
 
-p = await page('index.html', 1440, 900);
+p = await page('index.html?p1=construction', 1440, 900);   // luồng thi công cũ: P1 đã vào thi công
 await shot(p, 'd-dashboard');
 await p.click('#nav-approvals'); await p.waitForTimeout(500); await shot(p, 'd-approvals');
 await p.click('.pg-slider[data-n="6"] .pg-nav.next'); await p.waitForTimeout(500);
@@ -337,6 +469,17 @@ await p.click('.crew-item-card [data-chat]'); await p.waitForTimeout(500); await
 p = await page('index.html', 390, 844, 'dark');
 await p.click('#nav-chat'); await p.waitForTimeout(400); await shot(p, 'dk-chat');
 await p.click('.chat-inbox-card'); await p.waitForTimeout(400); await shot(p, 'dk-chat-thread');
+
+// View Khảo sát ở máy tính + chế độ tối (P1 mặc định đang khảo sát)
+for (const [w, h, scheme, tag] of [[1440, 900, 'light', 'd'], [390, 844, 'dark', 'dk-m'], [1440, 900, 'dark', 'dk-d']]) {
+  const q = await page('index.html', w, h, scheme);
+  await q.click('#nav-items'); await q.waitForTimeout(500);
+  if (!(await q.isVisible('#surveyView .survey-item'))) errors.push(`survey (${tag}): không mở view Khảo sát`);
+  if (await q.evaluate(() => document.documentElement.scrollWidth > innerWidth)) errors.push(`survey (${tag}): cuộn ngang`);
+  await shot(q, tag + '-survey');
+  await q.click('#nav-dashboard'); await q.waitForTimeout(400); await shot(q, tag + '-dashboard-survey');
+  await q.context().close();
+}
 
 console.log('ERRORS:\n' + errors.join('\n'));
 process.exitCode = errors.length ? 1 : 0;
