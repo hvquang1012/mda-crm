@@ -4,6 +4,10 @@
   const today = new Date().toISOString().slice(0, 10);
   const d = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
   const P1 = 'p1', P2 = 'p2';
+  // Giai đoạn của P1: mặc định 'survey' (khảo sát); ?p1=construction để chạy các luồng thi công cũ
+  const P1_PHASE = new URLSearchParams(location.search).get('p1') || 'survey';
+  // Mẫu checklist khảo sát — giống seed trong schema.sql
+  const SC = (seq, section, label, kind, unit, required, photo_required, hint) => ({ id: 'sc' + seq, seq, section, label, kind, unit, required, photo_required, hint, active: true });
   const items = [
     { id: 'i1', work_package_id: 'wp1', name: 'Lắp đá mặt bếp', seq: 1, unit: 'm2', qty_plan: 12, qty_done: 5, percent: 42, status: 'delayed', planned_start: d(-5), planned_end: d(2) },
     { id: 'i2', work_package_id: 'wp1', name: 'Mài, đánh bóng', seq: 2, unit: 'm2', qty_plan: 12, qty_done: 0, percent: 0, status: 'notStarted', planned_start: d(3), planned_end: d(5) },
@@ -14,9 +18,20 @@
     staff: [{ id: 'u1', full_name: 'Quang (Quản trị)', role: 'admin' }, { id: 'u2', full_name: 'KTS Lan', role: 'kts', phone: '0912345678' }],
     project_members: [{ project_id: P1, staff_id: 'u2' }],
     projects: [
-      { id: P1, name: 'Nhà anh Minh — Ocean Park', client_name: 'Anh Minh', start_date: d(-20), end_date: d(25), status: 'active', created_at: '2026-09-01' },
-      { id: P2, name: 'Căn hộ chị Hoa', client_name: 'Chị Hoa', start_date: d(-40), end_date: d(-2), status: 'active', created_at: '2026-08-01' },
-      { id: 'p4', name: 'Nhà cũ đã bàn giao', client_name: 'Anh Bình', start_date: d(-90), end_date: d(-30), status: 'done', created_at: '2026-06-01' }],
+      { id: P1, name: 'Nhà anh Minh — Ocean Park', client_name: 'Anh Minh', start_date: d(-20), end_date: d(25), status: 'active', phase: P1_PHASE, created_at: '2026-09-01' },
+      { id: P2, name: 'Căn hộ chị Hoa', client_name: 'Chị Hoa', start_date: d(-40), end_date: d(-2), status: 'active', phase: 'construction', created_at: '2026-08-01' },
+      { id: 'p4', name: 'Nhà cũ đã bàn giao', client_name: 'Anh Bình', start_date: d(-90), end_date: d(-30), status: 'done', phase: 'construction', created_at: '2026-06-01' }],
+    survey_checklist_items: [
+      SC(10, 'Kết cấu', 'Chiều cao trần thô', 'number', 'mm', true, false, 'Từ sàn thô tới đáy sàn trên, đo ở 2–3 điểm, ghi số nhỏ nhất'),
+      SC(20, 'Kết cấu', 'Cốt sàn (thô so với hoàn thiện / mốc chuẩn)', 'number', 'mm', true, false, 'Chênh cốt so với mốc <b>ghi trên tường</b>'),
+      SC(30, 'Kết cấu', 'Vị trí & kích thước dầm bê tông', 'text', null, true, true, 'Dầm nào, rộng × cao, cao độ đáy dầm so với sàn'),
+      SC(40, 'Kết cấu', 'Độ nghiêng tường', 'number', 'mm/2m', true, false, 'Thước nhôm 2m hoặc laser — ghi bức tường nghiêng nhất'),
+      SC(50, 'Cửa', 'Cửa thang máy (rộng × cao)', 'size', 'mm', true, true, 'Lọt lòng — quyết định kích thước tấm đá/tủ đưa lên được'),
+      SC(60, 'Cửa', 'Cửa chính (rộng × cao)', 'size', 'mm', false, false, 'Lọt lòng'),
+      SC(70, 'Kỹ thuật', 'Vị trí cấp / thoát nước', 'text', null, false, true, 'Chấm điểm trên ảnh, ghi cao độ'),
+      SC(80, 'Kỹ thuật', 'Vị trí tủ điện, ổ cắm hiện có', 'text', null, false, true, 'Chấm điểm trên ảnh, ghi cao độ'),
+      { ...SC(90, 'Cũ', 'Mục đã tắt', 'number', 'mm', true, false, ''), active: false }],
+    survey_answers: [], survey_photos: [], survey_files: [],
     subcontractors: [{ id: 's1', name: 'Đội đá Sơn', trade: 'da', active: true }, { id: 's2', name: 'Điện Hùng', trade: 'dien', active: true }],
     work_package_templates: [{ id: 't1', trade: 'da', name: 'Thi công đá — mẫu chuẩn' }],
     work_package_template_items: [
@@ -55,15 +70,35 @@
     { id: 'cm1', author_kind: 'staff', author_name: 'KTS Lan', body: 'Mai đá về chưa anh?', photos: [], created_at: new Date(Date.now() - 5 * 3600e3).toISOString(), mine: false },
     { id: 'cm2', author_kind: 'crew', author_name: 'anh Sơn', body: 'Chiều nay về', photos: [{ path: 'p1/s1/chat1.jpg', thumb_path: 'p1/s1/chat1-thumb.jpg' }], created_at: new Date(Date.now() - 2 * 3600e3).toISOString(), mine: true }];
   const act = Array.from({ length: 14 }, (_, i) => ({ d: d(i - 13), submitted: [2, 3, 0, 5, 4, 6, 1, 0, 3, 4, 7, 5, 2, 3][i], approved: [2, 2, 0, 4, 4, 5, 1, 0, 3, 3, 6, 4, 1, 0][i] }));
-  const rpcs = {
-    dashboard_summary: { today, projects: [
+  // survey_missing giả — CÙNG quy tắc với SQL (schema.sql survey_missing)
+  function surveyMissing(projectId) {
+    const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
+    return tables.survey_checklist_items.filter(c => c.active && c.required).sort((a, b) => a.seq - b.seq).map(c => {
+      const a = tables.survey_answers.find(x => x.project_id === projectId && x.item_id === c.id);
+      let reason = null;
+      if (!a) reason = 'value';
+      else if (!a.na) {
+        const v = a.value || {};
+        const ok = c.kind === 'number' ? isNum(v.n) : c.kind === 'size' ? isNum(v.w) && isNum(v.h) && v.w > 0 && v.h > 0 : typeof v.t === 'string' && v.t.trim() !== '';
+        if (!ok) reason = 'value';
+        else if (c.photo_required && !tables.survey_photos.some(ph => ph.project_id === projectId && ph.item_id === c.id)) reason = 'photo';
+      }
+      return reason && { id: c.id, label: c.label, reason };
+    }).filter(Boolean);
+  }
+  const dash = { today, projects: [
       { id: P1, name: 'Nhà anh Minh — Ocean Park', client_name: 'Anh Minh', end_date: d(25), days_left: 25, is_mine: true, actual_pct: 48, planned_pct: 62, gap: 14, item_count: 3, done_items: 1, delayed_items: 1, pending_reports: 2, open_issues: 1, blocking_issues: 1, critical_alerts: 0, warning_alerts: 1, last_report_date: today,
         packages: [{ id: 'wp1', name: 'Đá bếp', trade: 'da', sub_name: 'Đội đá Sơn', actual_pct: 21, planned_pct: 60, delayed_items: 1, top_alert: 'plan_deviation' }, { id: 'wp2', name: 'Điện', trade: 'dien', sub_name: 'Điện Hùng', actual_pct: 100, planned_pct: 100, delayed_items: 0 }] },
       { id: P2, name: 'Căn hộ chị Hoa', client_name: 'Chị Hoa', end_date: d(-2), days_left: -2, is_mine: false, actual_pct: 91, planned_pct: 100, gap: 9, item_count: 8, done_items: 7, delayed_items: 1, pending_reports: 0, open_issues: 0, blocking_issues: 0, critical_alerts: 1, warning_alerts: 0, last_report_date: d(-4), packages: [] },
       // Xong hết đầu việc nhưng quá ngày bàn giao + còn cảnh báo cũ → vẫn phải là "Đã xong"
       { id: 'p3', name: 'Nhà xong hết', client_name: 'Anh Tú', end_date: d(-11), days_left: -11, is_mine: false, actual_pct: 100, planned_pct: 100, gap: 0, item_count: 14, done_items: 14, delayed_items: 0, pending_reports: 0, open_issues: 0, blocking_issues: 0, critical_alerts: 2, warning_alerts: 0, last_report_date: d(-51),
         packages: [{ id: 'wp9', name: 'Đá', trade: 'da', sub_name: 'Đội đá X', status: 'done', actual_pct: 100, planned_pct: 100, delayed_items: 0, top_alert: 'forecast_delay' }] }],
-      subcontractors: [{ id: 's1', name: 'Đội đá Sơn', trade: 'da', projects: 2, delayed_items: 2, idle_items: 1, reports_30d: 14, rejected_30d: 2 }], activity: act },
+      subcontractors: [{ id: 's1', name: 'Đội đá Sơn', trade: 'da', projects: 2, delayed_items: 2, idle_items: 1, reports_30d: 14, rejected_30d: 2 }], activity: act };
+  dash.projects.forEach(p => { p.phase = 'construction'; });
+  const rpcs = {
+    // Giai đoạn P1 trên Tổng quan luôn khớp bảng projects (đổi ở tab Công việc → Tổng quan đổi theo)
+    dashboard_summary: () => { dash.projects[0].phase = tables.projects[0].phase; return dash; },
+    survey_missing: (a) => surveyMissing(a.p_project_id),
     crew_bootstrap: { crew_link_id: 'cl1', project: { id: P1, name: 'Nhà anh Minh — Ocean Park' }, subcontractor: { id: 's1', name: 'Đội đá Sơn', trade: 'da' }, person_name: 'anh Sơn', role: 'manager', work_items: items.map(i => ({ ...i, last_message_at: i.id === 'i1' ? new Date(Date.now() - 3600e3).toISOString() : null })) },
     crew_my_reports: [{ id: 'r9', work_item_id: 'i1', work_item_name: 'Lắp đá mặt bếp', report_date: d(-1), qty_delta: 2, crew_size: 3, note: 'lắp mặt bếp', photos: [], status: 'rejected', reject_reason: 'Ảnh không rõ', created_at: new Date().toISOString() }],
     approve_report_group: 3.5, compute_alerts: 0, crew_submit: 'new-report-id',
@@ -86,6 +121,7 @@
     }
   };
   window.__calls = [];
+  window.__mock = { tables };
   function builder(table) {
     let rows = (tables[table] || []).slice(); let op = 'select'; let payload = null; let single = false; let head = false;
     const b = {
@@ -102,11 +138,21 @@
       insert(p) { op = 'insert'; payload = p; window.__calls.push(['insert', table, p]); return b; },
       update(p) { op = 'update'; payload = p; window.__calls.push(['update', table, p]); return b; },
       delete() { op = 'delete'; window.__calls.push(['delete', table]); return b; },
-      upsert(p) { op = 'upsert'; payload = p; return b; },
+      upsert(p, opts) { op = 'upsert'; payload = p; window.__calls.push(['upsert', table, p, opts]); return b; },
       then(res, rej) {
         let data = rows;
         if (op === 'insert') data = (Array.isArray(payload) ? payload : [payload]).map(p => ({ id: 'new-' + Math.random().toString(36).slice(2, 7), token: 'tok' + Math.random().toString(36).slice(2, 8), created_at: new Date().toISOString(), ...p }));
-        if (op === 'insert' && table === 'item_messages') tables.item_messages.push(...data);
+        if (op === 'insert' && ['item_messages', 'projects', 'survey_checklist_items'].includes(table)) tables[table].push(...data);
+        // Ghi thật vào bảng giả những gì giao diện khảo sát đọc lại (các bảng khác giữ như cũ)
+        if (op === 'update' && table === 'projects' && 'phase' in payload) rows.forEach(r => { r.phase = payload.phase; });
+        if (op === 'update' && table === 'survey_checklist_items') rows.forEach(r => Object.assign(r, payload));
+        if (op === 'upsert' && table === 'survey_answers') {
+          (Array.isArray(payload) ? payload : [payload]).forEach(p => {
+            const old = tables.survey_answers.find(x => x.project_id === p.project_id && x.item_id === p.item_id);
+            if (old) Object.assign(old, p); else tables.survey_answers.push({ ...p });
+          });
+          data = [];
+        }
         if (single) data = data[0] || null;
         return Promise.resolve({ data: head ? null : data, error: null, count: rows.length }).then(res, rej);
       }

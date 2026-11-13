@@ -68,11 +68,11 @@ client.html  ─ ?t=token ──────────→  RPC client_view() s
 
 **Bảo mật:** role `anon` **không có quyền gì** trên mọi bảng (`revoke all ... from anon`). Mọi thao tác không đăng nhập bắt buộc đi qua hàm `security definer` tự kiểm tra token bên trong. Đây là khác biệt cốt lõi so với bản v1 từng dùng `using (true)` khiến ai cũng đọc được dữ liệu mọi công trình.
 
-### Bảng dữ liệu (14 bảng)
+### Bảng dữ liệu (chính)
 
 ```
 subcontractors    Đội thầu phụ (trade: da | dien | khac)
-projects          Công trình
+projects          Công trình (phase: survey → design → construction, tách khỏi status)
 work_packages     Hạng mục = 1 đội × 1 công trình
 work_items        Đầu việc trong hạng mục
 dependencies      A xong mới tới B  ← nguồn gây trễ thật sự
@@ -84,7 +84,13 @@ client_links      Token link chủ nhà
 staff             Hồ sơ nhân viên (auto-tạo bằng trigger từ auth.users)
 push_subscriptions
 work_package_templates + work_package_template_items
+survey_checklist_items  Mẫu checklist khảo sát dùng chung (chỉ quản lý sửa)
+survey_answers    Số đo khảo sát theo công trình (hoặc "Không áp dụng" + lý do)
+survey_photos     Ảnh hiện trạng (ảnh gốc + ảnh vẽ số đo + annotations)
+survey_files      File mặt bằng quét từ app ngoài (Polycam, Magicplan…)
 ```
+
+**Khảo sát hiện trạng:** công trình mới mặc định bắt đầu ở **Khảo sát** — điền đủ checklist số đo bắt buộc (trần, cốt sàn, dầm, độ nghiêng tường, cửa thang máy…) hoặc chọn "Không áp dụng" kèm lý do thì mới chuyển sang **Lên phương án** được (DB chặn bằng trigger, không chỉ ở nút). Chưa vào **Thi công** thì không sinh cảnh báo tiến độ và không thêm đội được.
 
 ### Năm cảnh báo tự động
 
@@ -125,7 +131,8 @@ js/
     dashboard.js    Tab Tổng quan — dashboard_summary(), xếp theo rủi ro
     approvals.js    Tab Duyệt — gộp theo (đầu việc × ngày), duyệt hàng loạt
     items.js        Tab Công việc — CRUD, dán Excel, dời lịch, link, thành viên
-    wizard.js       Tạo công trình 3 bước (module phụ của items.js)
+    wizard.js       Tạo công trình: bắt đầu từ khảo sát (1 bước) hoặc thi công ngay (3 bước) — module phụ của items.js
+    survey.js       View 📐 Khảo sát: checklist số đo, tự lưu, sửa mẫu (module phụ của items.js)
     alerts.js       Tab Cần xử lý — vướng mắc + cảnh báo
     export.js       Xuất CSV nghiệm thu theo kỳ
 

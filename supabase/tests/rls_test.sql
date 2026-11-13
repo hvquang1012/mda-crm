@@ -243,3 +243,123 @@ set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
 select 'thợ nhắn công trình đã đóng (phải lỗi project_closed)' t; select crew_send_message('tok','55555555-5555-5555-5555-555555555555','x');
 reset role;
 update projects set status='active' where id='33333333-3333-3333-3333-333333333333';
+
+-- ============================================================
+-- Khảo sát hiện trạng (plan 011): giai đoạn + checklist + cổng chặn
+-- K1 phụ trách P1; K3 (…0004) không phụ trách (K2 đã lên manager ở trên).
+-- ============================================================
+set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
+select 'anon đọc survey_answers (phải lỗi)' t; select * from survey_answers;
+select 'anon đọc survey_photos (phải lỗi)' t; select * from survey_photos;
+select 'anon đọc survey_files (phải lỗi)' t; select * from survey_files;
+select 'anon đọc survey_checklist_items (phải lỗi)' t; select * from survey_checklist_items;
+select 'anon gọi survey_missing (phải lỗi)' t; select survey_missing('33333333-3333-3333-3333-333333333333');
+select 'anon gọi _survey_missing_count (phải lỗi)' t; select _survey_missing_count('33333333-3333-3333-3333-333333333333');
+reset role;
+
+-- P1 về giai đoạn Khảo sát, có đầu việc quá hạn, chưa có cảnh báo nào
+delete from alerts where project_id='33333333-3333-3333-3333-333333333333';
+update projects set phase='survey' where id='33333333-3333-3333-3333-333333333333';
+update work_items set status='onTrack', planned_end=current_date-5 where id='55555555-5555-5555-5555-555555555555';
+select 'compute_alerts khi P1 đang khảo sát' t, compute_alerts();
+select 'P1 khảo sát: không sinh cảnh báo' t, count(*) from alerts where project_id='33333333-3333-3333-3333-333333333333';
+select 'P1 khảo sát: trạng thái đầu việc giữ onTrack' t, status from work_items where id='55555555-5555-5555-5555-555555555555';
+
+set role authenticated; set request.jwt.claim.role='authenticated'; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'K1 thấy 8 mục mẫu' t, count(*) from survey_checklist_items;
+select 'K1 survey_missing(P1): 5 mục thiếu số' t, json_array_length(survey_missing('33333333-3333-3333-3333-333333333333')) n,
+  (select string_agg(x->>'reason', ',') from json_array_elements(survey_missing('33333333-3333-3333-3333-333333333333')) x) reasons;
+select 'K1 gọi _survey_missing_count (phải lỗi)' t; select _survey_missing_count('33333333-3333-3333-3333-333333333333');
+select 'K1 chuyển P1 sang design khi thiếu (phải lỗi survey_incomplete)' t; update projects set phase='design' where id='33333333-3333-3333-3333-333333333333';
+select 'K1 nhảy thẳng sang construction khi thiếu (phải lỗi survey_incomplete)' t; update projects set phase='construction' where id='33333333-3333-3333-3333-333333333333';
+
+select 'K1 upsert chiều cao trần, giả updated_by của admin' t;
+insert into survey_answers(project_id,item_id,value,updated_by) values ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000110','{"n": 2650}','aaaaaaaa-0000-0000-0000-000000000001')
+  on conflict (project_id,item_id) do update set value=excluded.value, updated_by=excluded.updated_by;
+insert into survey_answers(project_id,item_id,value,updated_by) values ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000110','{"n": 2600}','aaaaaaaa-0000-0000-0000-000000000001')
+  on conflict (project_id,item_id) do update set value=excluded.value, updated_by=excluded.updated_by;
+select 'updated_by vẫn là K1 (upsert lần 2 = update)' t, updated_by = auth.uid() ok, value from survey_answers where item_id='00000000-0000-0000-0000-000000000110';
+select 'K1 chọn Không áp dụng mà không lý do (phải lỗi)' t;
+insert into survey_answers(project_id,item_id,na) values ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000150',true);
+select 'K1 lý do toàn dấu cách (phải lỗi)' t;
+insert into survey_answers(project_id,item_id,na,na_reason) values ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000150',true,'   ');
+
+-- Số 0 / số âm hợp lệ; chuỗi / rỗng / size có 0 thì vẫn thiếu
+insert into survey_answers(project_id,item_id,value) values
+  ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000140','{"n": 0}'),
+  ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000120','{"n": -20}'),
+  ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000150','{"w": 0, "h": 2100}');
+select 'n=0 và n=-20 không còn thiếu; size w=0 vẫn thiếu' t,
+  (select string_agg(x->>'label' || ':' || (x->>'reason'), ' | ' order by x->>'label') from json_array_elements(survey_missing('33333333-3333-3333-3333-333333333333')) x) missing;
+update survey_answers set value='{"n": "abc"}' where item_id='00000000-0000-0000-0000-000000000120';
+select 'n="abc" → cốt sàn thiếu' t, survey_missing('33333333-3333-3333-3333-333333333333')::text like '%Cốt sàn%' as missing;
+update survey_answers set value='{}' where item_id='00000000-0000-0000-0000-000000000120';
+select 'value={} → cốt sàn thiếu' t, survey_missing('33333333-3333-3333-3333-333333333333')::text like '%Cốt sàn%' as missing;
+update survey_answers set value=null where item_id='00000000-0000-0000-0000-000000000120';
+select 'value=null → cốt sàn thiếu' t, survey_missing('33333333-3333-3333-3333-333333333333')::text like '%Cốt sàn%' as missing;
+update survey_answers set value='{"n": -20}' where item_id='00000000-0000-0000-0000-000000000120';
+
+-- Dầm: có chữ nhưng chưa có ảnh → lý do 'photo'; thang máy: Không áp dụng + lý do → khỏi cần ảnh
+insert into survey_answers(project_id,item_id,value) values ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000130','{"t": "Dầm D1 220×400, đáy dầm 2.450"}');
+update survey_answers set na=true, na_reason='Nhà phố không có thang máy' where item_id='00000000-0000-0000-0000-000000000150';
+select 'chỉ còn dầm thiếu ảnh' t, survey_missing('33333333-3333-3333-3333-333333333333') missing;
+select 'K1 vẫn chưa chuyển được (phải lỗi survey_incomplete)' t; update projects set phase='design' where id='33333333-3333-3333-3333-333333333333';
+
+select 'K1 thêm ảnh có path công trình khác (phải lỗi)' t;
+insert into survey_photos(project_id,item_id,path,thumb_path) values ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000130','00000000-0000-0000-0000-000000000009/survey/a.jpg','33333333-3333-3333-3333-333333333333/survey/a-thumb.jpg');
+select 'K1 thêm ảnh vẽ có path công trình khác (phải lỗi)' t;
+insert into survey_photos(project_id,item_id,path,thumb_path,annotated_path) values ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000130','33333333-3333-3333-3333-333333333333/survey/a.jpg','33333333-3333-3333-3333-333333333333/survey/a-thumb.jpg','00000000-0000-0000-0000-000000000009/survey/ann.jpg');
+select 'K1 thêm ảnh dầm đúng công trình' t;
+insert into survey_photos(project_id,item_id,area,path,thumb_path) values ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000130','Phòng khách','33333333-3333-3333-3333-333333333333/survey/2026-11-13/orig-1.jpg','33333333-3333-3333-3333-333333333333/survey/2026-11-13/orig-1-thumb.jpg') returning area;
+select 'đủ hết → survey_missing = []' t, survey_missing('33333333-3333-3333-3333-333333333333')::text missing;
+
+-- File mặt bằng quét
+select 'K1 đính kèm file mặt bằng P1' t;
+insert into survey_files(project_id,name,path,mime,size_bytes) values ('33333333-3333-3333-3333-333333333333','Mặt bằng tầng 2.pdf','33333333-3333-3333-3333-333333333333/survey/files/1-mat-bang-tang-2.pdf','application/pdf',120000) returning name;
+select 'K1 file có path công trình khác (phải lỗi)' t;
+insert into survey_files(project_id,name,path) values ('33333333-3333-3333-3333-333333333333','x.pdf','00000000-0000-0000-0000-000000000009/survey/files/x.pdf');
+select 'K1 sửa file (phải lỗi permission denied)' t; update survey_files set name='đổi tên';
+
+-- Mẫu checklist: chỉ quản lý sửa
+select 'K1 gỡ cờ bắt buộc (0 dòng)' t; update survey_checklist_items set required=false where id='00000000-0000-0000-0000-000000000110' returning id;
+select 'K1 thêm mục mẫu (phải lỗi RLS)' t; insert into survey_checklist_items(label) values ('Mục lách');
+select 'K1 xoá mục mẫu (phải lỗi permission denied)' t; delete from survey_checklist_items where id='00000000-0000-0000-0000-000000000110';
+
+-- K3 không phụ trách P1
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000004';
+select 'K3 thấy câu trả lời P1 → 0' t, count(*) from survey_answers;
+select 'K3 thấy ảnh khảo sát P1 → 0' t, count(*) from survey_photos;
+select 'K3 thấy file mặt bằng P1 → 0' t, count(*) from survey_files;
+select 'K3 ghi câu trả lời vào P1 (phải lỗi RLS)' t;
+insert into survey_answers(project_id,item_id,value) values ('33333333-3333-3333-3333-333333333333','00000000-0000-0000-0000-000000000160','{"w": 1, "h": 1}');
+select 'K3 đính kèm file vào P1 (phải lỗi RLS)' t;
+insert into survey_files(project_id,name,path) values ('33333333-3333-3333-3333-333333333333','x.pdf','33333333-3333-3333-3333-333333333333/survey/files/x.pdf');
+select 'K3 đổi giai đoạn P1 (0 dòng)' t; update projects set phase='survey' where id='33333333-3333-3333-3333-333333333333' returning id;
+
+-- Admin sửa mẫu được
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000001';
+select 'admin sửa gợi ý mục mẫu (1 dòng)' t; update survey_checklist_items set hint='Đo 3 điểm, ghi số nhỏ nhất' where id='00000000-0000-0000-0000-000000000110' returning label;
+
+-- K1: đủ → chuyển design → lùi survey → design → construction
+set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'K1 xoá file mặt bằng (1 dòng)' t; delete from survey_files returning name;
+select 'K1 chuyển sang design khi đủ' t; update projects set phase='design' where id='33333333-3333-3333-3333-333333333333' returning phase;
+select 'K1 lùi về survey' t; update projects set phase='survey' where id='33333333-3333-3333-3333-333333333333' returning phase;
+update projects set phase='design' where id='33333333-3333-3333-3333-333333333333';
+select 'K1 bắt đầu thi công' t; update projects set phase='construction' where id='33333333-3333-3333-3333-333333333333' returning phase;
+select 'rời khảo sát rồi vẫn sửa được số' t; update survey_answers set value='{"n": 2620}' where item_id='00000000-0000-0000-0000-000000000110' returning value;
+select 'K1 tạo công trình thẳng vào construction' t; insert into projects(name, phase) values ('P chỉ thi công', 'construction') returning phase;
+select 'K1 tạo công trình phase lạ (phải lỗi check)' t; insert into projects(name, phase) values ('P lạ', 'xyz');
+select 'dashboard_summary có phase' t, (select bool_and(x ? 'phase') from jsonb_array_elements(dashboard_summary()::jsonb->'projects') x) ok,
+  (select x->>'phase' from json_array_elements(dashboard_summary()->'projects') x where x->>'id'='33333333-3333-3333-3333-333333333333') p1_phase;
+reset role;
+select 'compute_alerts khi P1 đã thi công' t, compute_alerts() > 0 as has_alerts;
+select 'P1 thi công: có cảnh báo' t, count(*) > 0 as ok from alerts where project_id='33333333-3333-3333-3333-333333333333';
+select 'P1 thi công: đầu việc quá hạn thành delayed' t, status from work_items where id='55555555-5555-5555-5555-555555555555';
+-- Dashboard: công trình khảo sát không tính đầu việc (không 0% / trễ ảo)
+update projects set phase='design' where id='33333333-3333-3333-3333-333333333333';
+set role authenticated; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'dashboard: P1 lên phương án → item_count = 0' t, x->>'phase' phase, x->>'item_count' items, x->>'delayed_items' delayed
+  from json_array_elements(dashboard_summary()->'projects') x where x->>'id'='33333333-3333-3333-3333-333333333333';
+reset role;
+update projects set phase='construction' where id='33333333-3333-3333-3333-333333333333';

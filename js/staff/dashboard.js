@@ -19,14 +19,18 @@ const ALERT_LABEL = {
 
 // Ngưỡng giống compute_alerts(): lệch >10% cần chú ý, >20% nghiêm trọng
 // Đầu việc xong hết thì không còn gì để xử lý — kể cả khi đã quá ngày bàn giao
+// Công trình đang khảo sát / lên phương án: không chấm rủi ro tiến độ (chưa thi
+// công — dashboard_summary() đã bỏ đầu việc của nó khỏi %, số trễ), không vào ô "Cần xử lý".
 function riskOf(p) {
+  if (p.phase && p.phase !== 'construction') return 'precon';
   if (p.item_count > 0 && p.done_items === p.item_count) return 'done';
   if (p.days_left < 0 || p.gap > 20 || p.critical_alerts > 0 || p.blocking_issues > 0) return 'critical';
   if (p.gap > 10 || p.warning_alerts > 0 || p.open_issues > 0 || p.delayed_items > 0) return 'warning';
   return 'good';
 }
 const RISK_LABEL = { critical: '🔴 Cần xử lý', warning: '🟡 Cần chú ý', good: '🟢 Đúng tiến độ', done: '✅ Đã xong' };
-const RISK_RANK = { critical: 0, warning: 1, good: 2, done: 3 };
+const RISK_RANK = { critical: 0, warning: 1, good: 2, precon: 3, done: 4 };
+const PHASE_LABEL = { survey: '📐 Đang khảo sát', design: '✏ Lên phương án' };
 
 let lastData = null;
 
@@ -95,7 +99,9 @@ function render(wrap, data) {
   wrap.querySelectorAll('[data-open-project]').forEach(el => {
     const open = () => {
       state.currentProjectId = el.dataset.openProject;
-      state.itemsView = 'timeline';
+      // Đang khảo sát → mở thẳng view Khảo sát; lên phương án → Danh sách; thi công → Timeline
+      const phase = el.dataset.phase;
+      state.itemsView = phase === 'survey' ? 'survey' : phase === 'design' ? 'list' : 'timeline';
       const sel = document.getElementById('projectSelect');
       if (sel) sel.value = state.currentProjectId;
       state.navigate('items');
@@ -141,7 +147,28 @@ function gapLabel(gap) {
   return '<span class="gap">đúng kế hoạch</span>';
 }
 
+// Thẻ công trình chưa vào thi công: không "0% / trễ / còn n ngày" gây hiểu nhầm
+function preconCard(p) {
+  const chips = [
+    p.pending_reports ? `<button type="button" class="dash-chip" data-goto-approvals="${p.id}">✅ ${p.pending_reports} chờ duyệt</button>` : '',
+    p.blocking_issues ? `<span class="dash-chip critical">⛔ ${p.blocking_issues} vướng chặn</span>` : p.open_issues ? `<span class="dash-chip warning">❗ ${p.open_issues} vướng mắc</span>` : ''
+  ].join('');
+  return `
+    <div class="project-summary-card risk-precon" data-open-project="${p.id}" data-phase="${p.phase}" tabindex="0" role="button" aria-label="Mở ${p.phase === 'survey' ? 'khảo sát' : 'công trình'} ${escapeHtml(p.name)}">
+      <div class="project-summary-top">
+        <div class="project-summary-main">
+          <div class="project-summary-name">${escapeHtml(p.name)}</div>
+          <div class="project-summary-client">${escapeHtml(p.client_name || '')}${p.client_name ? ' · ' : ''}bàn giao ${displayDate(p.end_date)}</div>
+        </div>
+        <span class="risk-badge precon phase-chip">${PHASE_LABEL[p.phase] || ''}</span>
+      </div>
+      <div class="proj-precon">Chưa vào thi công${p.phase === 'survey' ? ' — bấm để điền số đo khảo sát' : ''}</div>
+      ${chips ? `<div class="dash-chips">${chips}</div>` : ''}
+    </div>`;
+}
+
 function projectCard(p) {
+  if (p.risk === 'precon') return preconCard(p);
   const done = p.risk === 'done';
   const days = done ? 'đã xong hết đầu việc' : p.days_left < 0 ? `<b class="neg">trễ ${-p.days_left} ngày</b>` : `còn ${p.days_left} ngày`;
   const chips = [
@@ -163,7 +190,7 @@ function projectCard(p) {
     </div>`).join('') || '<div class="empty-hint compact">Chưa có hạng mục nào</div>';
 
   return `
-    <div class="project-summary-card risk-${p.risk}" data-open-project="${p.id}" tabindex="0" role="button" aria-label="Mở timeline ${escapeHtml(p.name)}">
+    <div class="project-summary-card risk-${p.risk}" data-open-project="${p.id}" data-phase="construction" tabindex="0" role="button" aria-label="Mở timeline ${escapeHtml(p.name)}">
       <div class="project-summary-top">
         <div style="min-width:0;">
           <div class="project-summary-name">${escapeHtml(p.name)}</div>

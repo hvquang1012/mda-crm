@@ -79,13 +79,16 @@
         <button class="icon-btn" id="btnCloseProject" title="Đóng công trình đã bàn giao xong" hidden><img class="btn-ic" src="assets/icons/close-project.svg" alt=""><span class="btn-label">Đóng</span></button>
         <button class="icon-btn new-project-btn" id="btnNewProject" title="Tạo dự án mới">＋ Dự án</button>
       </div>
+      <div class="phase-bar" id="phaseBar" hidden></div>
       <div class="items-view-switch" aria-label="Chế độ xem công việc">
         <button type="button" id="btnItemsListView" class="active" aria-pressed="true">☰ Danh sách</button>
         <button type="button" id="btnItemsTimelineView" aria-pressed="false">▥ Timeline</button>
+        <button type="button" id="btnItemsSurveyView" aria-pressed="false">📐 Khảo sát</button>
       </div>
       <div class="list-wrap" style="flex:1;overflow-y:auto;">
         <div class="project-closed-note" id="projectClosedNote" hidden>✅ Công trình đã đóng — không hiện ở Tổng quan, không còn cảnh báo, link thợ và chủ nhà đang khoá. Bấm nút <b>↺</b> cạnh ô chọn công trình để mở lại.</div>
-        <div class="section-label">
+        <div id="surveyView" class="survey-view" hidden></div>
+        <div class="section-label" id="packagesHeader">
           Hạng mục
           <span class="section-actions">
             <button class="icon-btn select-toggle" id="btnSelectMode" aria-pressed="false">☑ Chọn nhiều</button>
@@ -188,6 +191,17 @@
       <button class="btn btn-ghost" id="btnWizardBack">Huỷ</button>
       <button class="btn btn-primary" id="btnWizardNext">Tiếp →</button>
     </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: SỬA MẪU KHẢO SÁT (CHỈ QUẢN LÝ) ===================== -->
+<div class="modal-backdrop" id="surveyTemplateModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Mẫu khảo sát — dùng chung mọi công trình</div>
+    <div class="field-hint">Mục <b>Bắt buộc</b> phải điền đủ (hoặc chọn "Không áp dụng" kèm lý do) mới chuyển công trình sang Lên phương án được. Không xoá mục — bỏ tick <b>Đang dùng</b> để ẩn, câu trả lời cũ vẫn giữ. Đổi loại ô nhập thì câu trả lời cũ của mục đó có thể phải điền lại.</div>
+    <div id="surveyTemplateList"></div>
+    <button type="button" class="btn btn-ghost" id="btnSurveyTplAdd">＋ Thêm mục</button>
+    <div class="modal-actions"><button type="button" class="btn btn-primary btn-solo" id="btnSurveyTplClose">Xong</button></div>
   </div>
 </div>
 

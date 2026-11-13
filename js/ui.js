@@ -91,7 +91,8 @@ const RPC_ERROR_VI = {
   invalid_report_date: 'Báo cáo quá 7 ngày chưa gửi được — báo lại từ đầu',
   message_empty: 'Tin nhắn trống — gõ nội dung hoặc gửi ảnh',
   message_too_long: 'Tin nhắn quá dài (tối đa 2000 chữ) — chia làm nhiều tin',
-  photo_not_in_scope: 'Ảnh không thuộc công trình của đội — chụp lại rồi gửi'
+  photo_not_in_scope: 'Ảnh không thuộc công trình của đội — chụp lại rồi gửi',
+  survey_incomplete: 'Còn thiếu số liệu khảo sát bắt buộc — điền đủ hoặc chọn "Không áp dụng" kèm lý do'
 };
 export function rpcErrorText(error, fallback = 'Thao tác thất bại — thử lại') {
   const msg = String(error?.message || '');

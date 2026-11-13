@@ -153,6 +153,34 @@ Làm **một lần** sau khi lấy bản code mới:
 
 ---
 
+## BƯỚC 8b — Cập nhật bản "Khảo sát hiện trạng" (chạy `011_khao_sat.sql`)
+
+Làm **một lần**, sau khi bản code có tab 📐 Khảo sát đã lên mạng. Chạy
+được nhiều lần, không mất dữ liệu. Nếu chưa chạy các file `001`…`010`
+trong `supabase/migrations/` thì chạy toàn bộ `supabase/schema.sql` như
+BƯỚC 8 thay cho bước này (đã gồm sẵn).
+
+1. Mở <https://supabase.com/dashboard> → chọn dự án **mda-crm**.
+2. Thanh bên trái → **SQL Editor** → nút **New query** (góc trên).
+3. Trên máy tính, mở file `supabase/migrations/011_khao_sat.sql` bằng
+   Notepad / TextEdit → **Ctrl+A** (Mac: ⌘A) → **Ctrl+C** (⌘C).
+4. Quay lại Supabase, bấm vào ô soạn thảo → **Ctrl+V** (⌘V) → nút
+   **Run** (góc dưới phải, hoặc Ctrl+Enter).
+5. Phải thấy dòng **Success. No rows returned**. Báo lỗi đỏ thì chụp màn
+   hình gửi kỹ thuật, **đừng** chạy lại từng đoạn.
+6. Kiểm tra: New query → dán `select count(*) from survey_checklist_items;`
+   → Run → phải ra **8** (8 mục khảo sát mẫu).
+7. Mở app → tab **Công việc**: mọi công trình cũ đang ở **Thi công**
+   (dưới ô chọn công trình có thanh *Khảo sát → Lên phương án → Thi công*).
+   Bấm **＋ Dự án** → mặc định là **Bắt đầu từ khảo sát hiện trạng**.
+
+> Công trình đang khảo sát / lên phương án **không bị cảnh báo trễ** và
+> **chưa thêm đội được** — bấm **Bắt đầu thi công →** trên thanh giai đoạn
+> khi đã chốt phương án. Quản lý sửa danh sách mục khảo sát bằng nút
+> **⚙ Sửa mẫu khảo sát** trong view 📐 Khảo sát.
+
+---
+
 ## BƯỚC 9 — Đồng bộ ảnh sang Dropbox (không bắt buộc)
 
 Kết quả: mỗi ảnh thợ chụp được lưu **bản gốc, nét nhất** vào Dropbox,
@@ -242,8 +270,14 @@ cảnh báo màu cam.
 hoặc tự tạo), **Quản lý** (thấy tất cả) hoặc **Quản trị** (thấy tất cả +
 đổi vai trò). Giao công trình: tab Công việc → chọn công trình → nút 👥.
 
-1. **Tạo công trình:** tab Công việc → **＋ Dự án** → 3 bước: thông tin
-   → thêm các đội (đá/điện/khác) + chọn mẫu đầu việc → xem trước lịch tự
+0. **Khảo sát hiện trạng:** **＋ Dự án** → để mặc định **Bắt đầu từ khảo
+   sát hiện trạng** → **Tạo công trình** (chỉ tạo công trình, chưa có đội
+   / link). App mở view **📐 Khảo sát**: điền từng số đo (rời ô là tự lưu;
+   số âm bấm **±**), mục nào không có thì bấm **Không áp dụng** + ghi lý do.
+   Đủ hết các mục có dấu \* → **Chuyển sang lên phương án →** → khi chốt
+   xong phương án bấm **Bắt đầu thi công →** rồi mới **＋ Thêm đội**.
+1. **Tạo công trình thi công ngay:** tab Công việc → **＋ Dự án** → chọn
+   **Thi công ngay** → 3 bước: thông tin → thêm các đội (đá/điện/khác) + chọn mẫu đầu việc → xem trước lịch tự
    dàn → **Tạo**. Hệ thống tạo luôn link cho từng đội + link chủ nhà, bấm
    **📤 Gửi** là mở Zalo.
 2. **Thêm đầu việc nhanh:** trong hạng mục bấm **📋 Dán từ Excel** — bôi

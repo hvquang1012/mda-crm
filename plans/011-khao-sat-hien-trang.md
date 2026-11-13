@@ -1,6 +1,6 @@
 # 011 — Khảo sát & số hoá hiện trạng
 
-**Trạng thái:** Sẵn sàng · **Nhánh:** 3 nhánh, xem [Thứ tự làm](#thứ-tự-làm-3-pr-merge-lần-lượt) · **Người code:** Antigravity · **Review:** Claude Code
+**Trạng thái:** Chờ review (PR 2 — `011-2-giai-doan-va-checklist`; PR 1, PR 3 chưa xong) · **Nhánh:** 3 nhánh, xem [Thứ tự làm](#thứ-tự-làm-3-pr-merge-lần-lượt) · **Người code:** Antigravity · **Review:** Claude Code
 
 > Đọc [AGENTS.md](../AGENTS.md) (nhất là mục 0, 2, 3, 4) trước khi code. Mọi bất biến ở đó vẫn áp dụng.
 
@@ -409,38 +409,38 @@ Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang 
 ## Checklist nghiệm thu
 
 **SQL** — thêm vào `supabase/tests/rls_test.sql` (theo kiểu "(phải lỗi)" sẵn có), chạy `PGHOST=… PGPORT=… PGUSER=postgres bash supabase/tests/run.sh`:
-- [ ] Schema áp 2 lần không lỗi (run.sh đã kiểm).
-- [ ] anon `select * from survey_answers` / `survey_photos` / `survey_files` / `survey_checklist_items` (phải lỗi).
-- [ ] anon gọi `survey_missing(...)` và `_survey_missing_count(...)` (phải lỗi); K1 gọi `_survey_missing_count(...)` (phải lỗi).
-- [ ] K2 (không phụ trách P1) thấy 0 dòng `survey_answers` của P1; insert vào P1 (phải lỗi).
-- [ ] K1 upsert câu trả lời P1 được; `na = true` không lý do (phải lỗi).
-- [ ] K1 sửa `survey_checklist_items.required` (phải lỗi / 0 dòng đổi); admin sửa được.
-- [ ] K1 insert `survey_photos` với `path` thuộc công trình khác (phải lỗi).
-- [ ] `survey_files`: K1 insert cho P1 được; `path` thuộc công trình khác (phải lỗi); K2 thấy 0 dòng của P1; K1 `update` (phải lỗi — không có quyền update); K1 xoá được.
-- [ ] P1 ở `survey`, còn thiếu → `update projects set phase='design'` (phải lỗi `survey_incomplete`); `survey_missing(P1)` liệt kê đúng mục + lý do `photo`.
-- [ ] Điền đủ (có mục `na` + lý do, có ảnh cho mục `photo_required`) → chuyển `design` được → lùi `survey` được.
-- [ ] Công trình insert thẳng `phase='construction'` được.
-- [ ] Mục `number` trả lời `{"n": 0}` và `{"n": -20}` → **không** nằm trong `survey_missing`; `{"n": "abc"}` / `{}` → vẫn thiếu. Mục `size` có `w = 0` → vẫn thiếu.
-- [ ] `updated_by`: K1 upsert kèm `updated_by` của người khác → dòng lưu vẫn là id của K1.
-- [ ] `compute_alerts()`: công trình `phase='survey'` có đầu việc quá hạn → **không** sinh cảnh báo, trạng thái đầu việc không đổi; đổi sang `construction` rồi chạy lại → có cảnh báo.
-- [ ] `dashboard_summary()` có trường `phase`.
+- [x] Schema áp 2 lần không lỗi (run.sh đã kiểm).
+- [x] anon `select * from survey_answers` / `survey_photos` / `survey_files` / `survey_checklist_items` (phải lỗi).
+- [x] anon gọi `survey_missing(...)` và `_survey_missing_count(...)` (phải lỗi); K1 gọi `_survey_missing_count(...)` (phải lỗi).
+- [x] K2 (không phụ trách P1) thấy 0 dòng `survey_answers` của P1; insert vào P1 (phải lỗi).
+- [x] K1 upsert câu trả lời P1 được; `na = true` không lý do (phải lỗi).
+- [x] K1 sửa `survey_checklist_items.required` (phải lỗi / 0 dòng đổi); admin sửa được.
+- [x] K1 insert `survey_photos` với `path` thuộc công trình khác (phải lỗi).
+- [x] `survey_files`: K1 insert cho P1 được; `path` thuộc công trình khác (phải lỗi); K2 thấy 0 dòng của P1; K1 `update` (phải lỗi — không có quyền update); K1 xoá được.
+- [x] P1 ở `survey`, còn thiếu → `update projects set phase='design'` (phải lỗi `survey_incomplete`); `survey_missing(P1)` liệt kê đúng mục + lý do `photo`.
+- [x] Điền đủ (có mục `na` + lý do, có ảnh cho mục `photo_required`) → chuyển `design` được → lùi `survey` được.
+- [x] Công trình insert thẳng `phase='construction'` được.
+- [x] Mục `number` trả lời `{"n": 0}` và `{"n": -20}` → **không** nằm trong `survey_missing`; `{"n": "abc"}` / `{}` → vẫn thiếu. Mục `size` có `w = 0` → vẫn thiếu.
+- [x] `updated_by`: K1 upsert kèm `updated_by` của người khác → dòng lưu vẫn là id của K1.
+- [x] `compute_alerts()`: công trình `phase='survey'` có đầu việc quá hạn → **không** sinh cảnh báo, trạng thái đầu việc không đổi; đổi sang `construction` rồi chạy lại → có cảnh báo.
+- [x] `dashboard_summary()` có trường `phase`.
 
 **Giao diện** — `tests/ui/mock-supabase.js` thêm bảng `survey_checklist_items`, `survey_answers`, `survey_photos`, `projects.phase` (P1 để `survey`), RPC `survey_missing`; `tests/ui/smoke.mjs`:
-- [ ] Mở tab Công việc → P1 tự vào view Khảo sát; chụp màn hình điện thoại (390px) + máy tính, sáng + tối.
-- [ ] Gõ 1 số vào mục → có lời gọi upsert `survey_answers`.
-- [ ] Bấm "Chuyển sang lên phương án" khi thiếu → hiện danh sách thiếu, không có lời gọi update `projects`.
-- [ ] P1 ở `survey`: nút "＋ Thêm đội" bị khoá, bấm không mở form; đổi mock sang `construction` → bấm mở form như cũ.
-- [ ] Gõ `0` vào "Độ nghiêng tường" → mục chuyển ✓ (không báo thiếu).
-- [ ] Wizard chọn "Bắt đầu từ khảo sát" → chỉ có **1** lời gọi insert (`projects`, `phase='survey'`), không insert `work_packages` / `crew_links` / `client_links`; chọn "Thi công ngay" → đủ 3 bước như cũ.
+- [x] Mở tab Công việc → P1 tự vào view Khảo sát; chụp màn hình điện thoại (390px) + máy tính, sáng + tối.
+- [x] Gõ 1 số vào mục → có lời gọi upsert `survey_answers`.
+- [x] Bấm "Chuyển sang lên phương án" khi thiếu → hiện danh sách thiếu, không có lời gọi update `projects`.
+- [x] P1 ở `survey`: nút "＋ Thêm đội" bị khoá, bấm không mở form; đổi mock sang `construction` → bấm mở form như cũ.
+- [x] Gõ `0` vào "Độ nghiêng tường" → mục chuyển ✓ (không báo thiếu).
+- [x] Wizard chọn "Bắt đầu từ khảo sát" → chỉ có **1** lời gọi insert (`projects`, `phase='survey'`), không insert `work_packages` / `crew_links` / `client_links`; chọn "Thi công ngay" → đủ 3 bước như cũ.
 - [ ] Chọn ảnh giả (`setInputFiles` với `icon-512.png`) → trình bắt điểm mở → kẻ 1 đoạn đo (2 cú chạm) → nhập số → Lưu → có upload storage + insert `survey_photos` với `annotations` dài 1.
 - [ ] (PR 3) Mock thêm bảng `survey_files`. `setInputFiles` một file `mat-bang.pdf` giả → có upload storage vào `…/survey/files/…` + insert `survey_files` với `name = 'mat-bang.pdf'`; dòng mới hiện trong danh sách.
 - [ ] (PR 3) `setInputFiles` file `x.svg` → hiện toast lỗi, **không** có lời gọi upload/insert. File tên có dấu (`Mặt bằng tầng 2.pdf`) → đường dẫn Storage chỉ gồm ký tự ASCII, tên hiển thị giữ nguyên dấu.
-- [ ] Không lỗi console (smoke.mjs đã gom `errors`).
+- [x] Không lỗi console (smoke.mjs đã gom `errors`).
 
 **Tài liệu**
-- [ ] `AGENTS.md` mục 3: bất biến khảo sát (cổng `trg_projects_phase`; mẫu chỉ quản lý sửa; ảnh khảo sát giữ gốc + ảnh vẽ 1280/q0.8 + `annotations`); cảnh báo chỉ chạy cho công trình `phase='construction'`; mục 5 "Đã biết": ảnh vẽ cũ và ảnh đã xoá không bị xoá khỏi Storage.
-- [ ] `README.md`: bảng dữ liệu (+3 bảng, cột `phase`), cấu trúc file (`annotate.js`, `survey.js`), dòng tính năng.
-- [ ] `HUONG_DAN_TRIEN_KHAI.md`: bước chạy `011_khao_sat.sql` (bấm từng bước trên Supabase SQL Editor, viết cho người không biết code). (PR 3) Thêm bước kiểm kho ảnh `site-photos` trên Supabase (Storage → bucket → Edit): nếu đang đặt giới hạn loại file hoặc dung lượng < 25 MB thì nới ra, kèm từng bước bấm.
+- [x] `AGENTS.md` mục 3: bất biến khảo sát (cổng `trg_projects_phase`; mẫu chỉ quản lý sửa; ảnh khảo sát giữ gốc + ảnh vẽ 1280/q0.8 + `annotations`); cảnh báo chỉ chạy cho công trình `phase='construction'`; mục 5 "Đã biết": ảnh vẽ cũ và ảnh đã xoá không bị xoá khỏi Storage.
+- [x] `README.md`: bảng dữ liệu (+3 bảng, cột `phase`), cấu trúc file (`annotate.js`, `survey.js`), dòng tính năng.
+- [x] `HUONG_DAN_TRIEN_KHAI.md`: bước chạy `011_khao_sat.sql` (bấm từng bước trên Supabase SQL Editor, viết cho người không biết code). (PR 3) Thêm bước kiểm kho ảnh `site-photos` trên Supabase (Storage → bucket → Edit): nếu đang đặt giới hạn loại file hoặc dung lượng < 25 MB thì nới ra, kèm từng bước bấm.
 - [ ] (PR 3) `AGENTS.md` "Đã biết": xoá file mặt bằng chỉ xoá dòng, file còn trên Storage; file mặt bằng **không nén**, tối đa 25 MB, danh sách đuôi được phép nằm ở `photos.js`.
 
 **Thử tay** (ghi kết quả vào PR; người dùng làm nếu agent không có máy):
@@ -463,6 +463,14 @@ Thẻ công trình có `phase` khác `construction` → chip nhỏ: `📐 Đang 
 ## Câu hỏi mở
 
 _(Người code ghi vào đây khi plan không rõ — dừng chờ trả lời.)_
+
+**PR 2 (2026-11-13):**
+
+1. **Đã trả lời.** A5: mục **không bắt buộc** nhưng có cờ "bắt buộc ảnh" (cấp/thoát nước, tủ điện/ổ cắm) có chặn cổng không? → Người dùng chốt: **không chặn**. `survey_missing()` chỉ xét `active and required`; giao diện hiện nhắc nhẹ "📷 Nên có ảnh" cho mục không bắt buộc.
+2. **Cần người dùng quyết khi merge.** PR 2 chưa có nút "📷 Ảnh" (để PR 3) → hai mục mẫu vừa bắt buộc vừa bắt buộc ảnh (dầm bê tông, cửa thang máy) **chỉ qua cổng được bằng "Không áp dụng" + lý do** cho tới khi PR 3 lên. Nếu merge + chạy migration PR 2 trước PR 3: hoặc chờ PR 3 rồi mới tạo công trình khảo sát thật, hoặc quản lý tạm bỏ tick "Bắt buộc ảnh" của 2 mục này trong "⚙ Sửa mẫu khảo sát" rồi bật lại sau.
+3. **Ghi chú cách làm (không đổi thiết kế).** E "nút `disabled`, bấm hiện toast": nút có thuộc tính `disabled` thì trình duyệt không nhận cú chạm nên không hiện toast được → dùng `aria-disabled="true"` + mờ + chặn trong `onclick` (đọc màn hình vẫn báo "không bấm được"). Khoá cùng cách "＋ Đầu việc", "📋 Dán từ Excel" trong thẻ hạng mục (lối thêm đầu việc khác của tab).
+4. **Ghi chú cách làm.** Ô số đo nhận "5,5" (phẩy thập phân kiểu Việt) và "2.650" (chấm hàng nghìn → 2650); lưu xong ô hiện lại đúng số máy chủ nhận để người nhập thấy ngay nếu hiểu sai.
+5. **Ghi chú thứ tự PR.** PR 1 (`011-1-sua-loi-ngay-gio`) chưa merge vào `main` khi làm PR 2 — nhánh này tạo từ `main` hiện tại theo yêu cầu người dùng. `sw.js` nhảy thẳng `v11 → v13`; merge PR 1 sau sẽ xung đột 1 dòng `CACHE` ở `sw.js` → giữ `v13`.
 
 ## Nhật ký review
 
