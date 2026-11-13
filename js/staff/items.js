@@ -475,7 +475,11 @@ async function savePackageAsTemplate(packageId) {
   }));
   const { error: e2 } = await state.supabase.from('work_package_template_items').insert(rows);
   if (e2) {
-    await state.supabase.from('work_package_templates').delete().eq('id', tpl.id);
+    const { error: e3 } = await state.supabase.from('work_package_templates').delete().eq('id', tpl.id);
+    if (e3) {
+      await loadTemplates();
+      showToast(`Không lưu được đầu việc của mẫu. Còn mẫu rỗng tên "${name.trim()}" — xoá tay`, true); return;
+    }
     showToast('Không lưu được đầu việc của mẫu — đã huỷ', true); return;
   }
   await loadTemplates();
@@ -724,7 +728,8 @@ async function saveStaffReport() {
     btn.textContent = 'Đang lưu...';
     const { error } = await state.supabase.from('progress_reports').insert({
       work_item_id: itemId, reporter_kind: 'staff', staff_id: state.user.id,
-      reporter_name: state.user.email, qty_delta: qty ? Number(qty) : 0,
+      report_date: todayISO(), // ngày theo giờ máy — không để DB lấy current_date (UTC)
+      reporter_name: state.profile?.full_name || state.user.email, qty_delta: qty ? Number(qty) : 0,
       crew_size: crewSize ? Number(crewSize) : null, note, photos, status: 'pending'
     });
     if (error) throw error;
@@ -732,7 +737,8 @@ async function saveStaffReport() {
     closeModal('staffReportModal');
   } catch (e) {
     console.error(e);
-    showToast(e?.message || 'Lưu thất bại', true);
+    // PhotoError đã có câu dễ hiểu; lỗi Supabase đổi qua rpcErrorText, không hiện thông điệp Postgres thô
+    showToast(e?.name === 'PhotoError' ? e.message : rpcErrorText(e, 'Lưu thất bại'), true);
   } finally {
     btn.disabled = false; btn.textContent = 'Lưu';
   }

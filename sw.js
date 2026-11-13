@@ -1,4 +1,4 @@
-const CACHE = 'mda-progress-v11';
+const CACHE = 'mda-progress-v12';
 const SHELL = [
   './', './index.html', './crew.html', './client.html', './manifest.json',
   './config.js', './css/app.css', './js/settings.js', './assets/logo-full.png', './assets/logo-full-white.png', './assets/logo-mark.png', './icon-192.png', './icon-512.png',
