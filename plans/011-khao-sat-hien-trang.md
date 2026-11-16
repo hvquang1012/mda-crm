@@ -475,3 +475,16 @@ _(Người code ghi vào đây khi plan không rõ — dừng chờ trả lời.
 ## Nhật ký review
 
 _(Claude ghi kết quả từng lượt review.)_
+
+### PR 2 — lượt 1 (2026-11-16) · Kết luận: **chưa đạt, sửa 4 điểm rồi review lại**
+
+Đối chiếu AGENTS mục 5 + "Điểm review". SQL test (62 ca) và smoke test đều qua; điểm 1 dưới đây test cục bộ **không bắt được** vì `supabase/tests/shim.sql` không giả lập quyền mặc định của Supabase. Tái hiện bằng `alter default privileges in schema public grant all on functions/tables to anon, authenticated, service_role` trước khi áp schema.
+
+1. 🚩 **Bảo mật — chặn merge.** Supabase tự cấp EXECUTE cho `anon, authenticated, service_role` (không qua PUBLIC) với hàm mới trong `public`. Migration chỉ `revoke ... from public, anon` → trên project thật `_survey_missing_count`, `_on_project_phase_change`, `_survey_answers_stamp` **vẫn gọi được bởi `authenticated`** (trái A7 "không grant cho ai"; KTS đếm được số mục thiếu của công trình không phụ trách). Sửa: thêm `authenticated` vào dòng revoke ở **cả hai file**. Bảng khảo sát đã đúng (đã `revoke all ... from authenticated` trước khi grant: `survey_files` không có update, anon không có gì).
+2. **Vận hành — thứ tự triển khai sai.** HUONG_DAN bước 8b bảo chạy migration *sau khi* code lên mạng, nhưng code mới luôn gửi cột `phase` khi tạo công trình → từ lúc merge (Cloudflare tự deploy) tới lúc chạy migration, **tạo công trình hỏng hoàn toàn** (cả "Thi công ngay"). Migration tương thích ngược với code cũ (`phase` có default, hàm chỉ thêm trường) → sửa hướng dẫn + mô tả PR: **chạy migration TRƯỚC khi merge**.
+3. **Xung đột với `main`.** PR 1 đã merge (`sw.js` → v12). Merge `main` vào nhánh, giữ `v13`.
+4. **Nhỏ — ô số đo.** `parseMeasure('0.500')` → 500 (khớp mẫu chấm hàng nghìn); số bắt đầu bằng `0.` phải là thập phân. Sửa regex chữ số đầu `[1-9]`. Kèm: `saveItem` so công trình theo `id` thay vì so object (realtime vẽ lại giữa lúc lưu tạo object mới → bỏ qua cập nhật trạng thái).
+
+Đạt: anon không có quyền bảng mới; mọi policy dùng `can_access_project()` / `is_manager()`; hàm definer có `set search_path`; cổng chặn ở trigger (có ca nhảy thẳng `survey → construction`); `answerStatus()` khớp `survey_missing()`; dữ liệu người dùng vào `innerHTML` đều qua `escapeHtml`; mọi ghi Supabase đọc `{ error }`; ghi xong vẽ lại; `crew.html` / `client.html` / Edge Functions không đổi; `sw.js` network-first.
+
+**Ngoài phạm vi PR này (lỗ hổng có từ trước, báo người dùng ngay):** cùng nguyên nhân điểm 1, trên project thật nhiều hàm "chỉ service_role" có thể **gọi được bằng anon key công khai**: `messages_to_notify` (lộ nội dung tin nhắn), `reports_to_notify`, `dropbox_missing_copies` (lộ tên công trình, đường dẫn ảnh), `mark_*_notified`, `dropbox_expire_uploads` (ghi dữ liệu), `compute_alerts`… Cần kiểm trên project thật bằng câu truy vấn chỉ đọc `has_function_privilege('anon', oid, 'execute')` rồi làm plan sửa riêng (revoke `anon, authenticated` tường minh + shim test giả lập quyền mặc định Supabase).
