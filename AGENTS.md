@@ -76,6 +76,10 @@ Bản v1 của dự án này có lỗ hổng cho phép **bất kỳ ai có link 
 - `create policy ... using (true)` mà không giới hạn `to authenticated`
 - Client không đăng nhập gọi `.from('bảng').select()` thay vì `.rpc()`
 
+### 2.1b Quyền gọi hàm: thu hồi TƯỜNG MINH, không dựa vào `from public`
+
+Supabase cấp sẵn `EXECUTE` cho `anon`, `authenticated` (tường minh, không qua PUBLIC) với mọi hàm tạo trong `public`. Bản trước chỉ `revoke ... from public` → anon key công khai gọi được `messages_to_notify` (lộ tin nhắn), `dropbox_missing_copies`, `mark_reports_notified`… (vá ở `migrations/012_chan_goi_ham_noi_bo.sql`). `schema.sql` giờ thu hồi khỏi `public, anon, authenticated` trên **mọi** hàm (trừ hàm của extension) + đổi quyền mặc định, rồi cấp lại đúng danh sách `grant execute` cuối mục RLS. 🚩 Hàm mới phải có dòng `grant execute` tường minh nếu app gọi; migration riêng phải tự `revoke ... from public, anon, authenticated`. `supabase/tests/shim.sql` giả lập quyền mặc định này — đừng gỡ.
+
 ### 2.2 Mọi thao tác không đăng nhập đi qua `security definer` RPC
 
 | Hàm | Dùng bởi |
@@ -279,6 +283,15 @@ curl "https://lneaqpfiifqkpccpxgsp.supabase.co/rest/v1/projects?select=*" \
 ```
 
 Phải trả `42501 permission denied`. Trả về dữ liệu là lỗ hổng.
+
+Hàm nội bộ cũng vậy — anon gọi phải bị từ chối (401/403 hoặc `42501`):
+
+```bash
+curl -X POST "https://lneaqpfiifqkpccpxgsp.supabase.co/rest/v1/rpc/messages_to_notify" \
+  -H "apikey: <anon_key>" -H "Authorization: Bearer <anon_key>" -H "Content-Type: application/json" -d '{}'
+```
+
+Hoặc trong SQL Editor: `select proname from pg_proc where pronamespace='public'::regnamespace and has_function_privilege('anon', oid, 'execute');` chỉ được ra 7 hàm `crew_*` / `client_view` (cộng hàm của extension nếu có).
 
 **Luồng thợ** — mở `crew.html?t=<token>` trong **Zalo in-app browser trên điện thoại thật**, không phải Chrome desktop. Gửi thiếu ảnh hoặc thiếu ghi chú phải bị chặn. Ảnh lên Storage phải ~150KB.
 

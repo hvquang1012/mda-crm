@@ -14,3 +14,9 @@ grant usage on schema storage to anon, authenticated; grant all on storage.objec
 create publication supabase_realtime;
 grant usage on schema public to anon, authenticated;
 create schema cron; create or replace function cron.schedule(a text, b text, c text) returns bigint language sql as $$ select 1::bigint $$;
+-- Giả lập quyền mặc định của Supabase: hàm / bảng / sequence mới tạo trong
+-- public được cấp TƯỜNG MINH cho anon, authenticated, service_role (không qua
+-- PUBLIC) — thiếu dòng này thì test không bắt được hàm quên thu hồi quyền.
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;

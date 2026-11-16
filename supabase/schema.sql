@@ -1763,11 +1763,31 @@ alter table item_message_notifications enable row level security;  -- chỉ hàm
 revoke all on all tables in schema public from anon;
 revoke all on all sequences in schema public from anon;
 
--- Postgres tự cấp EXECUTE cho PUBLIC (nên anon cũng có) khi tạo hàm mới.
--- Thu hồi hết rồi cấp lại đúng từng hàm ở dưới — nếu không, các hàm
--- security definer không cố ý cho anon gọi (approve_report, reject_report,
--- compute_alerts) vẫn bị gọi được vì không có dòng revoke nào chặn PUBLIC.
-revoke execute on all functions in schema public from public;
+-- QUYỀN GỌI HÀM. Postgres tự cấp EXECUTE cho PUBLIC khi tạo hàm, VÀ
+-- Supabase có quyền mặc định cấp EXECUTE TƯỜNG MINH cho anon,
+-- authenticated (không qua PUBLIC) — nên "revoke ... from public" một mình
+-- KHÔNG đủ: bản trước để anon gọi được messages_to_notify (lộ nội dung tin
+-- nhắn), dropbox_missing_copies, mark_reports_notified... bằng anon key.
+-- Thu hồi tường minh khỏi public, anon, authenticated trên MỌI hàm (trừ hàm
+-- của extension), rồi cấp lại đúng từng hàm ở danh sách bên dưới.
+-- Hàm tạo sau này cũng không tự được cấp cho ai.
+alter default privileges for role postgres revoke execute on functions from public;   -- dạng toàn cục: dạng theo schema không gỡ được PUBLIC
+alter default privileges for role postgres in schema public revoke execute on functions from public, anon, authenticated;
+do $$
+declare r record;
+begin
+  for r in
+    select p.oid::regprocedure as f from pg_proc p
+    where p.pronamespace = 'public'::regnamespace and p.prokind in ('f', 'p')
+      and not exists (select 1 from pg_depend d
+        where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
+  loop
+    execute format('revoke execute on function %s from public, anon, authenticated', r.f);
+  end loop;
+end $$;
+-- Bảng chỉ hàm security definer / Edge Function ghi: authenticated không
+-- có quyền gì (RLS cũng chặn, đây là lớp thứ hai).
+revoke all on report_notifications from anon, authenticated;
 
 grant select, insert, update, delete on
   subcontractors, projects, work_packages, work_items, dependencies,

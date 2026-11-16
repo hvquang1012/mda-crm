@@ -243,3 +243,26 @@ set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
 select 'thợ nhắn công trình đã đóng (phải lỗi project_closed)' t; select crew_send_message('tok','55555555-5555-5555-5555-555555555555','x');
 reset role;
 update projects set status='active' where id='33333333-3333-3333-3333-333333333333';
+
+-- ============================================================
+-- Hàm nội bộ: anon (anon key công khai) và nhân viên không gọi được
+-- (Supabase cấp sẵn EXECUTE cho anon, authenticated — shim.sql giả lập)
+-- ============================================================
+set role anon; set request.jwt.claim.role='anon'; reset request.jwt.claim.sub;
+select 'anon gọi messages_to_notify (phải lỗi permission)' t; select * from messages_to_notify();
+select 'anon gọi reports_to_notify (phải lỗi permission)' t; select * from reports_to_notify();
+select 'anon gọi dropbox_missing_copies (phải lỗi permission)' t; select * from dropbox_missing_copies(5);
+select 'anon gọi mark_reports_notified (phải lỗi permission)' t; select mark_reports_notified(array[]::uuid[]);
+select 'anon gọi dropbox_expire_uploads (phải lỗi permission)' t; select dropbox_expire_uploads();
+select 'anon gọi compute_alerts (phải lỗi permission)' t; select compute_alerts();
+select 'anon gọi _resolve_crew_link (phải lỗi permission)' t; select _resolve_crew_link('tok');
+select 'anon gọi _refresh_package_status (phải lỗi permission)' t; select _refresh_package_status('44444444-4444-4444-4444-444444444444');
+select 'anon vẫn mở được link thợ' t, crew_bootstrap('tok') is not null ok;
+select 'anon vẫn mở được link chủ nhà' t, client_view('ctok') is not null ok;
+reset role;
+set role authenticated; set request.jwt.claim.role='authenticated'; set request.jwt.claim.sub='aaaaaaaa-0000-0000-0000-000000000002';
+select 'nhân viên gọi dropbox_expire_uploads (phải lỗi permission)' t; select dropbox_expire_uploads();
+select 'nhân viên gọi notify_due (phải lỗi permission)' t; select notify_due();
+select 'nhân viên vẫn gọi được dashboard_summary' t, dashboard_summary() is not null ok;
+reset role;
+select 'service_role vẫn gọi được hàng đợi' t, has_function_privilege('service_role','messages_to_notify(interval)','execute') ok;
